@@ -95,8 +95,9 @@ def decode(rec, a, sr):
     s = rec.create_stream(); s.accept_waveform(sr, a); rec.decode_stream(s); return s.result.text
 
 configs = [("greedy", dict(method="greedy_search")), ("beam", dict(method="modified_beam_search")),
-           ("beam+hints 1.5", dict(method="modified_beam_search", hotwords=hot, score=1.5)),
-           ("beam+hints 3.0", dict(method="modified_beam_search", hotwords=hot, score=3.0))]
+           ("beam+hints 0.5", dict(method="modified_beam_search", hotwords=hot, score=0.5)),
+           ("beam+hints 1.0", dict(method="modified_beam_search", hotwords=hot, score=1.0)),
+           ("beam+hints 1.5", dict(method="modified_beam_search", hotwords=hot, score=1.5))]
 results = {}
 for name, cfg in configs:
     try:
@@ -113,11 +114,13 @@ for name, cfg in configs:
 
 # Synthetic voice reading sentences with medicine names.
 tts_url = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-alan-medium.tar.bz2"
+print("TTS config fields:", [f for f in dir(sherpa_onnx.OfflineTtsVitsModelConfig) if not f.startswith("_")])
 tdir = f"{W}/tts"
 try:
     if not os.path.isdir(tdir):
         tarfile.open(fetch(tts_url, f"{W}/tts.tar.bz2")).extractall(tdir)
     mdir = os.path.join(tdir, os.listdir(tdir)[0])
+    print("TTS DIR:", sorted(os.listdir(mdir)))
     onnx = [x for x in os.listdir(mdir) if x.endswith(".onnx")][0]
     tts = sherpa_onnx.OfflineTts(sherpa_onnx.OfflineTtsConfig(model=sherpa_onnx.OfflineTtsModelConfig(
         vits=sherpa_onnx.OfflineTtsVitsModelConfig(model=f"{mdir}/{onnx}", tokens=f"{mdir}/tokens.txt", data_dir=f"{mdir}/espeak-ng-data"), num_threads=4)))
@@ -134,6 +137,7 @@ try:
         hit = 0; misses = []
         for i, m in enumerate(picks):
             audio = tts.generate(templates[i % len(templates)].format(m=m), sid=0, speed=1.0)
+            if audio.sample_rate <= 0 or len(audio.samples) == 0: raise RuntimeError("voice made no audio")
             out = decode(rec, np.array(audio.samples, dtype=np.float32), audio.sample_rate)
             ok = m.replace(" ", "") in re.sub(r"[^a-z]", "", out.lower())
             hit += ok
