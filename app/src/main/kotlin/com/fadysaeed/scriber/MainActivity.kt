@@ -44,6 +44,9 @@ import com.fadysaeed.scriber.ui.SessionScreen
 import com.fadysaeed.scriber.ui.SessionsScreen
 import com.fadysaeed.scriber.ui.SettingsScreen
 import com.fadysaeed.scriber.ui.Tab
+import com.fadysaeed.scriber.ui.NoteActions
+import com.fadysaeed.scriber.ui.TemplateActions
+import com.fadysaeed.scriber.ui.TemplatesScreen
 import com.fadysaeed.scriber.ui.Toast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -64,6 +67,7 @@ class MainActivity : FragmentActivity() {
     private var mode by mutableStateOf(SessionMode.CONVERSATION)
     private var openSession by mutableStateOf<String?>(null)
     private var showRecording by mutableStateOf(false)
+    private var showTemplates by mutableStateOf(false)
     private var pendingShare: Uri? = null
     private var pendingExport: Pair<String, ExportKind>? = null
 
@@ -99,6 +103,18 @@ class MainActivity : FragmentActivity() {
                 BackHandler { showRecording = false }
                 RecordingScreen(rec, { showRecording = false }, vm::pauseRecording, vm::resumeRecording, vm::stopRecording)
             }
+            showTemplates -> {
+                val st = vm.settings.collectAsState().value
+                TemplatesScreen(st.templates, st.settings.noteTemplate, TemplateActions(
+                    onBack = { showTemplates = false },
+                    onSave = { vm.saveTemplate(it) },
+                    onRemove = { vm.removeTemplate(it) },
+                    onNew = { vm.newTemplate(it) },
+                    onDefault = { id -> vm.updateSettings { it.copy(noteTemplate = id) } },
+                    onCopyText = { copy(vm.templateText(it), sensitive = false) },
+                    onPaste = ::pasteTemplate,
+                ))
+            }
             sessionId != null -> {
                 BackHandler { close() }
                 SessionScreen(vm.session.collectAsState().value, SessionActions(
@@ -128,6 +144,14 @@ class MainActivity : FragmentActivity() {
                         onMoveSpeaker = { from, to, sp -> vm.moveToSpeaker(from, to, sp) },
                         onHideSpeakers = { vm.hideSpeakers(sessionId) },
                     ),
+                    note = NoteActions(
+                        onWrite = { template, rewrite -> vm.writeNote(sessionId, template, rewrite) },
+                        onSaveText = { vm.saveNoteText(it) },
+                        onCopy = { copy(it, sensitive = true) },
+                        onSetRemoved = { id, removed -> vm.setFactRemoved(id, removed) },
+                        onEditFact = { id, text -> vm.editFact(id, text) },
+                        onTemplates = { showTemplates = true },
+                    ),
                 ))
             }
             else -> Frame(tab, { tab = it; vm.refreshAsync() }) {
@@ -136,10 +160,10 @@ class MainActivity : FragmentActivity() {
                         { pickAudio.launch(arrayOf("audio/*", "video/*")) }, { showRecording = true }, ::open)
                     Tab.Models -> ModelsScreen(vm.modelsUi.collectAsState().value, ::download, vm::cancelDownload, { vm.verifyAll() },
                         { vm.chooseLlm(it) }, { vm.setWifiOnly(it) }, vm::dismissMessage)
-                    Tab.Lab -> LabScreen(vm.lab.collectAsState().value, vm::runLab, ::copy, { vm.tryHints() }) { vm.runSpeedCheck() }
+                    Tab.Lab -> LabScreen(vm.lab.collectAsState().value, vm::runLab, { copy(it) }, { vm.tryHints() }, { vm.runSpeedCheck() }) { vm.runNoteCheck() }
                     Tab.Settings -> SettingsScreen(vm.settings.collectAsState().value, { vm.updateSettings(it) },
                         { authenticate("Allow model downloads") { vm.unlockDownloads() } }, { vm.lockDownloads() }, { vm.checkVault() },
-                        { vm.settings.value.crash?.let(::copy) }, { vm.clearCrash() })
+                        { vm.settings.value.crash?.let { copy(it) } }, { vm.clearCrash() }) { showTemplates = true }
                 }
             }
         }
@@ -227,9 +251,19 @@ class MainActivity : FragmentActivity() {
         } else vm.startDownload()
     }
 
-    private fun copy(text: String) {
-        getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Scriber", text))
+    /** A [sensitive] copy (a note) is kept out of the clipboard preview and keyboard suggestions. */
+    private fun copy(text: String, sensitive: Boolean = false) {
+        val clip = ClipData.newPlainText("Scriber", text)
+        if (sensitive) clip.description.extras = android.os.PersistableBundle().apply {
+            putBoolean(if (Build.VERSION.SDK_INT >= 33) android.content.ClipDescription.EXTRA_IS_SENSITIVE else "android.content.extra.IS_SENSITIVE", true)
+        }
+        getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
         vm.toastCopied()
+    }
+
+    private fun pasteTemplate() {
+        val text = getSystemService(ClipboardManager::class.java).primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString()
+        vm.importTemplate(text.orEmpty())
     }
 
     private fun authenticate(title: String, onSuccess: () -> Unit) {

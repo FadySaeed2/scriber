@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -55,6 +56,12 @@ sealed interface SessionSheet {
     data object DeleteAudio : SessionSheet
     data object DeleteSession : SessionSheet
     data class Confirm(val kind: ExportKind, val share: Boolean) : SessionSheet
+    /** Where sentence [sentence] of note section [section] came from. */
+    data class Sources(val section: Int, val sentence: Int) : SessionSheet
+    data class ChooseTemplate(val rewriteOnly: Boolean) : SessionSheet
+    data object EditNote : SessionSheet
+    data class FactSheet(val factId: String) : SessionSheet
+    data object Dropped : SessionSheet
 }
 
 class SessionActions(
@@ -69,6 +76,7 @@ class SessionActions(
     val onDeleteAudio: () -> Unit,
     val onDeleteSession: () -> Unit,
     val review: ReviewActions = ReviewActions(),
+    val note: NoteActions = NoteActions(),
 )
 
 /** What Fady can do to correct the transcript. */
@@ -92,9 +100,12 @@ class ReviewActions(
 private fun stamp(ms: Long) = SimpleDateFormat("d MMM yyyy, HH:mm", Locale.ENGLISH).format(Date(ms))
 
 @Composable
-fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet? = null) {
+fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet? = null, viewOverride: SessionView? = null) {
     val s = ui.session ?: return
     var sheet by remember { mutableStateOf(sheetOverride) }
+    val views = s.mode == SessionMode.CONVERSATION && (ui.canWriteNotes || ui.note != null || ui.facts != null)
+    var view by remember(s.id) { mutableStateOf(viewOverride ?: SessionView.TRANSCRIPT) }
+    if (!views) view = SessionView.TRANSCRIPT
     Box {
         Page(s.title, a.onBack, actions = { IconButton(Glyph.RENAME, "Rename", { sheet = SessionSheet.Rename }) }, footer = {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -119,59 +130,36 @@ fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet?
             s.problem?.let { Spacer(Modifier.height(12.dp)); Text(it, style = Type.body.copy(color = Ink.Ember)) }
             if (s.recovered) { Spacer(Modifier.height(12.dp)); Text("This recording stopped unexpectedly and was rescued up to its last saved moment.", style = Type.note.copy(color = Ink.Amber)) }
 
-            if (ui.runs.isNotEmpty()) {
-                Section("Transcripts")
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    for (r in ui.runs) {
-                        val label = engineName(r.engine) + " · " + SimpleDateFormat("HH:mm", Locale.ENGLISH).format(Date(r.startedAtMillis))
-                        Choice(label, r.id == ui.run?.id, { a.onSelectRun(r.id) })
-                    }
+            if (views) {
+                Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (v in SessionView.entries) Choice(v.label, v == view, { view = v }, Modifier.weight(1f))
                 }
-                ui.run?.let { run ->
-                    Spacer(Modifier.height(12.dp))
-                    when (run.status) {
-                        RunStatus.RUNNING -> Text("Transcribing…", style = Type.note)
-                        RunStatus.FAILED -> Text("This transcript failed: ${run.problem}", style = Type.body.copy(color = Ink.Ember))
-                        RunStatus.DONE -> {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Status(if (Seal.intact(run)) "Sealed original" else "Seal broken", if (Seal.intact(run)) Ink.Teal else Ink.Ember)
-                                Spacer(Modifier.weight(1f))
-                                if (ui.corrections > 0) {
-                                    Text(if (ui.showEdited) "Corrected" else "Original", style = Type.small.copy(color = Ink.Amber),
-                                        modifier = Modifier.clickable(role = Role.Switch) { a.review.onShowEdited(!ui.showEdited) }.padding(8.dp))
-                                }
-                                if (s.mode == SessionMode.DICTATION) {
-                                    Text(if (ui.readable) "Readable" else "Raw", style = Type.small.copy(color = Ink.Amber),
-                                        modifier = Modifier.clickable(role = Role.Switch) { a.onReadable(!ui.readable) }.padding(8.dp))
-                                }
-                            }
-                            Text("${run.wordCount} words. Tap the time to hear a line, a word to correct it.", style = Type.small)
-                            SecondOpinion(ui, a) { sheet = SessionSheet.Review }
-                            SpeakersSummary(ui, { sheet = SessionSheet.Speakers }) { a.review.onFindSpeakers(ui.speakers?.requested ?: 2) }
-                            Spacer(Modifier.height(10.dp))
-                            if (run.segments.isEmpty()) Text("No speech was found in this audio.", style = Type.note)
-                            Transcript(ui, a, readable = ui.readable && s.mode == SessionMode.DICTATION) { sheet = it }
-                        }
-                    }
-                }
-            } else if (s.status == SessionStatus.READY && ui.job == null) {
-                Section("Transcripts")
-                Text("No transcript yet.", style = Type.note, modifier = Modifier.padding(vertical = 12.dp))
             }
-
-            Section("This session")
-            Fact("Source", if (s.source == SessionSource.IMPORTED) s.original?.let { "Imported: ${it.displayName}" } ?: "Imported" else "Recorded here")
-            Fact("Audio", s.audioDeletedAtMillis?.let { "Deleted ${stamp(it)}" } ?: "${Units.bytes(s.audioBytes + (s.original?.size ?: 0))}, kept")
-            if (s.source == SessionSource.RECORDED) Fact("Quality", "${s.sampleRate / 1000} kHz mono")
-            s.audioSha256?.let { Fact("Audio fingerprint", it.take(16) + "…") }
-            Spacer(Modifier.height(6.dp))
-            ActionRow(Glyph.REDO, "Transcribe again", { sheet = SessionSheet.Engine }, "A new transcript with any engine; earlier ones stay", enabled = (s.hasAudio || (s.original != null && s.workAudioName == null)) && ui.engines.isNotEmpty() && ui.job == null)
-            ActionRow(Glyph.TRASH, "Delete the audio, keep transcripts", { sheet = SessionSheet.DeleteAudio }, color = Ink.Amber, enabled = s.hasAudio)
-            ActionRow(Glyph.TRASH, "Delete this session", { sheet = SessionSheet.DeleteSession }, color = Ink.Ember)
+            when (view) {
+                SessionView.NOTE -> NoteView(ui, a) { sheet = it }
+                SessionView.FACTS -> FactsView(ui, a) { sheet = it }
+                SessionView.TRANSCRIPT -> TranscriptView(ui, a, s) { sheet = it }
+            }
+            if (view == SessionView.TRANSCRIPT) {
+                Section("This session")
+                Fact("Source", if (s.source == SessionSource.IMPORTED) s.original?.let { "Imported: ${it.displayName}" } ?: "Imported" else "Recorded here")
+                Fact("Audio", s.audioDeletedAtMillis?.let { "Deleted ${stamp(it)}" } ?: "${Units.bytes(s.audioBytes + (s.original?.size ?: 0))}, kept")
+                if (s.source == SessionSource.RECORDED) Fact("Quality", "${s.sampleRate / 1000} kHz mono")
+                s.audioSha256?.let { Fact("Audio fingerprint", it.take(16) + "…") }
+                Spacer(Modifier.height(6.dp))
+                ActionRow(Glyph.REDO, "Transcribe again", { sheet = SessionSheet.Engine }, "A new transcript with any engine; earlier ones stay", enabled = (s.hasAudio || (s.original != null && s.workAudioName == null)) && ui.engines.isNotEmpty() && ui.job == null)
+                ActionRow(Glyph.TRASH, "Delete the audio, keep transcripts", { sheet = SessionSheet.DeleteAudio }, color = Ink.Amber, enabled = s.hasAudio)
+                ActionRow(Glyph.TRASH, "Delete this session", { sheet = SessionSheet.DeleteSession }, color = Ink.Ember)
+            }
         }
 
         when (val sh = sheet) {
             null -> Unit
+            is SessionSheet.Sources -> SourcesSheet(ui, sh, a) { sheet = null }
+            is SessionSheet.ChooseTemplate -> ChooseTemplateSheet(ui, sh, a) { sheet = null }
+            SessionSheet.EditNote -> EditNoteSheet(ui, a) { sheet = null }
+            is SessionSheet.FactSheet -> FactSheet(ui, sh, a) { sheet = null }
+            SessionSheet.Dropped -> DroppedSheet(ui) { sheet = null }
             SessionSheet.Review -> ReviewSheet(ui, a, { sheet = null }) { sheet = it }
             SessionSheet.Speakers -> SpeakersSheet(ui, a.review.onFindSpeakers, a.review.onRenameSpeaker, a.review.onHideSpeakers) { sheet = null }
             is SessionSheet.Speaker -> SpeakerPartSheet(sh, ui, a.review.onMoveSpeaker) { sheet = null }
@@ -222,5 +210,48 @@ fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet?
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ColumnScope.TranscriptView(ui: SessionUi, a: SessionActions, s: com.fadysaeed.scriber.core.Session, open: (SessionSheet) -> Unit) {
+    if (ui.runs.isNotEmpty()) {
+        Section("Transcripts")
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (r in ui.runs) {
+                val label = engineName(r.engine) + " · " + SimpleDateFormat("HH:mm", Locale.ENGLISH).format(Date(r.startedAtMillis))
+                Choice(label, r.id == ui.run?.id, { a.onSelectRun(r.id) })
+            }
+        }
+        ui.run?.let { run ->
+            Spacer(Modifier.height(12.dp))
+            when (run.status) {
+                RunStatus.RUNNING -> Text("Transcribing…", style = Type.note)
+                RunStatus.FAILED -> Text("This transcript failed: ${run.problem}", style = Type.body.copy(color = Ink.Ember))
+                RunStatus.DONE -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Status(if (Seal.intact(run)) "Sealed original" else "Seal broken", if (Seal.intact(run)) Ink.Teal else Ink.Ember)
+                        Spacer(Modifier.weight(1f))
+                        if (ui.corrections > 0) {
+                            Text(if (ui.showEdited) "Corrected" else "Original", style = Type.small.copy(color = Ink.Amber),
+                                modifier = Modifier.clickable(role = Role.Switch) { a.review.onShowEdited(!ui.showEdited) }.padding(8.dp))
+                        }
+                        if (s.mode == SessionMode.DICTATION) {
+                            Text(if (ui.readable) "Readable" else "Raw", style = Type.small.copy(color = Ink.Amber),
+                                modifier = Modifier.clickable(role = Role.Switch) { a.onReadable(!ui.readable) }.padding(8.dp))
+                        }
+                    }
+                    Text("${run.wordCount} words. Tap the time to hear a line, a word to correct it.", style = Type.small)
+                    SecondOpinion(ui, a) { open(SessionSheet.Review) }
+                    SpeakersSummary(ui, { open(SessionSheet.Speakers) }) { a.review.onFindSpeakers(ui.speakers?.requested ?: 2) }
+                    Spacer(Modifier.height(10.dp))
+                    if (run.segments.isEmpty()) Text("No speech was found in this audio.", style = Type.note)
+                    Transcript(ui, a, readable = ui.readable && s.mode == SessionMode.DICTATION, open)
+                }
+            }
+        }
+    } else if (s.status == SessionStatus.READY && ui.job == null) {
+        Section("Transcripts")
+        Text("No transcript yet.", style = Type.note, modifier = Modifier.padding(vertical = 12.dp))
     }
 }

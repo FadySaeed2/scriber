@@ -38,6 +38,9 @@ import com.fadysaeed.scriber.ui.SessionSheet
 import com.fadysaeed.scriber.ui.SessionsScreen
 import com.fadysaeed.scriber.ui.SettingsScreen
 import com.fadysaeed.scriber.ui.Tab
+import com.fadysaeed.scriber.ui.SessionView
+import com.fadysaeed.scriber.ui.TemplateActions
+import com.fadysaeed.scriber.ui.TemplatesScreen
 import com.fadysaeed.scriber.work.JobProgress
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
@@ -229,5 +232,52 @@ class ScreensTest {
 
     @Test fun speakerPartSheet() = shot("24_speaker_part.png") {
         SessionScreen(speakersUi(), actions, SessionSheet.Speaker(11, 25, 1, "Better. Sleeping more. I still take the quetiapin at night and the sertraline in the morning."))
+    }
+
+    // Notes ---------------------------------------------------------------------------------
+
+    private val facts = com.fadysaeed.scriber.core.FactSet("s5", "b1", "x", "Gemma 4 E4B", listOf(
+        com.fadysaeed.scriber.core.Fact("F1", com.fadysaeed.scriber.core.FactKind.SYMPTOMS, "Feels better and is sleeping more", "Better. Sleeping more.", 2, 4_400, 9_800),
+        com.fadysaeed.scriber.core.Fact("F2", com.fadysaeed.scriber.core.FactKind.MEDICATIONS, "Takes quetiapine at night and sertraline in the morning", "take the quetiapine at night and the sertraline in the morning", 2, 4_400, 9_800),
+        com.fadysaeed.scriber.core.Fact("F3", com.fadysaeed.scriber.core.FactKind.MEDICATIONS, "Reports increased appetite since olanzapine", "A bit hungry", 4, 14_300, 19_000),
+        com.fadysaeed.scriber.core.Fact("F4", com.fadysaeed.scriber.core.FactKind.COLLATERAL, "Mother reports he eats more", "My mum says I eat more", 4, 14_300, 19_000, edited = true),
+        com.fadysaeed.scriber.core.Fact("F5", com.fadysaeed.scriber.core.FactKind.SOCIAL, "Lives with his mother", "my mum", 4, 14_300, 19_000, removed = true),
+    ), listOf(com.fadysaeed.scriber.core.RejectedFact("SYMPTOMS | L3 | Gained 5 kg | \"weight gain\"", "number 5 not said there")), now, 41_000)
+    private fun s(text: String, vararg ids: String, warning: String? = null) = com.fadysaeed.scriber.core.NoteSentence(text, ids.toList(), warning)
+    private val note = com.fadysaeed.scriber.core.Note("n1", "s5", "inpatient", "Inpatient review", now, listOf(
+        com.fadysaeed.scriber.core.NoteSectionText("interval", "Progress since last review", com.fadysaeed.scriber.core.SectionForm.PROSE, listOf(
+            s("He reports feeling better and sleeping more since the change to olanzapine.", "F1"),
+            s("His appetite has increased, which his mother has also noticed.", "F3", "F4"),
+            s("He has gained 5 kg.", warning = "No fact behind this sentence"))),
+        com.fadysaeed.scriber.core.NoteSectionText("meds", "Medication", com.fadysaeed.scriber.core.SectionForm.PROSE, listOf(
+            s("He takes quetiapine at night and sertraline in the morning.", "F2"))),
+        com.fadysaeed.scriber.core.NoteSectionText("mse", "Mental state examination", com.fadysaeed.scriber.core.SectionForm.PROSE, listOf(s("Not assessed."))),
+        com.fadysaeed.scriber.core.NoteSectionText("plan", "Plan", com.fadysaeed.scriber.core.SectionForm.NUMBERED, listOf(
+            s("Monitor weight and appetite.", "F3"), s("Continue current medication.", "F2"))),
+    ), "Gemma 4 E4B (GPU)", now, 96_000)
+    private fun noteUi() = speakersUi().copy(facts = facts, note = note, templates = com.fadysaeed.scriber.core.Templates.builtIns(), canWriteNotes = true)
+
+    @Test fun sessionNote() = shot("25_session_note.png") { SessionScreen(noteUi(), actions, viewOverride = SessionView.NOTE) }
+
+    @Test fun noteSources() = shot("26_note_sources.png") { SessionScreen(noteUi(), actions, SessionSheet.Sources(0, 1), SessionView.NOTE) }
+
+    @Test fun sessionFacts() = shot("27_session_facts.png") { SessionScreen(noteUi(), actions, viewOverride = SessionView.FACTS) }
+
+    @Test fun factSheet() = shot("28_fact_sheet.png") { SessionScreen(noteUi(), actions, SessionSheet.FactSheet("F4"), SessionView.FACTS) }
+
+    @Test fun chooseTemplate() = shot("29_choose_template.png") { SessionScreen(noteUi(), actions, SessionSheet.ChooseTemplate(true), SessionView.NOTE) }
+
+    @Test fun noNoteYet() = shot("30_note_none.png") { SessionScreen(speakersUi().copy(canWriteNotes = true, templates = com.fadysaeed.scriber.core.Templates.builtIns()), actions, viewOverride = SessionView.NOTE) }
+
+    private val templates = com.fadysaeed.scriber.core.Templates.builtIns() + com.fadysaeed.scriber.core.Templates.blank("t1", "Tribunal report")
+
+    @Test fun templatesList() = shot("31_templates.png") { TemplatesScreen(templates, "inpatient", TemplateActions()) }
+
+    @Test fun templateEditor() = shot("32_template_editor.png") { TemplatesScreen(templates, "inpatient", TemplateActions(), openOverride = "inpatient") }
+
+    @Test fun sectionEditor() = shot("33_section_editor.png") { TemplatesScreen(templates, "inpatient", TemplateActions(), openOverride = "inpatient", sectionOverride = 1) }
+
+    @Test fun settingsNotes() = tabShot("34_settings_notes.png", Tab.Settings) {
+        SettingsScreen(SettingsUi(locked = true, hosts = listOf("huggingface.co"), version = "0.0.34", templates = templates), {}, {}, {}, {})
     }
 }

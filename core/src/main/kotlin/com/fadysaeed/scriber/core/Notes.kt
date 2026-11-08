@@ -68,6 +68,8 @@ data class FactSet(
     val rejected: List<RejectedFact> = emptyList(),
     val createdAtMillis: Long = 0,
     val tookMs: Long = 0,
+    /** When Fady last edited, removed or restored a fact (0: as the model left them). */
+    val changedAtMillis: Long = 0,
 ) {
     val active: List<Fact> get() = facts.filterNot { it.removed }
 }

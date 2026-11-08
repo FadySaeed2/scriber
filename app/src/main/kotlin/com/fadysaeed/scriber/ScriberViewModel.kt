@@ -147,7 +147,9 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
             it.copy(session = s, runs = runs, selectedRunId = selected, job = Jobs.progress.value[id], engines = engines,
                 reading = reading, compareRun = compare, edits = edits, missingSecond = missing,
                 speakers = speakers, speakerOf = speakerOf, canFindSpeakers = s.mode == SessionMode.CONVERSATION && SpeakerFinder.ready(getApplication()),
-                allDifferences = settings.showAllDifferences)
+                allDifferences = settings.showAllDifferences,
+                facts = store.facts(id), note = store.note(id), templates = store.templates(),
+                canWriteNotes = s.mode == SessionMode.CONVERSATION && com.fadysaeed.scriber.work.NoteWriter.model(getApplication()) != null)
         }
     }
 
@@ -163,7 +165,8 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
         }
         _settings.update { it.copy(locked = locked, settings = store.settings(), storageBytes = vault.root.walkTopDown().filter { f -> f.isFile }.sumOf { f -> f.length() }) }
         _lab.update { it.copy(modelsReady = _models.value.allReady) }
-        _settings.update { it.copy(medicines = runCatching { medicines().size }.getOrDefault(0), personalWords = store.personalWords().let { p -> p.words.size + p.heardAs.size }) }
+        _settings.update { it.copy(medicines = runCatching { medicines().size }.getOrDefault(0), personalWords = store.personalWords().let { p -> p.words.size + p.heardAs.size },
+            templates = runCatching { store.templates() }.getOrDefault(emptyList())) }
         runCatching { loadOwnScores() }
         loadSessions()
     }
@@ -442,6 +445,82 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
             withContext(Dispatchers.IO) { Records(vault).put("lab_report", LabReport.serializer(), report) }
             _lab.update { it.copy(step = null, report = report) }
             _settings.update { it.copy(vaultOk = report.vault?.ok, vaultDetail = report.vault?.detail.orEmpty()) }
+        }
+    }
+
+    // Notes ------------------------------------------------------------------------------
+
+    fun writeNote(id: String, templateId: String?, rewriteOnly: Boolean) {
+        Jobs.note(getApplication(), id, templateId, rewriteOnly)
+        say(if (rewriteOnly) "Writing the note again from the facts." else "Writing the note. You can keep working.")
+    }
+
+    /** Fady's own version of the note text; the model's version stays sealed beside it. */
+    fun saveNoteText(text: String?) = viewModelScope.launch(Dispatchers.IO) {
+        val s = _session.value.session ?: return@launch
+        val n = store.note(s.id) ?: return@launch
+        store.saveNote(n.copy(editedText = text?.takeIf { it.isNotBlank() && it != com.fadysaeed.scriber.core.NoteText.render(n.sections) }, editedAtMillis = System.currentTimeMillis()))
+        loadSession(s.id)
+    }
+
+    private fun changeFacts(change: (com.fadysaeed.scriber.core.FactSet) -> com.fadysaeed.scriber.core.FactSet) = viewModelScope.launch(Dispatchers.IO) {
+        val s = _session.value.session ?: return@launch
+        val f = store.facts(s.id) ?: return@launch
+        store.saveFacts(change(f).copy(changedAtMillis = System.currentTimeMillis()))
+        loadSession(s.id)
+    }
+
+    fun setFactRemoved(factId: String, removed: Boolean) = changeFacts { f -> f.copy(facts = f.facts.map { if (it.id == factId) it.copy(removed = removed) else it }) }
+    fun editFact(factId: String, text: String) = changeFacts { f -> f.copy(facts = f.facts.map { if (it.id == factId) it.copy(text = text.trim(), edited = true) else it }) }
+
+    // Templates ----------------------------------------------------------------------------
+
+    private fun reloadTemplates() {
+        val t = store.templates()
+        _settings.update { it.copy(templates = t) }
+        _session.update { it.copy(templates = t) }
+    }
+
+    fun saveTemplate(t: com.fadysaeed.scriber.core.NoteTemplate) = viewModelScope.launch(Dispatchers.IO) {
+        store.saveTemplate(t.copy(updatedAtMillis = System.currentTimeMillis())); reloadTemplates()
+    }
+
+    /** A built-in template goes back to how it came; one of Fady's is deleted. */
+    fun removeTemplate(id: String) = viewModelScope.launch(Dispatchers.IO) {
+        store.removeTemplate(id)
+        if (store.settings().noteTemplate == id && store.template(id) == null) store.saveSettings(store.settings().copy(noteTemplate = "inpatient"))
+        reloadTemplates(); refresh()
+    }
+
+    /** A new template, empty or as a copy of [from]; returns its id. */
+    fun newTemplate(from: com.fadysaeed.scriber.core.NoteTemplate?): String {
+        val id = "t" + com.fadysaeed.scriber.core.Ids.new()
+        val t = from?.copy(id = id, name = from.name + " (copy)", builtIn = false) ?: com.fadysaeed.scriber.core.Templates.blank(id, "New template")
+        store.saveTemplate(t); reloadTemplates()
+        return id
+    }
+
+    private val templateJson = kotlinx.serialization.json.Json { prettyPrint = true; ignoreUnknownKeys = true; encodeDefaults = true }
+    fun templateText(t: com.fadysaeed.scriber.core.NoteTemplate): String = templateJson.encodeToString(com.fadysaeed.scriber.core.NoteTemplate.serializer(), t)
+
+    /** A template pasted as text (from another phone); saved as a new one of Fady's. */
+    fun importTemplate(text: String) {
+        val ok = runCatching {
+            val t = templateJson.decodeFromString(com.fadysaeed.scriber.core.NoteTemplate.serializer(), text.trim())
+            require(t.sections.isNotEmpty() && t.name.isNotBlank())
+            store.saveTemplate(t.copy(id = "t" + com.fadysaeed.scriber.core.Ids.new(), builtIn = false, updatedAtMillis = System.currentTimeMillis())); reloadTemplates()
+            t.name
+        }
+        say(ok.fold({ "Added the template $it." }, { "The clipboard does not hold a Scriber template." }))
+    }
+
+    fun runNoteCheck() {
+        if (_lab.value.step != null) return
+        viewModelScope.launch {
+            _lab.update { it.copy(step = "Starting") }
+            val r = runCatching { LabRunner(getApplication(), catalog, models).noteCheck { step -> _lab.update { it.copy(step = step) } } }
+            r.onFailure { say("Note check stopped: ${it.message}") }
+            _lab.update { it.copy(step = null, noteCheck = r.getOrNull() ?: it.noteCheck) }
         }
     }
 

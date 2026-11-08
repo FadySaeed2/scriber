@@ -130,6 +130,49 @@ class LabRunner(private val context: Context, private val catalog: ModelCatalog,
         }
     }
 
+    /** What the Lab's note check found, on an invented ward review. */
+    data class NoteCheck(
+        val model: String, val backend: String, val loadMs: Long, val factsMs: Long, val noteMs: Long,
+        val facts: Int, val rejected: List<String>, val warnings: List<String>, val note: String, val fellBack: String?,
+    ) {
+        fun toText() = buildString {
+            appendLine("Note check: $model on $backend${fellBack?.let { " ($it)" } ?: ""}")
+            appendLine("Load ${loadMs / 1000.0} s, facts ${factsMs / 1000.0} s, note ${noteMs / 1000.0} s")
+            appendLine("$facts facts kept, ${rejected.size} thrown out, ${warnings.size} sentences marked")
+            rejected.forEach { appendLine("Thrown out: $it") }
+            warnings.forEach { appendLine("Marked: $it") }
+            appendLine(); append(note)
+        }
+    }
+
+    /**
+     * Writes a note from an invented ward review (no patient), the same way sessions get theirs, and
+     * reports the time, the facts thrown out and the sentences marked.
+     */
+    suspend fun noteCheck(onStep: (String) -> Unit): NoteCheck = withContext(Dispatchers.Default) {
+        val model = com.fadysaeed.scriber.work.NoteWriter.model(context) ?: error("Download a note writer (Gemma) in Models first")
+        val text = com.fadysaeed.scriber.core.Medicines::class.java.getResourceAsStream("/roleplay_inpatient.txt")!!.bufferedReader().readText()
+        val lines = text.lines().filter { it.isNotBlank() && !it.startsWith("#") }.mapIndexed { i, l ->
+            com.fadysaeed.scriber.core.Line(i, i * 6000L, i * 6000L + 5500, l.substringAfter(": "), false, null, l.substringBefore(": "))
+        }
+        onStep("Note check: loading ${model.first}")
+        val t0 = SystemClock.elapsedRealtime()
+        LanguageModel.Session.open(model.second, java.io.File(context.cacheDir, "llm")).use { llm ->
+            val t1 = SystemClock.elapsedRealtime()
+            val pipeline = com.fadysaeed.scriber.core.NotePipeline(com.fadysaeed.scriber.core.Medicines.bundled()) { p -> kotlinx.coroutines.runBlocking { llm.ask(p) } }
+            onStep("Note check: taking out facts")
+            val (facts, rejected) = pipeline.facts(pipeline.lines(lines))
+            val t2 = SystemClock.elapsedRealtime()
+            onStep("Note check: writing the note")
+            val template = com.fadysaeed.scriber.core.Templates.builtIns().first { it.id == "inpatient" }
+            val sections = pipeline.note(template, facts)
+            val t3 = SystemClock.elapsedRealtime()
+            NoteCheck(model.first, llm.backend, t1 - t0, t2 - t1, t3 - t2, facts.size, rejected.map { "${it.reason}: ${it.raw}" },
+                sections.flatMap { s -> s.sentences.filter { it.warning != null }.map { "${it.warning}: ${it.text}" } },
+                com.fadysaeed.scriber.core.NoteText.render(sections), llm.fellBackFrom)
+        }
+    }
+
     /**
      * Times each engine on the same clip of test speech with different numbers of cores, and keeps
      * the fastest for each. Same models, same audio: only the time changes. Nothing is kept from the

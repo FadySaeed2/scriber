@@ -51,6 +51,7 @@ data class LabUi(
     val modelsReady: Boolean = false,
     val own: List<OwnScore> = emptyList(),
     val speed: com.fadysaeed.scriber.data.ThreadPlan? = null,
+    val noteCheck: com.fadysaeed.scriber.lab.LabRunner.NoteCheck? = null,
 )
 
 data class SessionRow(val session: Session, val latest: TranscriptRun?, val job: JobProgress?)
@@ -88,6 +89,11 @@ data class SessionUi(
     val canFindSpeakers: Boolean = false,
     /** Show every difference, not only those about medicines (a setting, off by default). */
     val allDifferences: Boolean = false,
+    /** Facts taken from the transcript for the note, and the latest note. */
+    val facts: com.fadysaeed.scriber.core.FactSet? = null,
+    val note: com.fadysaeed.scriber.core.Note? = null,
+    val templates: List<com.fadysaeed.scriber.core.NoteTemplate> = emptyList(),
+    val canWriteNotes: Boolean = false,
 ) {
     val run: TranscriptRun? get() = runs.firstOrNull { it.id == selectedRunId } ?: runs.lastOrNull()
 
@@ -128,4 +134,5 @@ data class SettingsUi(
     val crash: String? = null,
     val medicines: Int = 0,
     val personalWords: Int = 0,
+    val templates: List<com.fadysaeed.scriber.core.NoteTemplate> = emptyList(),
 )

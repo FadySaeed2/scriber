@@ -1,6 +1,10 @@
 package com.fadysaeed.scriber.data
 
 import com.fadysaeed.scriber.core.EditLayer
+import com.fadysaeed.scriber.core.FactSet
+import com.fadysaeed.scriber.core.Note
+import com.fadysaeed.scriber.core.NoteTemplate
+import com.fadysaeed.scriber.core.Templates
 import com.fadysaeed.scriber.core.PersonalWords
 import com.fadysaeed.scriber.core.Retention
 import com.fadysaeed.scriber.core.SpeakerLayer
@@ -43,6 +47,10 @@ data class AppSettings(
     val findSpeakers: Boolean = true,
     /** Show every place the second engine heard differently, not only medicines. */
     val showAllDifferences: Boolean = false,
+    /** Write a note for every new conversation once its transcript and speakers are ready. */
+    val autoNotes: Boolean = true,
+    /** Template used for a conversation's note unless Fady picks another. */
+    val noteTemplate: String = "inpatient",
 ) {
     fun engineFor(@Suppress("UNUSED_PARAMETER") mode: SessionMode) = baseEngine
     /** The second engine to run after the base one, or null when the second opinion is off. */
@@ -125,6 +133,26 @@ class SessionStore(private val vault: Vault) {
     /** Turns speakers off for one session; the voice prints stay, so turning them on again is instant. */
     fun removeSpeakers(sessionId: String) { vault.deleteRecord("speakers/$sessionId.json"); touched() }
 
+    // Notes ------------------------------------------------------------------------------
+
+    fun facts(sessionId: String): FactSet? = runCatching { records.get("facts/$sessionId", FactSet.serializer()) }.getOrNull()
+    fun saveFacts(f: FactSet) { records.put("facts/${f.sessionId}", FactSet.serializer(), f); touched() }
+
+    /** The latest note of a session; earlier ones stay in records/notes/<session>/. */
+    fun note(sessionId: String): Note? = runCatching { records.all("notes/$sessionId", Note.serializer()).maxByOrNull { it.createdAtMillis } }.getOrNull()
+    fun saveNote(n: Note) { records.put("notes/${n.sessionId}/${n.id}", Note.serializer(), n); touched() }
+
+    /** Built-in templates (or Fady's changed versions of them) and his own, in that order. */
+    fun templates(): List<NoteTemplate> {
+        val saved = runCatching { records.all("templates", NoteTemplate.serializer()) }.getOrDefault(emptyList()).associateBy { it.id }
+        val builtIn = Templates.builtIns().map { saved[it.id] ?: it }
+        return builtIn + saved.values.filter { s -> builtIn.none { it.id == s.id } }.sortedBy { it.name.lowercase() }
+    }
+    fun template(id: String): NoteTemplate? = templates().firstOrNull { it.id == id }
+    fun saveTemplate(t: NoteTemplate) { records.put("templates/${t.id}", NoteTemplate.serializer(), t); touched() }
+    /** A built-in template goes back to how it came; one of Fady's is deleted. */
+    fun removeTemplate(id: String) { vault.deleteRecord("templates/$id.json"); touched() }
+
     /** Fastest number of processor cores for each engine on this phone, from the Lab's speed check. */
     fun threadPlan(): ThreadPlan = runCatching { records.get("thread_plan", ThreadPlan.serializer()) }.getOrNull() ?: ThreadPlan()
 
@@ -148,6 +176,8 @@ class SessionStore(private val vault: Vault) {
         vault.deleteTree("records/edits/$id")
         vault.deleteRecord("speakers/$id.json")
         vault.deleteRecord("prints/$id.json")
+        vault.deleteRecord("facts/$id.json")
+        vault.deleteTree("records/notes/$id")
         vault.deleteRecord("sessions/$id.json")
         touched()
     }

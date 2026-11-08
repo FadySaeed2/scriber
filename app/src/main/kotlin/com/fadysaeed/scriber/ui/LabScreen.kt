@@ -27,7 +27,7 @@ private fun pct(d: Double) = String.format(Locale.ROOT, "%.1f%%", d * 100)
 private fun one(d: Double) = String.format(Locale.ROOT, "%.1f", d)
 
 @Composable
-fun LabScreen(ui: LabUi, onRun: () -> Unit, onCopy: (String) -> Unit, onTryHints: () -> Unit = {}, onSpeed: () -> Unit = {}) {
+fun LabScreen(ui: LabUi, onRun: () -> Unit, onCopy: (String) -> Unit, onTryHints: () -> Unit = {}, onSpeed: () -> Unit = {}, onNoteCheck: () -> Unit = {}) {
     Heading("Scriber", "Lab", "Measures every model on this phone: public test recordings, and your own sessions once you have corrected them.")
     if (ui.step != null) {
         Status("Running", Ink.Teal); Spacer(Modifier.height(8.dp))
@@ -39,6 +39,7 @@ fun LabScreen(ui: LabUi, onRun: () -> Unit, onCopy: (String) -> Unit, onTryHints
         Spacer(Modifier.height(14.dp))
         AmberButton("Run checks", onRun, Modifier.fillMaxWidth())
     }
+    NoteCheckSection(ui, onNoteCheck, onCopy)
     Speed(ui, onSpeed, onCopy)
     if (ui.own.isNotEmpty()) OwnScores(ui.own, onTryHints)
     ui.report?.let { r -> Results(r) { text -> onCopy(text + (ui.speed?.let { "\n\n" + speedText(it) } ?: "")) } }
@@ -160,3 +161,24 @@ fun speedText(plan: com.fadysaeed.scriber.data.ThreadPlan): String = buildString
         appendLine("$name: uses ${plan.best[engine]} cores. " + t.entries.joinToString(", ") { (n, ms) -> "$n cores ${one(ms / 1000.0)} s" })
     }
 }.trimEnd()
+
+/** The note writer on an invented ward review: time, facts thrown out, sentences marked, the note. */
+@Composable
+private fun NoteCheckSection(ui: LabUi, onRun: () -> Unit, onCopy: (String) -> Unit) {
+    Section("Note writer")
+    val c = ui.noteCheck
+    if (c == null) {
+        Text("Writes a note from an invented ward review, the same way your sessions get theirs, and shows the time, the facts it threw out and any sentence it marked. No patient data. A few minutes.", style = Type.small, modifier = Modifier.padding(top = 8.dp))
+    } else {
+        Fact("Model", "${c.model}, ${c.backend}")
+        Fact("Time", "load ${one(c.loadMs / 1000.0)} s, facts ${one(c.factsMs / 1000.0)} s, note ${one(c.noteMs / 1000.0)} s")
+        Fact("Facts", "${c.facts} kept, ${c.rejected.size} thrown out", if (c.rejected.isEmpty()) Ink.Teal else Ink.Bone)
+        Fact("Marked sentences", "${c.warnings.size}", if (c.warnings.isEmpty()) Ink.Teal else Ink.Amber)
+        Spacer(Modifier.height(10.dp))
+        Text(c.note, style = Type.reading)
+        Spacer(Modifier.height(10.dp))
+        GhostButton("Copy the check", { onCopy(c.toText()) }, Modifier.fillMaxWidth(), minHeight = 52.dp)
+    }
+    Spacer(Modifier.height(8.dp))
+    GhostButton(if (c == null) "Note check" else "Check the note writer again", onRun, Modifier.fillMaxWidth(), color = Ink.Amber, enabled = ui.step == null, minHeight = 52.dp)
+}

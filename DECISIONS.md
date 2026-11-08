@@ -100,3 +100,12 @@ engine on all of them can be slower than on a few. The Lab's speed check times e
 MedASR, the speaker model) on the same 30 s of test speech with 2 to 8 cores and keeps the fastest;
 jobs use it. Same models, same audio, so the words stay the same; each sealed run records its cores.
 GPU or NPU paths and smaller models were left out: less safe or less accurate.
+
+**2026-11-09. Notes in two steps, code as the referee.** The model never writes from the transcript
+directly. First it lists facts as KIND | line | fact | "exact words"; a fact stays only if its words
+are really in that line and every number and medicine in it was said there. Then each section is
+written from its facts alone, each sentence citing them, and code marks what it cannot trace. One
+model load serves all prompts; each prompt is a fresh conversation, so nothing leaks between
+sections. Templates are data (sections, instructions, form, length, fact kinds), so Fady changes
+them on the phone without a new build; built-ins can always go back to how they came. Gemma 4 E4B
+is the default writer for accuracy; E2B is used only if it is the one chosen in Models.

@@ -17,7 +17,7 @@ import com.fadysaeed.scriber.data.AppSettings
 @Composable
 fun SettingsScreen(
     ui: SettingsUi, onChange: ((AppSettings) -> AppSettings) -> Unit, onUnlock: () -> Unit, onLock: () -> Unit, onCheckVault: () -> Unit,
-    onCopyCrash: () -> Unit = {}, onClearCrash: () -> Unit = {},
+    onCopyCrash: () -> Unit = {}, onClearCrash: () -> Unit = {}, onTemplates: () -> Unit = {},
 ) {
     val st = ui.settings
     Heading("Scriber", "Settings")
@@ -71,6 +71,13 @@ fun SettingsScreen(
         for ((n, label) in listOf(2 to "2", 3 to "3", 0 to "Decide")) Choice(label, st.speakers == n, { onChange { it.copy(speakers = n) } }, Modifier.weight(1f))
     }
     Fact("Medicine dictionary", "${ui.medicines} names, ${ui.personalWords} of yours")
+
+    Section("Notes")
+    Toggle("Write the note after every conversation", "Once the transcript and speakers are ready, Gemma writes it on this phone. Off: write it from the session when you want.", st.autoNotes) { on ->
+        onChange { it.copy(autoNotes = on) }
+    }
+    Fact("Template for new conversations", ui.templates.firstOrNull { it.id == st.noteTemplate }?.name ?: "Inpatient review")
+    ActionRow(Glyph.LIST, "Note templates", onTemplates, "Change the five that come with Scriber, or make your own")
 
     Section("Internet")
     Status(if (ui.locked) "Locked" else "Downloads open", if (ui.locked) Ink.Teal else Ink.Amber)

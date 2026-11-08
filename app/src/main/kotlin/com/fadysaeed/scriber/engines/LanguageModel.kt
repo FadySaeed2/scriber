@@ -70,4 +70,40 @@ object LanguageModel {
             }
         }
     }
+
+    /**
+     * A loaded model for many prompts in a row (loading takes about fifteen seconds, so a note's
+     * dozen prompts share one load). Each prompt starts a fresh conversation: nothing carries over.
+     */
+    class Session private constructor(private val engine: Engine, val backend: String, val loadMs: Long, val fellBackFrom: String?) : AutoCloseable {
+        private val config = ConversationConfig(samplerConfig = SamplerConfig(topK = 1, topP = 1.0, temperature = 0.0))
+
+        suspend fun ask(prompt: String): String = engine.createConversation(config).use { conversation ->
+            val text = StringBuilder()
+            conversation.sendMessageAsync(prompt).collect { message -> text.append(message.toString()) }
+            text.toString().trim()
+        }
+
+        override fun close() = engine.close()
+
+        companion object {
+            /** GPU first, the CPU if the GPU path cannot start. [maxTokens] is the room for prompt and answer together. */
+            fun open(model: File, cacheDir: File, maxTokens: Int = 8192): Session {
+                var gpuProblem: String? = null
+                for (backend in listOf<Backend>(Backend.GPU(), Backend.CPU())) {
+                    val t0 = SystemClock.elapsedRealtime()
+                    val engine = Engine(EngineConfig(modelPath = model.path, backend = backend, maxNumTokens = maxTokens, cacheDir = cacheDir.path))
+                    try {
+                        engine.initialize()
+                        return Session(engine, backend.name, SystemClock.elapsedRealtime() - t0, gpuProblem)
+                    } catch (t: Throwable) {
+                        runCatching { engine.close() }
+                        if (backend is Backend.CPU) throw t
+                        gpuProblem = "GPU: ${t.javaClass.simpleName} ${t.message ?: ""}".trim()
+                    }
+                }
+                error("unreachable")
+            }
+        }
+    }
 }

@@ -165,7 +165,7 @@ fun Toggle(label: String, note: String?, on: Boolean, onChange: (Boolean) -> Uni
     }
 }
 
-enum class Glyph { BACK, CLOSE, PLUS, MIC, STOP, PAUSE, PLAY, IMPORT, SHARE, SAVE, TRASH, LOCK, CHECK, RENAME, REDO, WAVE, INFO, LIST, DOWNLOAD }
+enum class Glyph { BACK, CLOSE, PLUS, MIC, STOP, PAUSE, PLAY, IMPORT, SHARE, SAVE, TRASH, LOCK, CHECK, RENAME, REDO, WAVE, INFO, LIST, DOWNLOAD, UP, DOWN, COPY }
 
 private val GLYPHS: Map<Glyph, Pair<String, String?>> = mapOf(
     Glyph.BACK to ("M15 18l-6-6 6-6" to null),
@@ -187,6 +187,9 @@ private val GLYPHS: Map<Glyph, Pair<String, String?>> = mapOf(
     Glyph.INFO to ("M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 8h.01" to null),
     Glyph.LIST to ("M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" to null),
     Glyph.DOWNLOAD to ("M12 3v12M7.5 10.5L12 15l4.5-4.5M5 20h14" to null),
+    Glyph.UP to ("M6 15l6-6 6 6" to null),
+    Glyph.DOWN to ("M6 9l6 6 6-6" to null),
+    Glyph.COPY to ("M9 8h10a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zM5 16V4a1 1 0 0 1 1-1h10" to null),
 )
 
 private val glyphCache = java.util.concurrent.ConcurrentHashMap<Glyph, Pair<Path, Path?>>()

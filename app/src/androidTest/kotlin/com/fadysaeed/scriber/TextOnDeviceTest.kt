@@ -43,4 +43,38 @@ class TextOnDeviceTest {
         assertEquals(listOf("main", "pa", "is", "patent"), Wer.normalise("[MAIN] PA is patent {period}"))
         assertEquals("Ward-review-bed-4", Ids.fileStem("Ward review, bed 4"))
     }
+
+    /** The note pipeline's text checks, on Android's regex engine, with a fake writer. */
+    @Test fun notePipelineRunsOnAndroid() {
+        val lines = listOf(
+            com.fadysaeed.scriber.core.Line(0, 0, 4000, "How have you been since we increased the olanzapine?", false, 0, "Speaker 1"),
+            com.fadysaeed.scriber.core.Line(1, 4200, 9000, "Better. I take fifteen milligrams at night now and I sleep about six hours.", false, 1, "Speaker 2"),
+            com.fadysaeed.scriber.core.Line(2, 12200, 15000, "No, none at all, I want to go home to my daughter.", false, 1, "Speaker 2"),
+            com.fadysaeed.scriber.core.Line(3, 15500, 19000, "We'll continue fifteen milligrams and stay on 15/60 observations.", false, 0, "Speaker 1"),
+        )
+        val p = com.fadysaeed.scriber.core.NotePipeline(Medicines.bundled()) { prompt ->
+            when {
+                prompt.startsWith("You take facts") -> "- MEDICATIONS | L2 | Takes 15 mg at night | \"I take fifteen milligrams at night\"\n" +
+                    "**RISK_SELF** | L3 | Denies thoughts of self-harm | “No, none at all”\n" +
+                    "PLAN | L4 | Continue 15 mg and 15/60 observations | \"continue fifteen milligrams and stay on 15/60 observations\"\n" +
+                    "SYMPTOMS | L2 | Sleeps 8 hours | \"I sleep about six hours\""
+                prompt.contains("Section: Plan") -> "1. Continue 15 mg [F3]\n2) Remain on 15/60 observations [F3]\n- Review in a week"
+                prompt.contains("Section: Risk") -> "She denied thoughts of self-harm [F2]. She has a plan [F2]. Mood is low [F9]."
+                else -> "She takes 15 mg at night [F1, F3]. Sleep is fine."
+            }
+        }
+        val (facts, rejected) = p.facts(p.lines(lines))
+        assertEquals(listOf("F1", "F2", "F3"), facts.map { it.id })
+        assertEquals(1, rejected.size)
+        val note = p.note(com.fadysaeed.scriber.core.Templates.builtIns().first { it.id == "inpatient" }, facts)
+        val plan = note.first { it.sectionId == "plan" }.sentences
+        assertEquals(listOf("Continue 15 mg", "Remain on 15/60 observations", "Review in a week"), plan.map { it.text })
+        assertEquals("No fact behind this sentence", plan[2].warning)
+        val risk = note.first { it.sectionId == "risk" }.sentences
+        assertEquals(listOf("She denied thoughts of self-harm.", "She has a plan.", "Mood is low."), risk.map { it.text })
+        assertEquals(listOf(listOf("F2"), listOf("F2"), emptyList()), risk.map { it.factIds })
+        assertEquals("Not assessed.", note.first { it.sectionId == "mse" }.sentences.single().text)
+        assertEquals(null, p.groundedIn("Takes 15 mg", "I take 15 mg"))
+        assertEquals(5, com.fadysaeed.scriber.core.NoteText.words("Plan\n1. Continue 15 mg"))
+    }
 }
