@@ -18,7 +18,10 @@ object TranscriptFormats {
         if (mode != SessionMode.DICTATION) return text.trim()
         var t = text
         // MedASR writes section headings in brackets and commands in braces.
-        t = t.replace(Regex("""\[([^\]]+)\]""")) { "\n\n" + it.groupValues[1].trim().lowercase().replaceFirstChar { c -> c.uppercase() } + ":" }
+        // A heading's own spoken colon is dropped, and its first word starts with a capital.
+        t = t.replace(Regex("""\[([^\]]+)\](\s*\{\s*colon\s*\})?\s*(\p{L})?""")) {
+            "\n\n" + it.groupValues[1].trim().lowercase().replaceFirstChar { c -> c.uppercase() } + ": " + it.groupValues[3].uppercase()
+        }
         for ((word, mark) in commandTokens) {
             t = t.replace(Regex("""\{\s*${Regex.escape(word)}\s*\}""", RegexOption.IGNORE_CASE), mark)
             t = t.replace(Regex("""(?<![\p{L}])${Regex.escape(word)}(?![\p{L}])[.,]?""", RegexOption.IGNORE_CASE), mark)
