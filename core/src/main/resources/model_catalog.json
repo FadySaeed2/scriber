@@ -1,0 +1,211 @@
+{
+  "version": 1,
+  "packs": [
+    {
+      "id": "asr-parakeet-v2",
+      "title": "Parakeet TDT 0.6B v2",
+      "subtitle": "Speech to text, English, main engine",
+      "role": "ASR",
+      "engine": "parakeet",
+      "required": true,
+      "license": "CC-BY-4.0",
+      "source": "NVIDIA; ONNX export by the sherpa-onnx project",
+      "files": [
+        {
+          "path": "encoder.int8.onnx",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8/resolve/84b478d541cdbf0c296a7ab5f1e20a6f8f998114/encoder.int8.onnx",
+          "size": 652282309,
+          "sha256": "92a10bd9c23936ea0566c29f963bc57c2a5df4261b6a8921c39abea66557ca8b"
+        },
+        {
+          "path": "decoder.int8.onnx",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8/resolve/84b478d541cdbf0c296a7ab5f1e20a6f8f998114/decoder.int8.onnx",
+          "size": 7257753,
+          "sha256": "4d097bae3bac5c96018d5293ba39f1b657296102b142affda40378f38b020f41"
+        },
+        {
+          "path": "joiner.int8.onnx",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8/resolve/84b478d541cdbf0c296a7ab5f1e20a6f8f998114/joiner.int8.onnx",
+          "size": 1739080,
+          "sha256": "77a29f3e5ac7d37074e0af465391b80f314015d5b97f0f90c6c7767f1d56f428"
+        },
+        {
+          "path": "tokens.txt",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8/resolve/84b478d541cdbf0c296a7ab5f1e20a6f8f998114/tokens.txt",
+          "size": 9384,
+          "sha256": "ec182b70dd42113aff6c5372c75cac58c952443eb22322f57bbd7f53977d497d"
+        },
+        {
+          "path": "sample.wav",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8/resolve/84b478d541cdbf0c296a7ab5f1e20a6f8f998114/test_wavs/0.wav",
+          "size": 237964,
+          "sha256": "5fceacff0315d49cb59fcc505bcecf1ed5f2f35c2897b1e65a59f30e5d922150"
+        }
+      ]
+    },
+    {
+      "id": "asr-medasr",
+      "title": "Google MedASR",
+      "subtitle": "Speech to text tuned for medical dictation, English",
+      "role": "ASR",
+      "engine": "medasr",
+      "required": true,
+      "license": "Health AI Developer Foundations terms",
+      "source": "Google Health AI; ONNX export by the sherpa-onnx project",
+      "files": [
+        {
+          "path": "model.int8.onnx",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-medasr-ctc-en-int8-2025-12-25/resolve/780221e413159bd82fcbd728632213cdf1b2bc81/model.int8.onnx",
+          "size": 154106419,
+          "sha256": "2c20f03265ee6144c566fd18b0f7bbb4f0d005d11ce9440dd641920210f4c33a"
+        },
+        {
+          "path": "tokens.txt",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-medasr-ctc-en-int8-2025-12-25/resolve/780221e413159bd82fcbd728632213cdf1b2bc81/tokens.txt",
+          "size": 4712,
+          "sha256": "b43987c0f8f660068a166d155f02b1e439d1f03dda36d50759b4e282e98814f2"
+        }
+      ]
+    },
+    {
+      "id": "bench-medical-audio",
+      "title": "Medical test recordings",
+      "subtitle": "Six short dictations with reference text, for accuracy checks",
+      "role": "BENCHMARK_AUDIO",
+      "required": true,
+      "license": "Health AI Developer Foundations terms",
+      "source": "Shipped with MedASR by the sherpa-onnx project",
+      "files": [
+        {
+          "path": "0.wav",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-medasr-ctc-en-int8-2025-12-25/resolve/780221e413159bd82fcbd728632213cdf1b2bc81/test_wavs/0.wav",
+          "size": 1401678,
+          "sha256": "f762591b44f3672e4b5b464d89912d43e12510082a8471c5fb85ec03dcb9d794"
+        },
+        {
+          "path": "1.wav",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-medasr-ctc-en-int8-2025-12-25/resolve/780221e413159bd82fcbd728632213cdf1b2bc81/test_wavs/1.wav",
+          "size": 574716,
+          "sha256": "34d45049ad6e796110ac1df6c087b392698f07d07ae2ab88ebf88652f8745a46"
+        },
+        {
+          "path": "2.wav",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-medasr-ctc-en-int8-2025-12-25/resolve/780221e413159bd82fcbd728632213cdf1b2bc81/test_wavs/2.wav",
+          "size": 1412692,
+          "sha256": "b2e22ed743a3c01db11368b0b1f598e3c21c1e72024e619b175bf215025debc4"
+        },
+        {
+          "path": "3.wav",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-medasr-ctc-en-int8-2025-12-25/resolve/780221e413159bd82fcbd728632213cdf1b2bc81/test_wavs/3.wav",
+          "size": 446676,
+          "sha256": "380ab6e648bce46fc12e7d8cc6ee1c6c24555dfe8426426edd690d1b14ea75f7"
+        },
+        {
+          "path": "4.wav",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-medasr-ctc-en-int8-2025-12-25/resolve/780221e413159bd82fcbd728632213cdf1b2bc81/test_wavs/4.wav",
+          "size": 850978,
+          "sha256": "6aca88abc63574147835b14ad3f7c9fac42ab03e0b2cb93201d6409b15a17fb3"
+        },
+        {
+          "path": "5.wav",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-medasr-ctc-en-int8-2025-12-25/resolve/780221e413159bd82fcbd728632213cdf1b2bc81/test_wavs/5.wav",
+          "size": 718228,
+          "sha256": "b8e6938fc09cd889386f9247451c4495c1947380405d186d0b29b531b97e86f4"
+        },
+        {
+          "path": "transcript.txt",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-medasr-ctc-en-int8-2025-12-25/resolve/780221e413159bd82fcbd728632213cdf1b2bc81/test_wavs/transcript.txt",
+          "size": 2007,
+          "sha256": "928cfb5ea3ed70b26828a02f57e8f7e8ee5a484b9f914474b944bb910be2b389"
+        }
+      ]
+    },
+    {
+      "id": "vad-silero",
+      "title": "Silero VAD",
+      "subtitle": "Finds where speech starts and stops",
+      "role": "VAD",
+      "required": true,
+      "license": "MIT",
+      "source": "Silero; packaged by the sherpa-onnx project",
+      "files": [
+        {
+          "path": "silero_vad.onnx",
+          "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx",
+          "size": 643854,
+          "sha256": "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6"
+        }
+      ]
+    },
+    {
+      "id": "diarize-segmentation",
+      "title": "Pyannote segmentation 3.0",
+      "subtitle": "Splits a recording into speaker turns",
+      "role": "SEGMENTATION",
+      "required": true,
+      "license": "MIT",
+      "source": "pyannote; ONNX export by the sherpa-onnx project",
+      "files": [
+        {
+          "path": "model.int8.onnx",
+          "url": "https://huggingface.co/csukuangfj/sherpa-onnx-pyannote-segmentation-3-0/resolve/9403a6902bb58e3d5ae8c7e77c3422de279db2e0/model.int8.onnx",
+          "size": 1540506,
+          "sha256": "d582f4b4c6b48205de7e0643c57df0df5615a3c176189be3fc461e9d18827b5d"
+        }
+      ]
+    },
+    {
+      "id": "diarize-embedding",
+      "title": "CAM++ speaker voiceprint",
+      "subtitle": "Tells voices apart, English",
+      "role": "SPEAKER_EMBEDDING",
+      "required": true,
+      "license": "Apache-2.0",
+      "source": "3D-Speaker (Alibaba); ONNX export by the sherpa-onnx project",
+      "files": [
+        {
+          "path": "campplus_en_voxceleb_16k.onnx",
+          "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx",
+          "size": 29596978,
+          "sha256": "357a834f702b80161e5b981182c038e18553c1f2ca752ed6cec2052365d4129b"
+        }
+      ]
+    },
+    {
+      "id": "llm-gemma4-e4b",
+      "title": "Gemma 4 E4B",
+      "subtitle": "Writes the notes; for phones with about 12 GB of memory",
+      "role": "LLM",
+      "variant": "E4B",
+      "minRamGb": 10,
+      "license": "Apache-2.0",
+      "source": "Google DeepMind; LiteRT-LM build by litert-community",
+      "files": [
+        {
+          "path": "gemma-4-E4B-it.litertlm",
+          "url": "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/71064b01bd5e2bfd9a5f9dd52df86ae4800138c1/gemma-4-E4B-it.litertlm",
+          "size": 3659530240,
+          "sha256": "0b2a8980ce155fd97673d8e820b4d29d9c7d99b8fa6806f425d969b145bd52e0"
+        }
+      ]
+    },
+    {
+      "id": "llm-gemma4-e2b",
+      "title": "Gemma 4 E2B",
+      "subtitle": "Writes the notes; lighter, for phones with about 8 GB of memory",
+      "role": "LLM",
+      "variant": "E2B",
+      "minRamGb": 0,
+      "license": "Apache-2.0",
+      "source": "Google DeepMind; LiteRT-LM build by litert-community",
+      "files": [
+        {
+          "path": "gemma-4-E2B-it.litertlm",
+          "url": "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/3d48132a00cf76de57d926de30f5c5c5ed9b8c0d/gemma-4-E2B-it.litertlm",
+          "size": 2588147712,
+          "sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+        }
+      ]
+    }
+  ]
+}

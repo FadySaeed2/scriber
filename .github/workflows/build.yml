@@ -1,0 +1,198 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "tools/probe*.py"
+      - ".github/workflows/probe.yml"
+      - ".github/workflows/models.yml"
+      - "*.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Tests, screenshots and release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Fetch and check the speech library
+        run: tools/fetch-deps.sh
+
+      - name: Unit tests, privacy guards and screenshots
+        run: ./gradlew --no-daemon testDebugUnitTest :core:test --stacktrace
+
+      - name: Collect screenshots and test results
+        if: always()
+        run: |
+          mkdir -p out/shots
+          cp app/screenshots/*.png out/shots/ 2>/dev/null || true
+          find . -path '*/build/test-results/*' -name '*.xml' -exec cp {} out/shots/ \; 2>/dev/null || true
+
+      # The release key lives in the repo only encrypted, with the password held in the
+      # SCRIBER_SIGNING_PASSWORD repository secret (never shown in logs, not readable by forks).
+      # The first run with the secret creates the key, encrypts it and commits the encrypted file;
+      # every later run decrypts that same key, so updates always install over the previous version.
+      - name: Prepare the signing key
+        env:
+          PW: ${{ secrets.SCRIBER_SIGNING_PASSWORD }}
+        run: |
+          if [ -z "$PW" ]; then
+            echo "::warning::SCRIBER_SIGNING_PASSWORD secret is not set; the APK is built but not signed or released."
+            exit 0
+          fi
+          ENC=signing/scriber-release.p12.enc
+          KEY="$RUNNER_TEMP/scriber-release.p12"
+          if [ ! -f "$ENC" ]; then
+            mkdir -p signing
+            keytool -genkeypair -keystore "$KEY" -storetype PKCS12 -alias scriber -keyalg RSA -keysize 4096 \
+              -validity 36500 -storepass "$PW" -keypass "$PW" -dname "CN=Fady Saeed, O=Scriber, C=AU"
+            openssl enc -aes-256-cbc -pbkdf2 -iter 300000 -salt -in "$KEY" -out "$ENC" -pass env:PW
+            git config user.name "Scriber CI"
+            git config user.email "ci@scriber.local"
+            git add "$ENC"
+            git commit -m "Add encrypted release signing key [skip ci]"
+            git fetch origin main
+            git rebase origin/main
+            git push origin HEAD:main
+          fi
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 300000 -in "$ENC" -out "$KEY" -pass env:PW
+          echo "SCRIBER_KEYSTORE_PATH=$KEY" >> "$GITHUB_ENV"
+          echo "SCRIBER_SIGNED=true" >> "$GITHUB_ENV"
+
+      - name: Build release APK
+        env:
+          SCRIBER_SIGNING_PASSWORD: ${{ secrets.SCRIBER_SIGNING_PASSWORD }}
+        run: ./gradlew --no-daemon assembleRelease --stacktrace
+
+      - name: Keep the APK
+        run: |
+          mkdir -p out/apk
+          if [ "$SCRIBER_SIGNED" = "true" ]; then
+            cp app/build/outputs/apk/release/app-release.apk "out/apk/Scriber-0.0.${GITHUB_RUN_NUMBER}.apk"
+            echo signed > out/apk/SIGNED
+          else
+            cp app/build/outputs/apk/release/app-release-unsigned.apk "out/apk/Scriber-0.0.${GITHUB_RUN_NUMBER}-unsigned.apk"
+          fi
+          rm -f "$RUNNER_TEMP/scriber-release.p12"
+          # The release APK must ask for nothing beyond what the design allows.
+          AAPT=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
+          "$AAPT" dump permissions out/apk/*.apk | tee out/apk/permissions.txt
+          if grep -E "READ_EXTERNAL|WRITE_EXTERNAL|READ_CONTACTS|ACCESS_FINE_LOCATION|CAMERA" out/apk/permissions.txt; then
+            echo "::error::Unexpected permission in the APK"; exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-out
+          path: out/
+          if-no-files-found: ignore
+
+  device:
+    name: On a real Android system
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Fetch and check the speech library
+        run: tools/fetch-deps.sh
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Build test APKs
+        run: ./gradlew --no-daemon assembleDebug assembleDebugAndroidTest :vault:assembleDebugAndroidTest --stacktrace
+
+      - name: Run instrumented tests on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: ./gradlew --no-daemon connectedDebugAndroidTest --stacktrace; s=$?; mkdir -p out/device; adb logcat -d -b crash > out/device/crash.txt || true; tail -n 120 out/device/crash.txt || true; adb logcat -d -v brief AndroidRuntime:E DEBUG:I libc:F *:S > out/device/logcat.txt || true; tail -n 80 out/device/logcat.txt || true; exit $s
+
+      - name: Collect device results
+        if: always()
+        run: |
+          mkdir -p out/device
+          find . -path '*/build/outputs/androidTest-results/*' -name '*.xml' -exec cp {} out/device/ \; 2>/dev/null || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: device-out
+          path: out/
+          if-no-files-found: ignore
+
+  publish:
+    name: Publish screenshots and release
+    needs: [build, device]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: art
+
+      - name: Push screenshots branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p /tmp/shots
+          cp -r art/build-out/shots/. /tmp/shots/ 2>/dev/null || true
+          cp art/build-out/apk/permissions.txt /tmp/shots/ 2>/dev/null || true
+          mkdir -p /tmp/shots/device
+          cp -r art/device-out/device/. /tmp/shots/device/ 2>/dev/null || true
+          cd /tmp/shots
+          printf 'Run %s at %s\nbuild: %s\ndevice: %s\n' "$GITHUB_RUN_NUMBER" "$GITHUB_SHA" "${{ needs.build.result }}" "${{ needs.device.result }}" > RUN.txt
+          git init -q
+          git checkout -q -b screenshots
+          git add -A
+          git -c user.name="Scriber CI" -c user.email="ci@scriber.local" commit -qm "Screenshots for run ${GITHUB_RUN_NUMBER}"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" screenshots
+
+      - name: Publish release
+        if: needs.build.result == 'success' && needs.device.result == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ ! -f art/build-out/apk/SIGNED ]; then echo "Not signed yet, so no release."; exit 0; fi
+          APK=$(ls art/build-out/apk/*.apk)
+          MSG="$(git log -1 --pretty=%B)"
+          gh release create "build-${GITHUB_RUN_NUMBER}" "$APK" \
+            --title "Scriber 0.0.${GITHUB_RUN_NUMBER}" \
+            --notes "$MSG" \
+            --target "${GITHUB_SHA}"

@@ -1,0 +1,24 @@
+name: Check model files
+
+# Downloads every file in the model catalogue exactly as the phone would, and fails if any size,
+# checksum or redirect host differs from what the app expects. Runs weekly so a moved or changed
+# upstream file is caught before it reaches the phone.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1"
+  push:
+    branches: [main]
+    paths:
+      - core/src/main/resources/model_catalog.json
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/check_models.py core/src/main/resources/model_catalog.json

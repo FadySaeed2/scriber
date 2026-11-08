@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android enforces this for every connection Scriber makes.
+  - No plain http anywhere.
+  - By default no certificate is trusted at all, so a connection to any host not listed below
+    fails before a single byte is sent.
+  - Only the model download hosts (and their own subdomains, where the files are actually served)
+    use the phone's normal trusted certificates.
+  Keep in sync with core/AllowedHosts.kt; PrivacyGuardTest fails the build if they differ.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors />
+    </base-config>
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">huggingface.co</domain>
+        <domain includeSubdomains="true">hf.co</domain>
+        <domain includeSubdomains="true">github.com</domain>
+        <domain includeSubdomains="true">githubusercontent.com</domain>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
+</network-security-config>

@@ -1,0 +1,150 @@
+package com.fadysaeed.scriber.lab
+
+import android.content.Context
+import android.os.SystemClock
+import com.fadysaeed.scriber.BuildConfig
+import com.fadysaeed.scriber.core.ModelCatalog
+import com.fadysaeed.scriber.core.ModelPack
+import com.fadysaeed.scriber.core.PackRole
+import com.fadysaeed.scriber.core.Wer
+import com.fadysaeed.scriber.engines.Audio
+import com.fadysaeed.scriber.engines.LanguageModel
+import com.fadysaeed.scriber.engines.Speech
+import com.fadysaeed.scriber.fetch.ModelStore
+import com.fadysaeed.scriber.fetch.PackState
+import com.fadysaeed.scriber.vault.Vault
+import com.fadysaeed.scriber.vault.VaultSelfTest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
+
+/**
+ * Runs every check one after another and never two big models at once: each speech engine is
+ * released before the next loads, and the language model loads last with everything else freed.
+ * Only the public test recordings are used.
+ */
+class LabRunner(private val context: Context, private val catalog: ModelCatalog, private val store: ModelStore) {
+
+    suspend fun run(onStep: (String) -> Unit): LabReport = withContext(Dispatchers.Default) {
+        val problems = mutableListOf<String>()
+        var report = LabReport(System.currentTimeMillis(), BuildConfig.VERSION_NAME, DeviceInfo.snapshot(context))
+
+        onStep("Checking encryption")
+        report = report.copy(vault = VaultSelfTest.run(Vault.get(context), 64).let { VaultRun(it.ok, it.megabytes, it.writeMBps, it.readMBps, it.detail) })
+
+        val bench = ready(PackRole.BENCHMARK_AUDIO).firstOrNull()
+        val clips: List<Pair<String, Audio>> = bench?.let { pack ->
+            pack.files.filter { it.path.endsWith(".wav") }.map { it.path to Speech.readWave(store.file(pack, it)) }
+        }.orEmpty()
+        val references = bench?.let { pack -> pack.files.firstOrNull { it.path == "transcript.txt" }?.let { Wer.parseReferences(store.file(pack, it).readText()) } }.orEmpty()
+        if (clips.isEmpty()) problems += "Test recordings are not downloaded yet"
+
+        val runs = mutableListOf<AsrRun>()
+        for (pack in ready(PackRole.ASR)) {
+            onStep("Speech to text: ${pack.title}")
+            runCatching { runs += asr(pack, clips, references) }.onFailure { problems += "${pack.title}: ${it.message}" }
+        }
+        report = report.copy(asr = runs)
+
+        ready(PackRole.VAD).firstOrNull()?.let { pack ->
+            onStep("Voice activity")
+            runCatching {
+                val vad = Speech.vad(store.file(pack, pack.files.first()))
+                try {
+                    val all = concat(clips.map { it.second })
+                    val t = SystemClock.elapsedRealtime()
+                    val n = Speech.countSpeechSegments(vad, all)
+                    report = report.copy(vad = VadRun(all.seconds, SystemClock.elapsedRealtime() - t, n))
+                } finally { vad.release() }
+            }.onFailure { problems += "Voice activity: ${it.message}" }
+        }
+
+        val seg = ready(PackRole.SEGMENTATION).firstOrNull()
+        val emb = ready(PackRole.SPEAKER_EMBEDDING).firstOrNull()
+        val sample = catalog.packs.firstOrNull { it.engine == "parakeet" }?.takeIf { store.state(it) is PackState.Verified }
+            ?.let { p -> p.files.firstOrNull { it.path == "sample.wav" }?.let { Speech.readWave(store.file(p, it)) } }
+        if (seg != null && emb != null && sample != null && clips.isNotEmpty()) {
+            onStep("Speaker turns")
+            runCatching {
+                // Two different voices back to back: one dictation and one unrelated speaker.
+                val audio = concat(listOf(clips.first().second, sample))
+                val t0 = SystemClock.elapsedRealtime()
+                val d = Speech.diarizer(store.file(seg, seg.files.first()), store.file(emb, emb.files.first()))
+                try {
+                    val t1 = SystemClock.elapsedRealtime()
+                    val turns = d.process(audio.samples)
+                    val t2 = SystemClock.elapsedRealtime()
+                    report = report.copy(diarization = DiarizationRun(audio.seconds, t1 - t0, t2 - t1, turns.map { it.speaker }.distinct().size, 2, turns.size))
+                } finally { d.release() }
+            }.onFailure { problems += "Speaker turns: ${it.message}" }
+        }
+
+        ready(PackRole.LLM).firstOrNull()?.let { pack ->
+            onStep("Language model: loading ${pack.title}")
+            System.gc()
+            runCatching {
+                val dir = File(context.cacheDir, "litertlm").apply { mkdirs() }
+                val g = LanguageModel.generate(store.file(pack, pack.files.first()), dir, PROMPT)
+                report = report.copy(llm = LlmRun(pack.title, g.backend, g.loadMs, g.firstPieceMs, g.pieces, g.piecesPerSecond, g.text, g.fellBackFrom?.let { "Fell back to CPU. $it" } ?: ""))
+            }.onFailure { problems += "Language model: ${it.javaClass.simpleName} ${it.message}" }
+        }
+
+        report.copy(thermalAfter = DeviceInfo.thermal(context), problems = problems)
+    }
+
+    private fun ready(role: PackRole): List<ModelPack> = catalog.byRole(role).filter { store.state(it) is PackState.Verified }
+
+    private fun asr(pack: ModelPack, clips: List<Pair<String, Audio>>, refs: Map<String, String>): AsrRun {
+        val threads = Speech.threads()
+        val t0 = SystemClock.elapsedRealtime()
+        val recognizer = Speech.recognizer(pack.engine ?: error("no engine"), store.dir(pack), threads)
+        val loadMs = SystemClock.elapsedRealtime() - t0
+        try {
+            val samples = clips.map { (name, audio) ->
+                val t = SystemClock.elapsedRealtime()
+                val heard = Speech.transcribe(recognizer, audio)
+                val ms = SystemClock.elapsedRealtime() - t
+                val ref = refs[name].orEmpty()
+                val w = Wer.compute(ref, heard)
+                AsrSample(name, audio.seconds, ms, w.rate, heard, ref) to w
+            }
+            return AsrRun(
+                engine = pack.engine.orEmpty(), title = pack.title, threads = threads, loadMs = loadMs,
+                audioSeconds = clips.sumOf { it.second.seconds },
+                decodeMs = samples.sumOf { it.first.decodeMs },
+                referenceWords = samples.sumOf { it.second.referenceWords },
+                errors = samples.sumOf { it.second.errors },
+                samples = samples.map { it.first },
+            )
+        } finally {
+            recognizer.release()
+        }
+    }
+
+    private fun concat(parts: List<Audio>): Audio {
+        parts.firstOrNull { it.sampleRate != Speech.SAMPLE_RATE }?.let { error("Test audio is ${it.sampleRate} Hz, expected ${Speech.SAMPLE_RATE}") }
+        val total = parts.sumOf { it.samples.size }
+        val out = FloatArray(total)
+        var at = 0
+        for (p in parts) { p.samples.copyInto(out, at); at += p.samples.size }
+        return Audio(out, Speech.SAMPLE_RATE)
+    }
+
+    companion object {
+        /** A made-up ward conversation, so the speed test resembles the real job. */
+        const val PROMPT = """You are helping a consultant psychiatrist write an inpatient review note.
+Use only facts from the transcript below. Do not add anything that was not said.
+Write three short paragraphs: history since last review, mental state, and plan.
+
+Transcript:
+Doctor: How have the last few days been on the ward?
+Patient: Better. I'm sleeping about six hours now. The voices are quieter, mostly at night.
+Doctor: Are they telling you to do anything?
+Patient: No, not anymore. They just comment.
+Doctor: You're on olanzapine 15 milligrams at night. Any side effects?
+Patient: I'm hungrier, and a bit slow in the mornings.
+Doctor: Any thoughts of harming yourself or anyone else?
+Patient: No. I want to go home to my sister's.
+Doctor: We'll keep the dose the same, check your weight and bloods this week, and talk to your sister about leave on the weekend."""
+    }
+}
