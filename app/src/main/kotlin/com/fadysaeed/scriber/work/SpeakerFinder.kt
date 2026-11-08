@@ -64,7 +64,9 @@ class SpeakerFinder(private val context: Context) {
                 // Names carry over when the same number of voices is found again; moves never do.
                 names = old?.names?.takeIf { old.count == clean.map { it.speaker }.distinct().size }.orEmpty(),
                 settings = mapOf("segmentation" to seg.id, "embedding" to emb.id, "clusters" to "$count", "threshold" to "0.5",
-                    "rawChanges" to "${Speakers.changes(raw.sortedBy { it.startMs })}", "runtime" to "sherpa-onnx 2.0.1"),
+                    "rawChanges" to "${Speakers.changes(raw.sortedBy { it.startMs })}", "rawVoices" to "${raw.map { it.speaker }.distinct().size}",
+                    "rawTurns" to raw.sortedBy { it.startMs }.joinToString(" ") { "${it.startMs / 100 / 10.0}-${it.endMs / 100 / 10.0}:${it.speaker}" }.take(2000),
+                    "seconds" to "${samples.size / Speech.SAMPLE_RATE}", "runtime" to "sherpa-onnx 2.0.1"),
                 createdAtMillis = System.currentTimeMillis(),
             )
             store.saveSpeakers(layer)

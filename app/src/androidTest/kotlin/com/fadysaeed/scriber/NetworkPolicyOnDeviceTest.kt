@@ -51,7 +51,8 @@ class NetworkPolicyOnDeviceTest {
         // The project page, not a release file: k2-fsa's release downloads can time out for hours.
         val c = URL("https://github.com/k2-fsa/sherpa-onnx").openConnection() as HttpsURLConnection
         c.instanceFollowRedirects = false
-        assertTrue("got ${c.responseCode}", c.responseCode in 200..399)
+        // Any HTTP answer proves the secure connection to an allowed host works (GitHub may be busy).
+        assertTrue("got ${c.responseCode}", c.responseCode in 200..599)
         c.disconnect()
     }
 }
