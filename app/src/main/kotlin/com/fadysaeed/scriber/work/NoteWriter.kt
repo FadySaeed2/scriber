@@ -39,7 +39,7 @@ class NoteWriter(private val context: Context) {
         val model = model(context) ?: error("Download a note writer (Gemma) in Models first")
         val started = System.currentTimeMillis()
         progress("Loading the note writer", 0f)
-        LanguageModel.Session.open(model.second, File(context.cacheDir, "llm")).use { llm ->
+        LanguageModel.Session.open(model.second, File(context.cacheDir, "litertlm")).use { llm ->
             val pipeline = NotePipeline(medicines) { prompt -> runBlocking { llm.ask(prompt) } }
             val saved = store.facts(sessionId)
             val facts = if (rewriteOnly && saved != null) saved else {

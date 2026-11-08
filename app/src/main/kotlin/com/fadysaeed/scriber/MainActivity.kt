@@ -88,6 +88,8 @@ class MainActivity : FragmentActivity() {
                     if (!unlocked) LockScreen(lockProblem, vm.settings.collectAsState().value.crash != null,
                         { authenticate("Copy error details") { vm.settings.value.crash?.let(::copy) } }) { authenticate("Unlock Scriber") { unlocked = true; consumeShare() } }
                     else Content()
+                    val allow = vm.settings.collectAsState().value.settings.allowScreenshots
+                    androidx.compose.runtime.LaunchedEffect(allow, unlocked) { screenshots(allow && unlocked) }
                     vm.toast.collectAsState().value?.let { Toast(it, vm::dismissToast) }
                 }
             }
@@ -167,6 +169,12 @@ class MainActivity : FragmentActivity() {
                 }
             }
         }
+    }
+
+    /** Screenshots stay blocked unless Fady turns them on in Settings, and always while locked. */
+    private fun screenshots(allow: Boolean) {
+        if (allow) window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) else window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        if (Build.VERSION.SDK_INT >= 33) setRecentsScreenshotEnabled(allow)
     }
 
     private fun open(id: String) { openSession = id; vm.open(id) }

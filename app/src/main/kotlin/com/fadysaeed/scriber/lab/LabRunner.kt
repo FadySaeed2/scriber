@@ -157,7 +157,7 @@ class LabRunner(private val context: Context, private val catalog: ModelCatalog,
         }
         onStep("Note check: loading ${model.first}")
         val t0 = SystemClock.elapsedRealtime()
-        LanguageModel.Session.open(model.second, java.io.File(context.cacheDir, "llm")).use { llm ->
+        LanguageModel.Session.open(model.second, java.io.File(context.cacheDir, "litertlm")).use { llm ->
             val t1 = SystemClock.elapsedRealtime()
             val pipeline = com.fadysaeed.scriber.core.NotePipeline(com.fadysaeed.scriber.core.Medicines.bundled()) { p -> kotlinx.coroutines.runBlocking { llm.ask(p) } }
             onStep("Note check: taking out facts")

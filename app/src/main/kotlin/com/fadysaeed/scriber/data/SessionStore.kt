@@ -49,6 +49,8 @@ data class AppSettings(
     val showAllDifferences: Boolean = false,
     /** Write a note for every new conversation once its transcript and speakers are ready. */
     val autoNotes: Boolean = true,
+    /** Let the phone take screenshots of Scriber (off: the screen is blocked from screenshots and recents). */
+    val allowScreenshots: Boolean = false,
     /** Template used for a conversation's note unless Fady picks another. */
     val noteTemplate: String = "inpatient",
 ) {

@@ -94,7 +94,8 @@ fun SettingsScreen(
     Fact("Storage", when (ui.vaultOk) { true -> "Encrypted, checked"; false -> "Check FAILED"; null -> "Encrypted" }, when (ui.vaultOk) { false -> Ink.Ember; true -> Ink.Teal; null -> Ink.Bone })
     Fact("Keys", "Android Keystore")
     Fact("Backups", "Off")
-    Fact("Screenshots", "Blocked")
+    Toggle("Allow screenshots", if (st.allowScreenshots) "On: screenshots go to your Gallery, outside Scriber's encryption, and may sync to the cloud. Turn it off when you are done."
+        else "Off: the phone cannot capture Scriber's screen, and the recent-apps view is blank.", st.allowScreenshots) { on -> onChange { it.copy(allowScreenshots = on) } }
     Fact("Opening", "Fingerprint or screen lock")
     Spacer(Modifier.height(12.dp))
     GhostButton("Check encryption now", onCheckVault, Modifier.fillMaxWidth())

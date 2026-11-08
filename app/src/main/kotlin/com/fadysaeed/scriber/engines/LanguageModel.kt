@@ -38,6 +38,7 @@ object LanguageModel {
     }
 
     private suspend fun run(model: File, cacheDir: File, prompt: String, maxTokens: Int, backend: Backend): Generation {
+        cacheDir.mkdirs()
         val t0 = SystemClock.elapsedRealtime()
         Engine(EngineConfig(modelPath = model.path, backend = backend, maxNumTokens = maxTokens, cacheDir = cacheDir.path)).use { engine ->
             engine.initialize()
@@ -89,6 +90,8 @@ object LanguageModel {
         companion object {
             /** GPU first, the CPU if the GPU path cannot start. [maxTokens] is the room for prompt and answer together. */
             fun open(model: File, cacheDir: File, maxTokens: Int = 8192): Session {
+                require(model.isFile) { "The note writer's file is missing: download it again in Models" }
+                cacheDir.mkdirs()
                 var gpuProblem: String? = null
                 for (backend in listOf<Backend>(Backend.GPU(), Backend.CPU())) {
                     val t0 = SystemClock.elapsedRealtime()
@@ -98,7 +101,7 @@ object LanguageModel {
                         return Session(engine, backend.name, SystemClock.elapsedRealtime() - t0, gpuProblem)
                     } catch (t: Throwable) {
                         runCatching { engine.close() }
-                        if (backend is Backend.CPU) throw t
+                        if (backend is Backend.CPU) throw IllegalStateException(listOfNotNull(gpuProblem, "CPU: ${t.javaClass.simpleName} ${t.message ?: ""}".trim()).joinToString("; "), t)
                         gpuProblem = "GPU: ${t.javaClass.simpleName} ${t.message ?: ""}".trim()
                     }
                 }
