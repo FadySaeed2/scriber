@@ -9,10 +9,11 @@ and transcribes:
   2. sentences full of medicine names spoken by a synthetic voice (how many names come out right)
 """
 import json, os, re, subprocess, sys, time, urllib.request, tarfile, wave
-import numpy as np
 
-subprocess.run([sys.executable, "-m", "pip", "install", "-q", "sherpa-onnx==2.0.1"], check=False)
+subprocess.run([sys.executable, "-m", "pip", "install", "-q", "--break-system-packages", "numpy", "sherpa-onnx==2.0.1"], check=True)
+import numpy as np  # noqa: E402
 import sherpa_onnx  # noqa: E402
+print("sherpa-onnx", sherpa_onnx.__version__ if hasattr(sherpa_onnx, "__version__") else "?")
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 W = "/tmp/hw"; os.makedirs(W, exist_ok=True)
