@@ -196,6 +196,7 @@ class MainActivity : FragmentActivity() {
         if (backgroundedAt > 0 && SystemClock.elapsedRealtime() - backgroundedAt > RELOCK_AFTER_MS) unlocked = false
         if (!unlocked) authenticate("Unlock Scriber") { unlocked = true; consumeShare() }
         vm.refreshAsync()
+        vm.resumeJobs()
     }
 
     override fun onStop() {

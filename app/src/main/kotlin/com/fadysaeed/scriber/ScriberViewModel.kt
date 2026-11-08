@@ -68,7 +68,6 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
             _models.update { it.copy(device = device, recommendedLlm = recommended, chosenLlm = prefs.chosenLlm ?: recommended, wifiOnly = prefs.wifiOnly) }
             _lab.update { it.copy(report = report) }
             Exporter.clean(app)
-            runCatching { RecordingService.recover(app) }
             runCatching { store.applyRetention() }
             refresh()
         }
@@ -145,6 +144,12 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
         } catch (t: Throwable) {
             say("Could not import: ${t.message ?: t.javaClass.simpleName}")
         }
+    }
+
+    /** Restarts unfinished decoding and transcription; called each time the app comes to the front. */
+    fun resumeJobs() = viewModelScope.launch(Dispatchers.IO) {
+        runCatching { RecordingService.recover(getApplication()) }
+        runCatching { com.fadysaeed.scriber.work.Jobs.resume(getApplication()) }
     }
 
     fun open(id: String?) {

@@ -24,7 +24,7 @@ import com.fadysaeed.scriber.data.SessionStore
 import com.fadysaeed.scriber.fetch.ModelDownloader
 import com.fadysaeed.scriber.fetch.ModelStore
 import com.fadysaeed.scriber.vault.Vault
-import com.fadysaeed.scriber.work.Transcriber
+import com.fadysaeed.scriber.work.Jobs
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -106,10 +106,22 @@ class Phase1OnDeviceTest {
         val wav = bench.files.first { it.path == "1.wav" }
         downloader.fetch(bench, wav) { _, _ -> }
 
+        // The whole path Fady uses: copy in, then the background queue decodes and transcribes.
         val id = Importer.copyIn(context, Uri.fromFile(models.file(bench, wav)), SessionMode.DICTATION)
-        Importer.decode(context, id) {}
-        val run = Transcriber(context).run(id, "medasr") {}
+        Jobs.import(context, id, "medasr")
+        val deadline = System.currentTimeMillis() + 10 * 60_000
+        while (System.currentTimeMillis() < deadline) {
+            val s = store.session(id)!!
+            if (s.status == SessionStatus.FAILED) fail("Import failed: ${s.problem}")
+            val r = store.runs(id).lastOrNull()
+            if (r?.status == RunStatus.FAILED) fail("Transcription failed: ${r.problem}")
+            if (r?.status == RunStatus.DONE && Jobs.pending(context).isEmpty()) break
+            Thread.sleep(500)
+        }
+        assertEquals(SessionStatus.READY, store.session(id)!!.status)
+        val run = store.runs(id).single()
         assertEquals(RunStatus.DONE, run.status)
+        assertTrue(Jobs.progress.value[id] == null)
         assertTrue(Seal.intact(run))
         assertTrue(run.text, run.wordCount >= 20)
         assertTrue(run.segments.all { it.endMs > it.startMs })
