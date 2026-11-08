@@ -40,7 +40,7 @@ class Transcriber(private val context: Context) {
         val vadPack = catalog.byRole(PackRole.VAD).first()
         check(models.state(vadPack) is PackState.Verified) { "Voice activity model is not downloaded" }
 
-        val threads = Speech.threads()
+        val threads = store.threadsFor(Speech.modelEngine(engine))
         val vadSettings = mapOf("vad" to "silero", "vadThreshold" to "0.5", "vadMinSilence" to "0.4", "vadMaxSpeech" to "20")
         var run = TranscriptRun(
             id = Ids.new(), sessionId = sessionId, engine = engine, engineTitle = asr.title + when { hints != null -> " + medicine hints"; engine.endsWith("+beam") -> ", beam search"; else -> "" },

@@ -54,17 +54,20 @@ fun SecondOpinion(ui: SessionUi, a: SessionActions, onReview: () -> Unit) {
     Spacer(Modifier.height(14.dp))
     when {
         compare != null && (diffs.isNotEmpty() || meds.isNotEmpty()) -> {
-            Text(listOfNotNull(
+            Text(if (ui.allDifferences) listOfNotNull(
                 "${engineName(compare.engine)} heard ${diffs.size} ${if (diffs.size == 1) "place" else "places"} differently",
                 if (medSuggestions > 0) "$medSuggestions about medicines" else null,
-            ).joinToString(", ") + ".", style = Type.body)
+            ).joinToString(", ") + "."
+            else "${medSuggestions} ${if (medSuggestions == 1) "medicine" else "medicines"} to check: " +
+                listOfNotNull(diffs.size.takeIf { it > 0 }?.let { "$it heard by ${engineName(compare.engine)}" }, meds.size.takeIf { it > 0 }?.let { "$it misspelled" }).joinToString(", ") + ".",
+                style = Type.body)
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 AmberButton("Review ${diffs.size + meds.size}", onReview, Modifier.weight(1f))
                 if (medSuggestions > 0) GhostButton(if (medSuggestions == 1) "Take the medicine" else "Take all $medSuggestions medicines", r.onAcceptAllMedicines, Modifier.weight(1f), color = Ink.Teal, minHeight = 52.dp)
             }
         }
-        compare != null -> Status("Checked against ${engineName(compare.engine)}: nothing left to look at", Ink.Teal)
+        compare != null -> Status(if (ui.allDifferences) "Checked against ${engineName(compare.engine)}: nothing left to look at" else "Medicines checked against ${engineName(compare.engine)}", Ink.Teal)
         meds.isNotEmpty() -> {
             Text("${meds.size} medicine ${if (meds.size == 1) "name looks" else "names look"} misspelled.", style = Type.body)
             Spacer(Modifier.height(10.dp))

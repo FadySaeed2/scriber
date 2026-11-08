@@ -45,7 +45,13 @@ data class ModelsUi(
 /** Engine scores on one of Fady's own sessions that he corrected and marked as right. */
 data class OwnScore(val sessionId: String, val sessionTitle: String, val minutes: Double, val scores: List<Scoring.EngineScore>, val canTryHints: Boolean = false)
 
-data class LabUi(val step: String? = null, val report: LabReport? = null, val modelsReady: Boolean = false, val own: List<OwnScore> = emptyList())
+data class LabUi(
+    val step: String? = null,
+    val report: LabReport? = null,
+    val modelsReady: Boolean = false,
+    val own: List<OwnScore> = emptyList(),
+    val speed: com.fadysaeed.scriber.data.ThreadPlan? = null,
+)
 
 data class SessionRow(val session: Session, val latest: TranscriptRun?, val job: JobProgress?)
 
@@ -80,6 +86,8 @@ data class SessionUi(
     val speakerOf: List<Int>? = null,
     /** The speaker models are on the phone. */
     val canFindSpeakers: Boolean = false,
+    /** Show every difference, not only those about medicines (a setting, off by default). */
+    val allDifferences: Boolean = false,
 ) {
     val run: TranscriptRun? get() = runs.firstOrNull { it.id == selectedRunId } ?: runs.lastOrNull()
 
@@ -98,7 +106,8 @@ data class SessionUi(
     }
 
     /** Differences Fady has not dealt with yet. */
-    val openDifferences: List<Difference> get() = reading?.differences.orEmpty().filter { d -> d.id !in edits?.kept.orEmpty() && !touched(d.from, d.to) }
+    val openDifferences: List<Difference> get() = reading?.differences.orEmpty()
+        .filter { d -> (allDifferences || d.medicine != null) && d.id !in edits?.kept.orEmpty() && !touched(d.from, d.to) }
 
     /** Medicines in the transcript that look misspelled and have not been dealt with. */
     val openMedicines: List<MedicineHit> get() = reading?.medicines.orEmpty().filter { m -> !m.exact && m.id !in edits?.kept.orEmpty() && !touched(m.from, m.to) }

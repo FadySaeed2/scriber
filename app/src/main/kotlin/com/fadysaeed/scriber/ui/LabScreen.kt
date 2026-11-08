@@ -27,7 +27,7 @@ private fun pct(d: Double) = String.format(Locale.ROOT, "%.1f%%", d * 100)
 private fun one(d: Double) = String.format(Locale.ROOT, "%.1f", d)
 
 @Composable
-fun LabScreen(ui: LabUi, onRun: () -> Unit, onCopy: (String) -> Unit, onTryHints: () -> Unit = {}) {
+fun LabScreen(ui: LabUi, onRun: () -> Unit, onCopy: (String) -> Unit, onTryHints: () -> Unit = {}, onSpeed: () -> Unit = {}) {
     Heading("Scriber", "Lab", "Measures every model on this phone: public test recordings, and your own sessions once you have corrected them.")
     if (ui.step != null) {
         Status("Running", Ink.Teal); Spacer(Modifier.height(8.dp))
@@ -39,6 +39,7 @@ fun LabScreen(ui: LabUi, onRun: () -> Unit, onCopy: (String) -> Unit, onTryHints
         Spacer(Modifier.height(14.dp))
         AmberButton("Run checks", onRun, Modifier.fillMaxWidth())
     }
+    Speed(ui, onSpeed)
     if (ui.own.isNotEmpty()) OwnScores(ui.own, onTryHints)
     ui.report?.let { Results(it, onCopy) }
 }
@@ -123,4 +124,25 @@ private fun AsrBlock(a: AsrRun, best: Boolean) {
             Text(x.heard, style = Type.mono, modifier = Modifier.padding(bottom = 10.dp))
         }
     }
+}
+
+
+/** Which number of cores is fastest for each engine on this phone. */
+@Composable
+private fun Speed(ui: LabUi, onSpeed: () -> Unit) {
+    Section("Speed on this phone")
+    val plan = ui.speed
+    if (plan == null) {
+        Text("Times each engine with different numbers of processor cores and keeps the fastest. The transcripts stay the same; only the time changes. About two minutes.", style = Type.small, modifier = Modifier.padding(top = 8.dp))
+    } else {
+        for ((engine, t) in plan.timings) {
+            val best = plan.best[engine]
+            val name = if (engine == "speakers") "Speakers" else engineName(engine)
+            Fact(name, t.entries.joinToString("   ") { (n, ms) -> "$n: ${one(ms / 1000.0)} s" }, Ink.Bone)
+            if (best != null) Text("Uses $best cores", style = Type.small.copy(color = Ink.Teal), modifier = Modifier.padding(bottom = 6.dp))
+        }
+        Text("Each on the same ${one(plan.clipSeconds)} s of test speech.", style = Type.small)
+    }
+    Spacer(Modifier.height(10.dp))
+    GhostButton(if (plan == null) "Speed check" else "Check speed again", onSpeed, Modifier.fillMaxWidth(), color = Ink.Amber, enabled = ui.step == null, minHeight = 52.dp)
 }

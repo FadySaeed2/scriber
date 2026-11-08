@@ -212,7 +212,7 @@ class ScreensTest {
     }
 
     @Test fun labWithOwnScores() = tabShot("19_lab_own.png", Tab.Lab) {
-        LabScreen(LabUi(report = report, modelsReady = true, own = listOf(OwnScore("s1", "Role-play review", 14.2, canTryHints = true, scores = listOf(
+        LabScreen(LabUi(report = report, modelsReady = true, speed = com.fadysaeed.scriber.data.ThreadPlan(mapOf("parakeet" to 4, "medasr" to 3, "speakers" to 6), mapOf("parakeet" to mapOf(2 to 2900L, 3 to 2100L, 4 to 1800L, 6 to 1900L, 8 to 2400L), "medasr" to mapOf(2 to 1300L, 3 to 900L, 4 to 950L, 6 to 1000L, 8 to 1300L), "speakers" to mapOf(2 to 9100L, 3 to 6600L, 4 to 5200L, 6 to 4800L, 8 to 5600L)), 30.0, now), own = listOf(OwnScore("s1", "Role-play review", 14.2, canTryHints = true, scores = listOf(
             com.fadysaeed.scriber.core.Scoring.EngineScore("parakeet", "Parakeet", com.fadysaeed.scriber.core.Wer.Result(2140, 62), 9, 14),
             com.fadysaeed.scriber.core.Scoring.EngineScore("medasr", "MedASR", com.fadysaeed.scriber.core.Wer.Result(2140, 131), 13, 14),
         )))), {}, {})

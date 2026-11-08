@@ -130,6 +130,52 @@ class LabRunner(private val context: Context, private val catalog: ModelCatalog,
         }
     }
 
+    /**
+     * Times each engine on the same clip of test speech with different numbers of cores, and keeps
+     * the fastest for each. Same models, same audio: only the time changes. Nothing is kept from the
+     * transcripts made here.
+     */
+    suspend fun speedCheck(onStep: (String) -> Unit): com.fadysaeed.scriber.data.ThreadPlan = withContext(Dispatchers.Default) {
+        val bench = ready(PackRole.BENCHMARK_AUDIO).firstOrNull() ?: error("Download the models first")
+        val wavs = bench.files.filter { it.path.endsWith(".wav") }.map { Speech.readWave(store.file(bench, it)) }
+        // About thirty seconds of speech.
+        val clip = concat(wavs).let { a -> Audio(a.samples.copyOf(minOf(a.samples.size, 30 * Speech.SAMPLE_RATE)), Speech.SAMPLE_RATE) }
+        val cores = Runtime.getRuntime().availableProcessors()
+        val options = listOf(2, 3, 4, 6, 8).filter { it <= cores }
+        val timings = LinkedHashMap<String, Map<Int, Long>>()
+        fun best(m: Map<Int, Long>) = m.minByOrNull { it.value }?.key ?: Speech.threads()
+        for (pack in ready(PackRole.ASR)) {
+            val engine = pack.engine ?: continue
+            val t = LinkedHashMap<Int, Long>()
+            for (n in options) {
+                onStep("Speed: ${pack.title}, $n cores")
+                val rec = Speech.recognizer(engine, store.dir(pack), n)
+                try {
+                    Speech.decode(rec, Audio(clip.samples.copyOf(minOf(clip.samples.size, 5 * Speech.SAMPLE_RATE)), Speech.SAMPLE_RATE)) // warm up
+                    val t0 = SystemClock.elapsedRealtime()
+                    Speech.decode(rec, clip)
+                    t[n] = SystemClock.elapsedRealtime() - t0
+                } finally { rec.release() }
+            }
+            timings[engine] = t
+        }
+        if (com.fadysaeed.scriber.work.SpeakerFinder.ready(context)) {
+            val seg = ready(PackRole.SEGMENTATION).first(); val emb = ready(PackRole.SPEAKER_EMBEDDING).first()
+            val t = LinkedHashMap<Int, Long>()
+            for (n in options) {
+                onStep("Speed: speaker model, $n cores")
+                val d = Speech.diarizer(store.file(seg, seg.files.first()), store.file(emb, emb.files.first()), speakers = 2, threads = n)
+                try {
+                    val t0 = SystemClock.elapsedRealtime()
+                    d.process(clip.samples)
+                    t[n] = SystemClock.elapsedRealtime() - t0
+                } finally { d.release() }
+            }
+            timings["speakers"] = t
+        }
+        com.fadysaeed.scriber.data.ThreadPlan(timings.mapValues { best(it.value) }, timings, clip.seconds, System.currentTimeMillis())
+    }
+
     private fun concat(parts: List<Audio>): Audio {
         parts.firstOrNull { it.sampleRate != Speech.SAMPLE_RATE }?.let { error("Test audio is ${it.sampleRate} Hz, expected ${Speech.SAMPLE_RATE}") }
         val total = parts.sumOf { it.samples.size }

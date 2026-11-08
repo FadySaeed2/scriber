@@ -90,3 +90,13 @@ pieces take the voice pyannote heard there. Speakers run straight after the main
 the second opinion), the transcript is readable meanwhile, and both pyannote's turns and the prints
 are saved, so another number of voices only regroups them. The print-only way stays out until it
 is measured on real conversations.
+
+**2026-11-08. Second opinion shows medicines only.** Fady's use: Parakeet is far better at ordinary
+speech; MedASR earns its place only on medicine names. Other differences stay in the data and come
+back with a Settings switch.
+
+**2026-11-08. Speed from measured core counts.** The phone mixes fast and power-saving cores, and an
+engine on all of them can be slower than on a few. The Lab's speed check times each engine (Parakeet,
+MedASR, the speaker model) on the same 30 s of test speech with 2 to 8 cores and keeps the fastest;
+jobs use it. Same models, same audio, so the words stay the same; each sealed run records its cores.
+GPU or NPU paths and smaller models were left out: less safe or less accurate.

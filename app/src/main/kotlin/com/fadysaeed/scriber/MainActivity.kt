@@ -136,7 +136,7 @@ class MainActivity : FragmentActivity() {
                         { pickAudio.launch(arrayOf("audio/*", "video/*")) }, { showRecording = true }, ::open)
                     Tab.Models -> ModelsScreen(vm.modelsUi.collectAsState().value, ::download, vm::cancelDownload, { vm.verifyAll() },
                         { vm.chooseLlm(it) }, { vm.setWifiOnly(it) }, vm::dismissMessage)
-                    Tab.Lab -> LabScreen(vm.lab.collectAsState().value, vm::runLab, ::copy) { vm.tryHints() }
+                    Tab.Lab -> LabScreen(vm.lab.collectAsState().value, vm::runLab, ::copy, { vm.tryHints() }) { vm.runSpeedCheck() }
                     Tab.Settings -> SettingsScreen(vm.settings.collectAsState().value, { vm.updateSettings(it) },
                         { authenticate("Allow model downloads") { vm.unlockDownloads() } }, { vm.lockDownloads() }, { vm.checkVault() },
                         { vm.settings.value.crash?.let(::copy) }, { vm.clearCrash() })

@@ -16,6 +16,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
 
+/** Measured speed of each engine with different numbers of cores; [best] is what jobs use. */
+@Serializable
+data class ThreadPlan(
+    val best: Map<String, Int> = emptyMap(),
+    /** Engine to (cores to milliseconds for the same clip). */
+    val timings: Map<String, Map<Int, Long>> = emptyMap(),
+    val clipSeconds: Double = 0.0,
+    val measuredAtMillis: Long = 0,
+)
+
 /** App-wide settings, kept encrypted. */
 @Serializable
 data class AppSettings(
@@ -31,6 +41,8 @@ data class AppSettings(
     val speakers: Int = 2,
     /** Find who is speaking in every new conversation, while it is transcribed. */
     val findSpeakers: Boolean = true,
+    /** Show every place the second engine heard differently, not only medicines. */
+    val showAllDifferences: Boolean = false,
 ) {
     fun engineFor(@Suppress("UNUSED_PARAMETER") mode: SessionMode) = baseEngine
     /** The second engine to run after the base one, or null when the second opinion is off. */
@@ -112,6 +124,14 @@ class SessionStore(private val vault: Vault) {
 
     /** Turns speakers off for one session; the voice prints stay, so turning them on again is instant. */
     fun removeSpeakers(sessionId: String) { vault.deleteRecord("speakers/$sessionId.json"); touched() }
+
+    /** Fastest number of processor cores for each engine on this phone, from the Lab's speed check. */
+    fun threadPlan(): ThreadPlan = runCatching { records.get("thread_plan", ThreadPlan.serializer()) }.getOrNull() ?: ThreadPlan()
+
+    fun saveThreadPlan(p: ThreadPlan) { records.put("thread_plan", ThreadPlan.serializer(), p); touched() }
+
+    /** Cores for [engine] ("parakeet", "medasr", "speakers"): the measured best, or the default. */
+    fun threadsFor(engine: String): Int = threadPlan().best[engine]?.takeIf { it > 0 } ?: com.fadysaeed.scriber.engines.Speech.threads()
 
     /** Voice prints made while the main transcript was written (records/prints/<session>.json). */
     fun prints(sessionId: String): VoicePrints? = runCatching { records.get("prints/$sessionId", VoicePrints.serializer()) }.getOrNull()

@@ -90,7 +90,7 @@ class SpeakerFinder(private val context: Context) {
             val catalog = ModelCatalog.bundled()
             val seg = catalog.byRole(PackRole.SEGMENTATION).first { models.state(it) is PackState.Verified }
             val emb = catalog.byRole(PackRole.SPEAKER_EMBEDDING).first { models.state(it) is PackState.Verified }
-            val threads = Speech.threads()
+            val threads = SessionStore.get(Vault.get(context)).threadsFor("speakers")
             val d = Speech.diarizer(models.file(seg, seg.files.first()), models.file(emb, emb.files.first()), speakers = if (count > 0) count else -1, threads = threads)
             val model = try {
                 // Not processWithCallback: its native side looks for an invoke(int, int, long) method

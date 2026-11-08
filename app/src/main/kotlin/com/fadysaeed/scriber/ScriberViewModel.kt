@@ -81,7 +81,7 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
             val prefs = Records(vault).get("prefs", Prefs.serializer()) ?: Prefs()
             val report = runCatching { Records(vault).get("lab_report", LabReport.serializer()) }.getOrNull()
             _models.update { it.copy(device = device, recommendedLlm = recommended, chosenLlm = prefs.chosenLlm ?: recommended, wifiOnly = prefs.wifiOnly) }
-            _lab.update { it.copy(report = report) }
+            _lab.update { it.copy(report = report, speed = store.threadPlan().takeIf { p -> p.measuredAtMillis > 0 }) }
             Exporter.clean(app)
             runCatching { store.applyRetention() }
             refresh()
@@ -146,7 +146,8 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
         _session.update {
             it.copy(session = s, runs = runs, selectedRunId = selected, job = Jobs.progress.value[id], engines = engines,
                 reading = reading, compareRun = compare, edits = edits, missingSecond = missing,
-                speakers = speakers, speakerOf = speakerOf, canFindSpeakers = s.mode == SessionMode.CONVERSATION && SpeakerFinder.ready(getApplication()))
+                speakers = speakers, speakerOf = speakerOf, canFindSpeakers = s.mode == SessionMode.CONVERSATION && SpeakerFinder.ready(getApplication()),
+                allDifferences = settings.showAllDifferences)
         }
     }
 
@@ -441,6 +442,17 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
             withContext(Dispatchers.IO) { Records(vault).put("lab_report", LabReport.serializer(), report) }
             _lab.update { it.copy(step = null, report = report) }
             _settings.update { it.copy(vaultOk = report.vault?.ok, vaultDetail = report.vault?.detail.orEmpty()) }
+        }
+    }
+
+    fun runSpeedCheck() {
+        if (_lab.value.step != null) return
+        viewModelScope.launch {
+            _lab.update { it.copy(step = "Starting") }
+            val plan = runCatching { LabRunner(getApplication(), catalog, models).speedCheck { step -> _lab.update { it.copy(step = step) } } }
+            plan.onSuccess { p -> withContext(Dispatchers.IO) { store.saveThreadPlan(p) }; say("Saved: every job now uses the fastest setting for this phone.") }
+                .onFailure { say("Speed check stopped: ${it.message}") }
+            _lab.update { it.copy(step = null, speed = plan.getOrNull() ?: it.speed) }
         }
     }
 
