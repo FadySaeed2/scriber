@@ -66,6 +66,15 @@ class ModelDownloader(private val store: ModelStore) {
                     kotlinx.coroutines.delay(5_000L * attempt)
                 } catch (e: MissingThereException) {
                     last = e; break
+                } catch (e: java.net.SocketTimeoutException) {
+                    // A host that does not answer in time: same as busy.
+                    last = e
+                    if (++attempt > (if (i == urls.lastIndex) 3 else 1)) break
+                    kotlinx.coroutines.delay(5_000L * attempt)
+                } catch (e: java.net.ConnectException) {
+                    last = e
+                    if (++attempt > (if (i == urls.lastIndex) 3 else 1)) break
+                    kotlinx.coroutines.delay(5_000L * attempt)
                 }
             }
             if (ok) break
