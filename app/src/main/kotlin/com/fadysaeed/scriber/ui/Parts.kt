@@ -15,9 +15,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,7 +49,7 @@ fun SectionLabel(text: String) {
 @Composable
 fun Panel(modifier: Modifier = Modifier, accent: Color? = null, content: @Composable ColumnScope.() -> Unit) {
     val shape = RoundedCornerShape(18.dp)
-    Column(
+    CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) { Column(
         modifier
             .fillMaxWidth()
             .clip(shape)
@@ -56,7 +58,7 @@ fun Panel(modifier: Modifier = Modifier, accent: Color? = null, content: @Compos
             .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
         content = content,
-    )
+    ) }
 }
 
 @Composable

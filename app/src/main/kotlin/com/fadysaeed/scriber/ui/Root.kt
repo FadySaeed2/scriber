@@ -16,9 +16,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,6 +31,7 @@ enum class Tab(val label: String) { Models("Models"), Lab("Lab"), Security("Secu
 @Composable
 fun Frame(tab: Tab, onTab: (Tab) -> Unit, content: @Composable () -> Unit) {
     val s = LocalSignals.current
+    CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
             Column(
@@ -52,4 +55,5 @@ fun Frame(tab: Tab, onTab: (Tab) -> Unit, content: @Composable () -> Unit) {
             }
         }
     }
+}
 }

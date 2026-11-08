@@ -24,7 +24,7 @@ fun LockScreen(problem: String?, onUnlock: () -> Unit) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Scriber", style = MaterialTheme.typography.headlineMedium)
+        Text("Scriber", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
         Spacer(Modifier.height(8.dp))
         Text("Locked", style = MaterialTheme.typography.bodyLarge, color = s.muted)
         Spacer(Modifier.height(28.dp))
