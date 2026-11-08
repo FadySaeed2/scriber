@@ -47,11 +47,13 @@ object Speech {
     fun modelEngine(engine: String) = engine.substringBefore('+')
 
     /**
-     * A recogniser for an engine: "parakeet", "medasr", or "parakeet+hints" (Parakeet with beam
-     * search and the medicine list as hotwords, which needs [hints]).
+     * A recogniser for an engine: "parakeet", "medasr", "parakeet+beam" (a wider search over
+     * possible sentences), or "parakeet+hints" (that search leaning towards the medicine list, which
+     * needs [hints]).
      */
     fun recognizer(engine: String, dir: File, threads: Int = threads(), hints: Hints? = null): OfflineRecognizer {
         val withHints = engine.endsWith("+hints") && hints != null
+        val beam = withHints || engine.endsWith("+beam")
         val model = when (modelEngine(engine)) {
             "parakeet" -> OfflineModelConfig(
                 transducer = OfflineTransducerModelConfig(
@@ -78,7 +80,7 @@ object Speech {
             config = OfflineRecognizerConfig(
                 featConfig = FeatureConfig(sampleRate = SAMPLE_RATE, featureDim = 80),
                 modelConfig = model,
-                decodingMethod = if (withHints) "modified_beam_search" else "greedy_search",
+                decodingMethod = if (beam) "modified_beam_search" else "greedy_search",
                 maxActivePaths = 4,
                 hotwordsFile = if (withHints) hints!!.hotwordsFile.path else "",
                 hotwordsScore = hints?.score ?: 1.5f,

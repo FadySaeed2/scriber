@@ -43,9 +43,9 @@ class Transcriber(private val context: Context) {
         val threads = Speech.threads()
         val vadSettings = mapOf("vad" to "silero", "vadThreshold" to "0.5", "vadMinSilence" to "0.4", "vadMaxSpeech" to "20")
         var run = TranscriptRun(
-            id = Ids.new(), sessionId = sessionId, engine = engine, engineTitle = asr.title + if (hints != null) " + medicine hints" else "",
+            id = Ids.new(), sessionId = sessionId, engine = engine, engineTitle = asr.title + when { hints != null -> " + medicine hints"; engine.endsWith("+beam") -> ", beam search"; else -> "" },
             modelSha256 = asr.files.first { it.path.endsWith(".onnx") }.sha256,
-            settings = vadSettings + mapOf("threads" to "$threads", "decoding" to if (hints != null) "modified_beam_search" else "greedy_search",
+            settings = vadSettings + mapOf("threads" to "$threads", "decoding" to if (hints != null || engine.endsWith("+beam")) "modified_beam_search" else "greedy_search",
                 "runtime" to "sherpa-onnx 2.0.1", "catalog" to "${catalog.version}") +
                 (if (hints != null) mapOf("hotwords" to "${hints.hotwordsFile.readLines().count { it.isNotBlank() }}", "hotwordsScore" to "${hints.score}") else emptyMap()),
             audioSha256 = session.audioSha256.orEmpty(), startedAtMillis = System.currentTimeMillis(), status = RunStatus.RUNNING,

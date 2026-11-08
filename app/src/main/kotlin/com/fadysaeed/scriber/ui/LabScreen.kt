@@ -60,7 +60,7 @@ private fun OwnScores(own: List<com.fadysaeed.scriber.OwnScore>, onTryHints: () 
     }
     if (own.any { it.canTryHints }) {
         Spacer(Modifier.height(14.dp))
-        Text("A trial: Parakeet listens again with the medicine list in mind, and is scored here beside the others. It adds a third transcript to those sessions and changes nothing else.", style = Type.small)
+        Text("A trial: Parakeet listens again twice, once searching wider and once with the medicine list in mind, and both are scored here beside the others. It adds two transcripts to those sessions and changes nothing else.", style = Type.small)
         Spacer(Modifier.height(10.dp))
         GhostButton("Try Parakeet with medicine hints", onTryHints, Modifier.fillMaxWidth(), color = Ink.Amber, minHeight = 52.dp)
     }

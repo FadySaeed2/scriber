@@ -312,7 +312,10 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
     /** Transcribes Fady's reference sessions once more with Parakeet and the medicine hints, to score them. */
     fun tryHints() = viewModelScope.launch(Dispatchers.IO) {
         val todo = _lab.value.own.filter { it.canTryHints }
-        for (o in todo) Jobs.transcribe(getApplication(), o.sessionId, "parakeet+hints")
+        for (o in todo) {
+            Jobs.transcribe(getApplication(), o.sessionId, "parakeet+beam")
+            Jobs.transcribe(getApplication(), o.sessionId, "parakeet+hints")
+        }
         say(if (todo.isEmpty()) "Nothing to try." else "Transcribing ${todo.size} of your sessions with medicine hints. Scores appear here when done.")
         _lab.update { l -> l.copy(own = l.own.map { it.copy(canTryHints = false) }) }
     }
@@ -344,7 +347,7 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
             val reading = Compare.reading(base, null, s.mode, meds)
             val reference = Document.lines(base, reading, layer).joinToString(" ") { it.text }
             OwnScore(s.id, s.title, s.durationMs / 60_000.0, Scoring.score(reference, runs, meds),
-                canTryHints = s.hasAudio && runs.none { it.engine == "parakeet+hints" } && store.runs(s.id).none { it.engine == "parakeet+hints" && it.status == RunStatus.RUNNING })
+                canTryHints = s.hasAudio && runs.none { it.engine == "parakeet+hints" } && store.runs(s.id).none { it.engine.startsWith("parakeet+") && it.status == RunStatus.RUNNING })
         }
         _lab.update { it.copy(own = own) }
     }

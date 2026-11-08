@@ -46,8 +46,10 @@ class LabRunner(private val context: Context, private val catalog: ModelCatalog,
             onStep("Speech to text: ${pack.title}")
             runCatching { runs += asr(pack, clips, references) }.onFailure { problems += "${pack.title}: ${it.message}" }
             if (pack.engine == "parakeet") {
+                onStep("Speech to text: Parakeet, beam search")
+                runCatching { runs += asr(pack, clips, references, variant = "+beam") }.onFailure { problems += "Parakeet, beam search: ${it.message}" }
                 onStep("Speech to text: Parakeet with medicine hints")
-                runCatching { runs += asr(pack, clips, references, hinted = true) }.onFailure { problems += "Parakeet with medicine hints: ${it.message}" }
+                runCatching { runs += asr(pack, clips, references, variant = "+hints") }.onFailure { problems += "Parakeet with medicine hints: ${it.message}" }
             }
         }
         report = report.copy(asr = runs)
@@ -103,11 +105,11 @@ class LabRunner(private val context: Context, private val catalog: ModelCatalog,
 
     private fun ready(role: PackRole): List<ModelPack> = catalog.byRole(role).filter { store.state(it) is PackState.Verified }
 
-    private fun asr(pack: ModelPack, clips: List<Pair<String, Audio>>, refs: Map<String, String>, hinted: Boolean = false): AsrRun {
+    private fun asr(pack: ModelPack, clips: List<Pair<String, Audio>>, refs: Map<String, String>, variant: String = ""): AsrRun {
         val threads = Speech.threads()
         val t0 = SystemClock.elapsedRealtime()
-        val hints = if (hinted) com.fadysaeed.scriber.engines.MedicineHints.prepare(context, store.dir(pack), com.fadysaeed.scriber.data.SessionStore.get(Vault.get(context)).personalWords()) else null
-        val engine = (pack.engine ?: error("no engine")) + if (hinted) "+hints" else ""
+        val hints = if (variant == "+hints") com.fadysaeed.scriber.engines.MedicineHints.prepare(context, store.dir(pack), com.fadysaeed.scriber.data.SessionStore.get(Vault.get(context)).personalWords()) else null
+        val engine = (pack.engine ?: error("no engine")) + variant
         val recognizer = Speech.recognizer(engine, store.dir(pack), threads, hints)
         val loadMs = SystemClock.elapsedRealtime() - t0
         try {
@@ -120,7 +122,7 @@ class LabRunner(private val context: Context, private val catalog: ModelCatalog,
                 AsrSample(name, audio.seconds, ms, w.rate, heard, ref) to w
             }
             return AsrRun(
-                engine = engine, title = pack.title + if (hinted) " + medicine hints" else "", threads = threads, loadMs = loadMs,
+                engine = engine, title = pack.title + when (variant) { "+hints" -> " + medicine hints"; "+beam" -> ", beam search"; else -> "" }, threads = threads, loadMs = loadMs,
                 audioSeconds = clips.sumOf { it.second.seconds },
                 decodeMs = samples.sumOf { it.first.decodeMs },
                 // 2.wav's published reference has a sentence that is not in the audio, so it is shown but not scored.
