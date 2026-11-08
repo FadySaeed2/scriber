@@ -166,4 +166,19 @@ class Phase2CoreTest {
         assertEquals("Patient", Document.lines(base, r, null, w2) { moved.name(it) }.last().speakerName)
         assertTrue(TranscriptFormats.plain(Document.lines(base, r, null, w2) { moved.name(it) }, SessionMode.CONVERSATION, false).contains("Patient: Better, thanks."))
     }
+
+    @Test fun voicePrintsGroupIntoVoices() {
+        fun v(vararg x: Float) = x
+        val a = listOf(v(1f, 0.1f, 0f), v(0.9f, 0.2f, 0.1f), v(1f, 0f, 0.1f))
+        val b = listOf(v(0f, 1f, 0.2f), v(0.1f, 0.9f, 0f))
+        // Interleaved like a conversation: A B A B A.
+        val prints = listOf(a[0], b[0], a[1], b[1], a[2])
+        assertEquals(listOf(0, 1, 0, 1, 0), Voices.cluster(prints, 2).toList())
+        assertEquals(listOf(0, 1, 0, 1, 0), Voices.cluster(prints, 0).toList())
+        // One voice only, though two were asked for: kept as one.
+        assertEquals(listOf(0, 0, 0), Voices.cluster(a, 2).toList())
+        // Three voices asked, three given.
+        val c = v(0f, 0f, 1f)
+        assertEquals(listOf(0, 1, 2, 0), Voices.cluster(listOf(a[0], b[0], c, a[1]), 3).toList())
+    }
 }

@@ -114,3 +114,38 @@ object Speakers {
         return out.toList()
     }
 }
+
+/**
+ * Groups voice prints (one per stretch of speech) into voices. Average-link agglomerative
+ * clustering on cosine similarity: the two most alike groups join until [k] are left (or, with k = 0,
+ * until no two groups are alike enough). Groups that end up very alike are one voice after all,
+ * so a single speaker is never split in two just because two were asked for.
+ */
+object Voices {
+    fun cosine(a: FloatArray, b: FloatArray): Float {
+        var dot = 0.0; var na = 0.0; var nb = 0.0
+        for (i in a.indices) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i] }
+        return if (na == 0.0 || nb == 0.0) 0f else (dot / Math.sqrt(na * nb)).toFloat()
+    }
+
+    fun cluster(prints: List<FloatArray>, k: Int, joinAbove: Float = 0.45f, sameVoiceAbove: Float = 0.7f): IntArray {
+        val n = prints.size
+        if (n == 0) return IntArray(0)
+        val sim = Array(n) { i -> FloatArray(n) { j -> if (i == j) 1f else cosine(prints[i], prints[j]) } }
+        val groups = (0 until n).map { mutableListOf(it) }.toMutableList()
+        fun link(a: List<Int>, b: List<Int>): Float { var s = 0f; for (x in a) for (y in b) s += sim[x][y]; return s / (a.size * b.size) }
+        while (groups.size > 1) {
+            var bi = -1; var bj = -1; var best = -2f
+            for (i in groups.indices) for (j in i + 1 until groups.size) {
+                val l = link(groups[i], groups[j]); if (l > best) { best = l; bi = i; bj = j }
+            }
+            val enough = if (k > 0) groups.size <= k && best < sameVoiceAbove else best < joinAbove
+            if (enough) break
+            groups[bi].addAll(groups[bj]); groups.removeAt(bj)
+        }
+        // Number voices in order of first speaking.
+        val out = IntArray(n)
+        groups.sortedBy { it.min() }.forEachIndexed { label, g -> for (x in g) out[x] = label }
+        return out
+    }
+}
