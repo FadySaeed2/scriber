@@ -161,7 +161,7 @@ data class VoicePrints(val sessionId: String, val runId: String, val model: Stri
 object Pieces {
     /** Shortest stretch that gets a voice print, and the most of it that is used. */
     const val MIN_PRINT_MS = 800L
-    const val MAX_PRINT_MS = 4_000L
+    const val MAX_PRINT_MS = 10_000L
 
     /**
      * Splits one transcript line where the words pause long enough for the other person to have

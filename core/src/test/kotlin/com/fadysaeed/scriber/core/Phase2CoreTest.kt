@@ -186,7 +186,7 @@ class Phase2CoreTest {
         // "How are you sleeping" then a long pause, then "Badly, doctor" inside one line.
         val parts = Pieces.split(0, 5000, listOf(0, 300, 600, 900, 3300, 3800), listOf(3, 3, 3, 8, 6, 6))
         assertEquals(listOf(0L until 3300L, 3300L until 5000L), parts)
-        assertEquals(3000L until 7000L, Pieces.printWindow(0L until 10000L))
+        assertEquals(5000L until 15000L, Pieces.printWindow(0L until 20000L))
         assertEquals(0L until 2000L, Pieces.printWindow(0L until 2000L))
         assertNull(Pieces.printWindow(0L until 500L))
         val a = listOf(1f, 0.1f, 0f); val b = listOf(0f, 1f, 0.1f)
