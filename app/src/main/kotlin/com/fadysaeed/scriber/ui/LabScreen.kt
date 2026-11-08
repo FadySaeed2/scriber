@@ -27,7 +27,7 @@ private fun pct(d: Double) = String.format(Locale.ROOT, "%.1f%%", d * 100)
 private fun one(d: Double) = String.format(Locale.ROOT, "%.1f", d)
 
 @Composable
-fun LabScreen(ui: LabUi, onRun: () -> Unit, onCopy: (String) -> Unit) {
+fun LabScreen(ui: LabUi, onRun: () -> Unit, onCopy: (String) -> Unit, onTryHints: () -> Unit = {}) {
     Heading("Scriber", "Lab", "Measures every model on this phone: public test recordings, and your own sessions once you have corrected them.")
     if (ui.step != null) {
         Status("Running", Ink.Teal); Spacer(Modifier.height(8.dp))
@@ -39,13 +39,13 @@ fun LabScreen(ui: LabUi, onRun: () -> Unit, onCopy: (String) -> Unit) {
         Spacer(Modifier.height(14.dp))
         AmberButton("Run checks", onRun, Modifier.fillMaxWidth())
     }
-    if (ui.own.isNotEmpty()) OwnScores(ui.own)
+    if (ui.own.isNotEmpty()) OwnScores(ui.own, onTryHints)
     ui.report?.let { Results(it, onCopy) }
 }
 
 /** Both engines scored on Fady's own sessions that he corrected and marked as right. */
 @Composable
-private fun OwnScores(own: List<com.fadysaeed.scriber.OwnScore>) {
+private fun OwnScores(own: List<com.fadysaeed.scriber.OwnScore>, onTryHints: () -> Unit) {
     Section("Your own recordings")
     Text("Scored against your corrected transcripts. This stays on the phone.", style = Type.small, modifier = Modifier.padding(top = 8.dp))
     for (o in own) {
@@ -57,6 +57,12 @@ private fun OwnScores(own: List<com.fadysaeed.scriber.OwnScore>) {
             val meds = if (sc.medicinesSaid > 0) ", medicines ${sc.medicinesHeard} of ${sc.medicinesSaid}" else ""
             Fact(engineName(sc.engine), "${pct(sc.wer.rate)} words wrong$meds", if (sc == best && o.scores.size > 1) Ink.Teal else Ink.Bone)
         }
+    }
+    if (own.any { it.canTryHints }) {
+        Spacer(Modifier.height(14.dp))
+        Text("A trial: Parakeet listens again with the medicine list in mind, and is scored here beside the others. It adds a third transcript to those sessions and changes nothing else.", style = Type.small)
+        Spacer(Modifier.height(10.dp))
+        GhostButton("Try Parakeet with medicine hints", onTryHints, Modifier.fillMaxWidth(), color = Ink.Amber, minHeight = 52.dp)
     }
 }
 

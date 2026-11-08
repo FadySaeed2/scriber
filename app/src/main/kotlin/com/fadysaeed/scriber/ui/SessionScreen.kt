@@ -122,7 +122,7 @@ fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet?
                 Section("Transcripts")
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     for (r in ui.runs) {
-                        val label = r.engineTitle.substringBefore(" TDT").removePrefix("Google ") + " · " + SimpleDateFormat("HH:mm", Locale.ENGLISH).format(Date(r.startedAtMillis))
+                        val label = engineName(r.engine) + " · " + SimpleDateFormat("HH:mm", Locale.ENGLISH).format(Date(r.startedAtMillis))
                         Choice(label, r.id == ui.run?.id, { a.onSelectRun(r.id) })
                     }
                 }

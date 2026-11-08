@@ -39,7 +39,9 @@ import com.fadysaeed.scriber.core.MedicineHit
 import com.fadysaeed.scriber.core.WordEdit
 
 /** Short engine name for buttons: "Parakeet", "MedASR". */
-fun engineName(engine: String?): String = when (engine) { "medasr" -> "MedASR"; "parakeet" -> "Parakeet"; null -> "the engine"; else -> engine }
+fun engineName(engine: String?): String = when (engine) {
+    "medasr" -> "MedASR"; "parakeet" -> "Parakeet"; "parakeet+hints" -> "Parakeet + hints"; null -> "the engine"; else -> engine
+}
 
 /** The line under the transcript status: how the second opinion went and what is left to check. */
 @Composable

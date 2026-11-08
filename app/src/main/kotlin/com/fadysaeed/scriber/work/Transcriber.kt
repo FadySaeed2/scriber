@@ -11,6 +11,7 @@ import com.fadysaeed.scriber.core.TranscriptRun
 import com.fadysaeed.scriber.core.Wav
 import com.fadysaeed.scriber.data.SessionStore
 import com.fadysaeed.scriber.engines.Audio
+import com.fadysaeed.scriber.engines.MedicineHints
 import com.fadysaeed.scriber.engines.Speech
 import com.fadysaeed.scriber.fetch.ModelStore
 import com.fadysaeed.scriber.fetch.PackState
@@ -33,7 +34,8 @@ class Transcriber(private val context: Context) {
         val session = store.session(sessionId) ?: error("Session not found")
         val audio = session.workAudioName ?: error("This session has no audio")
         check(session.hasAudio) { "The audio of this session was deleted" }
-        val asr = catalog.byRole(PackRole.ASR).firstOrNull { it.engine == engine } ?: error("Unknown engine $engine")
+        val asr = catalog.byRole(PackRole.ASR).firstOrNull { it.engine == Speech.modelEngine(engine) } ?: error("Unknown engine $engine")
+        val hints = if (engine.endsWith("+hints")) MedicineHints.prepare(context, models.dir(asr), store.personalWords()) else null
         check(models.state(asr) is PackState.Verified) { "${asr.title} is not downloaded" }
         val vadPack = catalog.byRole(PackRole.VAD).first()
         check(models.state(vadPack) is PackState.Verified) { "Voice activity model is not downloaded" }
@@ -41,14 +43,16 @@ class Transcriber(private val context: Context) {
         val threads = Speech.threads()
         val vadSettings = mapOf("vad" to "silero", "vadThreshold" to "0.5", "vadMinSilence" to "0.4", "vadMaxSpeech" to "20")
         var run = TranscriptRun(
-            id = Ids.new(), sessionId = sessionId, engine = engine, engineTitle = asr.title,
+            id = Ids.new(), sessionId = sessionId, engine = engine, engineTitle = asr.title + if (hints != null) " + medicine hints" else "",
             modelSha256 = asr.files.first { it.path.endsWith(".onnx") }.sha256,
-            settings = vadSettings + mapOf("threads" to "$threads", "decoding" to "greedy_search", "runtime" to "sherpa-onnx 2.0.1", "catalog" to "${catalog.version}"),
+            settings = vadSettings + mapOf("threads" to "$threads", "decoding" to if (hints != null) "modified_beam_search" else "greedy_search",
+                "runtime" to "sherpa-onnx 2.0.1", "catalog" to "${catalog.version}") +
+                (if (hints != null) mapOf("hotwords" to "${hints.hotwordsFile.readLines().count { it.isNotBlank() }}", "hotwordsScore" to "${hints.score}") else emptyMap()),
             audioSha256 = session.audioSha256.orEmpty(), startedAtMillis = System.currentTimeMillis(), status = RunStatus.RUNNING,
         )
         store.saveRun(run)
 
-        val recognizer = Speech.recognizer(engine, models.dir(asr), threads)
+        val recognizer = Speech.recognizer(engine, models.dir(asr), threads, hints)
         val vad = Speech.vad(models.file(vadPack, vadPack.files.first()))
         val segments = ArrayList<Segment>()
         try {

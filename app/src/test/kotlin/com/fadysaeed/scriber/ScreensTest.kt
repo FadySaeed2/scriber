@@ -212,7 +212,7 @@ class ScreensTest {
     }
 
     @Test fun labWithOwnScores() = tabShot("19_lab_own.png", Tab.Lab) {
-        LabScreen(LabUi(report = report, modelsReady = true, own = listOf(OwnScore("Role-play review", 14.2, listOf(
+        LabScreen(LabUi(report = report, modelsReady = true, own = listOf(OwnScore("s1", "Role-play review", 14.2, canTryHints = true, scores = listOf(
             com.fadysaeed.scriber.core.Scoring.EngineScore("parakeet", "Parakeet", com.fadysaeed.scriber.core.Wer.Result(2140, 62), 9, 14),
             com.fadysaeed.scriber.core.Scoring.EngineScore("medasr", "MedASR", com.fadysaeed.scriber.core.Wer.Result(2140, 131), 13, 14),
         )))), {}, {})

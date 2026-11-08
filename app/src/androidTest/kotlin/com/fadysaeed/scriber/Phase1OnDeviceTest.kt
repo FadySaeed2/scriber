@@ -181,6 +181,23 @@ class Phase1OnDeviceTest {
         store.saveSettings(settings)
     }
 
+    /** Parakeet with the medicine list as hotwords must load and decode, not crash the app. */
+    @Test fun parakeetWithMedicineHintsDecodes() = runBlocking {
+        val models = speechModels("parakeet")
+        val catalog = ModelCatalog.bundled()
+        val pack = catalog.byRole(PackRole.ASR).first { it.engine == "parakeet" }
+        val bench = catalog.byRole(PackRole.BENCHMARK_AUDIO).single()
+        val wav = bench.files.first { it.path == "1.wav" }
+        ModelDownloader(models).fetch(bench, wav) { _, _ -> }
+        val hints = com.fadysaeed.scriber.engines.MedicineHints.prepare(context, models.dir(pack), com.fadysaeed.scriber.core.PersonalWords())
+        assertTrue(hints.bpeVocab.readLines().size > 500)
+        val rec = com.fadysaeed.scriber.engines.Speech.recognizer("parakeet+hints", models.dir(pack), 2, hints)
+        try {
+            val text = com.fadysaeed.scriber.engines.Speech.transcribe(rec, com.fadysaeed.scriber.engines.Speech.readWave(models.file(bench, wav)))
+            assertTrue(text, text.split(" ").size >= 20)
+        } finally { rec.release() }
+    }
+
     /** Encodes a 44.1 kHz stereo tone as AAC in an MP4 container, like a phone voice recorder would. */
     private fun makeM4a(out: File, seconds: Int): File {
         val rate = 44_100; val ch = 2

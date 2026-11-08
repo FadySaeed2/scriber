@@ -309,6 +309,14 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
         loadSession(s.id)
     }
 
+    /** Transcribes Fady's reference sessions once more with Parakeet and the medicine hints, to score them. */
+    fun tryHints() = viewModelScope.launch(Dispatchers.IO) {
+        val todo = _lab.value.own.filter { it.canTryHints }
+        for (o in todo) Jobs.transcribe(getApplication(), o.sessionId, "parakeet+hints")
+        say(if (todo.isEmpty()) "Nothing to try." else "Transcribing ${todo.size} of your sessions with medicine hints. Scores appear here when done.")
+        _lab.update { l -> l.copy(own = l.own.map { it.copy(canTryHints = false) }) }
+    }
+
     fun secondOpinion(id: String) {
         val engine = _session.value.missingSecond ?: return
         Jobs.transcribe(getApplication(), id, engine)
@@ -335,7 +343,8 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
             val base = runs.firstOrNull { it.id == layer.runId } ?: return@mapNotNull null
             val reading = Compare.reading(base, null, s.mode, meds)
             val reference = Document.lines(base, reading, layer).joinToString(" ") { it.text }
-            OwnScore(s.title, s.durationMs / 60_000.0, Scoring.score(reference, runs, meds))
+            OwnScore(s.id, s.title, s.durationMs / 60_000.0, Scoring.score(reference, runs, meds),
+                canTryHints = s.hasAudio && runs.none { it.engine == "parakeet+hints" } && store.runs(s.id).none { it.engine == "parakeet+hints" && it.status == RunStatus.RUNNING })
         }
         _lab.update { it.copy(own = own) }
     }

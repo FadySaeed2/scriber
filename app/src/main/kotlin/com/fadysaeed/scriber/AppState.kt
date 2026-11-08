@@ -43,7 +43,7 @@ data class ModelsUi(
 }
 
 /** Engine scores on one of Fady's own sessions that he corrected and marked as right. */
-data class OwnScore(val sessionTitle: String, val minutes: Double, val scores: List<Scoring.EngineScore>)
+data class OwnScore(val sessionId: String, val sessionTitle: String, val minutes: Double, val scores: List<Scoring.EngineScore>, val canTryHints: Boolean = false)
 
 data class LabUi(val step: String? = null, val report: LabReport? = null, val modelsReady: Boolean = false, val own: List<OwnScore> = emptyList())
 
