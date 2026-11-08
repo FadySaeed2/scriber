@@ -42,8 +42,21 @@ class SpeakerFinder(private val context: Context) {
         val threads = Speech.threads()
         val d = Speech.diarizer(models.file(seg, seg.files.first()), models.file(emb, emb.files.first()), speakers = if (count > 0) count else -1, threads = threads)
         try {
-            val raw = d.processWithCallback(samples, { done: Int, total: Int, _: Long -> progress(if (total > 0) done.toFloat() / total else 0f); 0 }, 0L)
-                .map { Turn((it.start * 1000).toLong(), (it.end * 1000).toLong(), it.speaker) }
+            // Not processWithCallback: its native side looks for an invoke(int, int, long) method that
+            // Kotlin 2 lambdas do not have, and the app dies. Progress is estimated from the clock
+            // instead, using the phone's measured speed (about five times faster than real time).
+            val expectedMs = (session.durationMs / 5).coerceAtLeast(2_000)
+            val started = System.currentTimeMillis()
+            val ticker = Thread {
+                try {
+                    while (!Thread.currentThread().isInterrupted) {
+                        progress(((System.currentTimeMillis() - started).toFloat() / expectedMs).coerceAtMost(0.95f))
+                        Thread.sleep(1000)
+                    }
+                } catch (_: InterruptedException) {}
+            }.apply { isDaemon = true; start() }
+            val found = try { d.process(samples) } finally { ticker.interrupt() }
+            val raw = found.map { Turn((it.start * 1000).toLong(), (it.end * 1000).toLong(), it.speaker) }
             val clean = Speakers.smooth(raw)
             val old = store.speakers(sessionId)
             val layer = SpeakerLayer(
