@@ -24,6 +24,8 @@ import java.io.File
  * Only the public test recordings are used.
  */
 class LabRunner(private val context: Context, private val catalog: ModelCatalog, private val store: ModelStore) {
+    private val UNSCORED = setOf("2.wav")
+
 
     suspend fun run(onStep: (String) -> Unit): LabReport = withContext(Dispatchers.Default) {
         val problems = mutableListOf<String>()
@@ -114,8 +116,9 @@ class LabRunner(private val context: Context, private val catalog: ModelCatalog,
                 engine = pack.engine.orEmpty(), title = pack.title, threads = threads, loadMs = loadMs,
                 audioSeconds = clips.sumOf { it.second.seconds },
                 decodeMs = samples.sumOf { it.first.decodeMs },
-                referenceWords = samples.sumOf { it.second.referenceWords },
-                errors = samples.sumOf { it.second.errors },
+                // 2.wav's published reference has a sentence that is not in the audio, so it is shown but not scored.
+                referenceWords = samples.filter { it.first.file !in UNSCORED }.sumOf { it.second.referenceWords },
+                errors = samples.filter { it.first.file !in UNSCORED }.sumOf { it.second.errors },
                 samples = samples.map { it.first },
             )
         } finally {

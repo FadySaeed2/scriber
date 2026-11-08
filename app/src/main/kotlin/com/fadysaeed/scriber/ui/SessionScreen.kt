@@ -28,6 +28,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.fadysaeed.scriber.SessionUi
+import com.fadysaeed.scriber.core.Difference
+import com.fadysaeed.scriber.core.MedicineHit
 import com.fadysaeed.scriber.core.RunStatus
 import com.fadysaeed.scriber.core.Seal
 import com.fadysaeed.scriber.core.SessionMode
@@ -41,6 +43,9 @@ import java.util.Date
 import java.util.Locale
 
 sealed interface SessionSheet {
+    data object Review : SessionSheet
+    /** Edit base words [from] until [to] of line [segment]; [current] is what shows there now. */
+    data class Words(val from: Int, val to: Int, val segment: Int, val current: String, val heard: String, val startMs: Long, val endMs: Long, val line: Boolean = false) : SessionSheet
     data object Export : SessionSheet
     data object Engine : SessionSheet
     data object Rename : SessionSheet
@@ -60,6 +65,21 @@ class SessionActions(
     val onExport: (ExportKind, Boolean) -> Unit,
     val onDeleteAudio: () -> Unit,
     val onDeleteSession: () -> Unit,
+    val review: ReviewActions = ReviewActions(),
+)
+
+/** What Fady can do to correct the transcript. */
+class ReviewActions(
+    val onAccept: (Difference) -> Unit = {},
+    val onKeep: (String) -> Unit = {},
+    val onAcceptMedicine: (MedicineHit) -> Unit = {},
+    val onAcceptAllMedicines: () -> Unit = {},
+    val onEdit: (from: Int, to: Int, segment: Int, text: String, addToDictionary: Boolean) -> Unit = { _, _, _, _, _ -> },
+    val onUndo: () -> Unit = {},
+    val onShowEdited: (Boolean) -> Unit = {},
+    val onReference: (Boolean) -> Unit = {},
+    val onSecondOpinion: () -> Unit = {},
+    val onPlayRange: (Long, Long) -> Unit = { _, _ -> },
 )
 
 private fun stamp(ms: Long) = SimpleDateFormat("d MMM yyyy, HH:mm", Locale.ENGLISH).format(Date(ms))
@@ -109,22 +129,20 @@ fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet?
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Status(if (Seal.intact(run)) "Sealed original" else "Seal broken", if (Seal.intact(run)) Ink.Teal else Ink.Ember)
                                 Spacer(Modifier.weight(1f))
+                                if (ui.corrections > 0) {
+                                    Text(if (ui.showEdited) "Corrected" else "Original", style = Type.small.copy(color = Ink.Amber),
+                                        modifier = Modifier.clickable(role = Role.Switch) { a.review.onShowEdited(!ui.showEdited) }.padding(8.dp))
+                                }
                                 if (s.mode == SessionMode.DICTATION) {
                                     Text(if (ui.readable) "Readable" else "Raw", style = Type.small.copy(color = Ink.Amber),
                                         modifier = Modifier.clickable(role = Role.Switch) { a.onReadable(!ui.readable) }.padding(8.dp))
                                 }
                             }
-                            Text("${run.wordCount} words. Tap a line to hear it.", style = Type.small)
+                            Text("${run.wordCount} words. Tap the time to hear a line, a word to correct it.", style = Type.small)
+                            SecondOpinion(ui, a) { sheet = SessionSheet.Review }
                             Spacer(Modifier.height(10.dp))
                             if (run.segments.isEmpty()) Text("No speech was found in this audio.", style = Type.note)
-                            val readable = ui.readable && s.mode == SessionMode.DICTATION
-                            for (seg in run.segments) {
-                                val playingHere = ui.player.playing && ui.player.positionMs in seg.startMs until seg.endMs
-                                Row(Modifier.fillMaxWidth().clickable(enabled = s.hasAudio) { a.onPlay(seg.startMs) }.padding(vertical = 8.dp)) {
-                                    Text(clock(seg.startMs), style = Type.tiny.copy(color = if (playingHere) Ink.Amber else Ink.Ash), modifier = Modifier.width(48.dp).padding(top = 5.dp))
-                                    Text(if (readable) runCatching { TranscriptFormats.readable(seg.text, s.mode) }.getOrDefault(seg.text) else seg.text, style = Type.reading.copy(color = if (playingHere) Ink.Bone else Ink.Sand))
-                                }
-                            }
+                            Transcript(ui, a, readable = ui.readable && s.mode == SessionMode.DICTATION) { sheet = it }
                         }
                     }
                 }
@@ -146,6 +164,8 @@ fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet?
 
         when (val sh = sheet) {
             null -> Unit
+            SessionSheet.Review -> ReviewSheet(ui, a, { sheet = null }) { sheet = it }
+            is SessionSheet.Words -> WordsSheet(sh, ui, a, { sheet = null }) { sheet = it }
             SessionSheet.Export -> Sheet({ sheet = null }) {
                 Eyebrow("Export"); Spacer(Modifier.height(4.dp))
                 for (k in ExportKind.entries) {

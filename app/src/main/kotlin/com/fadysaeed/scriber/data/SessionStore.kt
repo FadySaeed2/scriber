@@ -1,5 +1,7 @@
 package com.fadysaeed.scriber.data
 
+import com.fadysaeed.scriber.core.EditLayer
+import com.fadysaeed.scriber.core.PersonalWords
 import com.fadysaeed.scriber.core.Retention
 import com.fadysaeed.scriber.core.RunStatus
 import com.fadysaeed.scriber.core.Seal
@@ -90,9 +92,21 @@ class SessionStore(private val vault: Vault) {
         }
     }
 
+    /** Fady's corrections to one run, kept beside it (records/edits/<session>/<run>.json). */
+    fun edits(sessionId: String, runId: String): EditLayer? = runCatching { records.get("edits/$sessionId/$runId", EditLayer.serializer()) }.getOrNull()
+
+    fun saveEdits(layer: EditLayer) { records.put("edits/${layer.sessionId}/${layer.runId}", EditLayer.serializer(), layer); touched() }
+
+    fun allEdits(sessionId: String): List<EditLayer> = records.all("edits/$sessionId", EditLayer.serializer())
+
+    fun personalWords(): PersonalWords = runCatching { records.get("personal_words", PersonalWords.serializer()) }.getOrNull() ?: PersonalWords()
+
+    fun savePersonalWords(p: PersonalWords) { records.put("personal_words", PersonalWords.serializer(), p); touched() }
+
     fun deleteSession(id: String) {
         vault.deleteTree("sessions/$id")
         vault.deleteTree("records/runs/$id")
+        vault.deleteTree("records/edits/$id")
         vault.deleteRecord("sessions/$id.json")
         touched()
     }

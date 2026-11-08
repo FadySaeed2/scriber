@@ -182,7 +182,7 @@ object Compare {
         if (baseText.isNotBlank() && altText.isNotBlank() && Wer.normalise(baseText) == Wer.normalise(altText)) return null
         val altMedicine = medicines.find(spanA.map { it.text })
         val baseMedicine = medicines.find(spanB.map { words[it].text })
-        val medicine = altMedicine?.takeIf { baseMedicine?.canonical != it.canonical }?.canonical
+        val medicine = altMedicine?.takeIf { baseMedicine == null || baseMedicine.canonical != it.canonical || !baseMedicine.exact }?.canonical
         // Words only the base heard are not worth a question; words only the second engine heard
         // are shown only when they name a medicine.
         if (spanA.isEmpty()) return null

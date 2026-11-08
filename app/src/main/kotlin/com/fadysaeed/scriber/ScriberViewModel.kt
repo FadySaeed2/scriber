@@ -11,7 +11,19 @@ import com.fadysaeed.scriber.core.AllowedHosts
 import com.fadysaeed.scriber.core.DevicePlan
 import com.fadysaeed.scriber.core.ModelCatalog
 import com.fadysaeed.scriber.core.PackRole
+import com.fadysaeed.scriber.core.Compare
+import com.fadysaeed.scriber.core.Difference
+import com.fadysaeed.scriber.core.Document
+import com.fadysaeed.scriber.core.EditLayer
+import com.fadysaeed.scriber.core.MedicineHit
+import com.fadysaeed.scriber.core.Medicines
+import com.fadysaeed.scriber.core.PersonalWords
+import com.fadysaeed.scriber.core.Reading
+import com.fadysaeed.scriber.core.RunStatus
+import com.fadysaeed.scriber.core.Scoring
 import com.fadysaeed.scriber.core.SessionMode
+import com.fadysaeed.scriber.core.TranscriptFormats
+import com.fadysaeed.scriber.core.WordEdit
 import com.fadysaeed.scriber.data.AppSettings
 import com.fadysaeed.scriber.data.SessionStore
 import com.fadysaeed.scriber.export.Exporter
@@ -97,10 +109,37 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
         _sessions.update { it.copy(rows = rows, speechReady = _models.value.speechReady, problems = problems) }
     }
 
+    private var medicineCache: Pair<PersonalWords, Medicines>? = null
+    private fun medicines(): Medicines {
+        val p = store.personalWords()
+        medicineCache?.let { (cp, m) -> if (cp == p) return m }
+        return Medicines.bundled(p).also { medicineCache = p to it }
+    }
+
+    private var readingCache: Triple<String, String?, Reading>? = null
+
     private fun loadSession(id: String) {
         val s = store.session(id) ?: run { _session.value = SessionUi(); return }
         val engines = catalog.byRole(PackRole.ASR).filter { models.state(it) is PackState.Verified }.map { it.engine!! to it.title }
-        _session.update { it.copy(session = s, runs = store.runs(id), job = Jobs.progress.value[id], engines = engines) }
+        val runs = store.runs(id)
+        val done = runs.filter { it.status == RunStatus.DONE }
+        val settings = store.settings()
+        val current = _session.value.takeIf { it.session?.id == id }
+        // The main transcript is the base engine's latest, unless Fady picked another one.
+        val selected = current?.selectedRunId?.takeIf { sel -> runs.any { it.id == sel } }
+            ?: done.lastOrNull { it.engine == settings.baseEngine }?.id ?: done.lastOrNull()?.id ?: runs.lastOrNull()?.id
+        val run = runs.firstOrNull { it.id == selected }
+        val compare = run?.takeIf { it.status == RunStatus.DONE }?.let { r -> done.lastOrNull { it.engine != r.engine } }
+        val reading = if (run?.status == RunStatus.DONE) {
+            val cached = readingCache?.takeIf { it.first == run.id && it.second == compare?.id && medicineCache?.first == store.personalWords() }
+            cached?.third ?: runCatching { Compare.reading(run, compare, s.mode, medicines()) }.getOrNull()?.also { readingCache = Triple(run.id, compare?.id, it) }
+        } else null
+        val edits = run?.let { store.edits(id, it.id) }
+        val missing = if (done.isNotEmpty() && done.map { it.engine }.distinct().size < 2) engines.map { it.first }.firstOrNull { e -> done.none { it.engine == e } } else null
+        _session.update {
+            it.copy(session = s, runs = runs, selectedRunId = selected, job = Jobs.progress.value[id], engines = engines,
+                reading = reading, compareRun = compare, edits = edits, missingSecond = missing)
+        }
     }
 
     /** Re-reads models, lock, storage and sessions. Call off the main thread. */
@@ -115,6 +154,8 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
         }
         _settings.update { it.copy(locked = locked, settings = store.settings(), storageBytes = vault.root.walkTopDown().filter { f -> f.isFile }.sumOf { f -> f.length() }) }
         _lab.update { it.copy(modelsReady = _models.value.allReady) }
+        _settings.update { it.copy(medicines = runCatching { medicines().size }.getOrDefault(0), personalWords = store.personalWords().let { p -> p.words.size + p.heardAs.size }) }
+        runCatching { loadOwnScores() }
         loadSessions()
     }
 
@@ -164,7 +205,107 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) { loadSession(id) }
     }
 
-    fun selectRun(runId: String) = _session.update { it.copy(selectedRunId = runId) }
+    fun selectRun(runId: String) {
+        _session.update { it.copy(selectedRunId = runId) }
+        _session.value.session?.id?.let { id -> viewModelScope.launch(Dispatchers.IO) { loadSession(id) } }
+    }
+    fun setShowEdited(on: Boolean) = _session.update { it.copy(showEdited = on) }
+
+    // Corrections ---------------------------------------------------------------------------
+
+    /** Applies [change] to the selected run's correction layer and saves it. */
+    private fun editLayer(change: (EditLayer) -> EditLayer) = viewModelScope.launch(Dispatchers.IO) {
+        val ui = _session.value
+        val s = ui.session ?: return@launch
+        val run = ui.run?.takeIf { it.status == RunStatus.DONE && it.seal != null } ?: return@launch
+        val layer = store.edits(s.id, run.id) ?: EditLayer(s.id, run.id, run.seal!!)
+        store.saveEdits(change(layer))
+        loadSession(s.id)
+    }
+
+    /** Remembers what the engine heard for a medicine Fady put in, so it is suggested next time. */
+    private fun learn(heard: String, medicine: String) {
+        val k = Medicines.key(heard)
+        if (k.isEmpty() || k == Medicines.key(medicine)) return
+        val p = store.personalWords()
+        store.savePersonalWords(p.copy(heardAs = p.heardAs + (k to medicine)))
+    }
+
+    fun acceptDifference(d: Difference) = editLayer { layer ->
+        if (d.medicine != null && d.baseText.isNotBlank()) learn(d.baseText, d.medicine!!)
+        layer.with(WordEdit(d.from, d.to, d.segment, d.suggestion, if (d.medicine != null) "medicine" else "second", System.currentTimeMillis()))
+    }
+
+    fun keepDifference(id: String) = editLayer { it.keep(id, System.currentTimeMillis()) }
+
+    fun acceptMedicine(m: MedicineHit) = editLayer { layer ->
+        learn(m.heard, m.canonical)
+        layer.with(WordEdit(m.from, m.to, m.segment, m.canonical, "medicine", System.currentTimeMillis()))
+    }
+
+    /** Takes every medicine suggestion at once: from the second engine and misspellings. */
+    fun acceptAllMedicines() = editLayer { start ->
+        val ui = _session.value
+        var layer = start
+        var t = System.currentTimeMillis()
+        for (d in ui.openDifferences.filter { it.medicine != null }) {
+            if (d.baseText.isNotBlank()) learn(d.baseText, d.medicine!!)
+            layer = layer.with(WordEdit(d.from, d.to, d.segment, d.suggestion, "medicine", t++))
+        }
+        for (m in ui.openMedicines) {
+            learn(m.heard, m.canonical)
+            layer = layer.with(WordEdit(m.from, m.to, m.segment, m.canonical, "medicine", t++))
+        }
+        layer
+    }
+
+    /** Fady's own words for [from] until [to]; optionally adds them to his dictionary. */
+    fun editWords(from: Int, to: Int, segment: Int, text: String, addToDictionary: Boolean) = editLayer { layer ->
+        val heard = _session.value.reading?.words?.subList(from, to)?.joinToString(" ") { it.text }.orEmpty()
+        val clean = text.trim()
+        if (addToDictionary && clean.isNotEmpty()) {
+            val p = store.personalWords()
+            if (clean !in p.words) store.savePersonalWords(p.copy(words = p.words + clean))
+        }
+        if (clean.isNotEmpty() && heard.isNotBlank() && (addToDictionary || medicines().contains(clean))) learn(heard, clean)
+        layer.with(WordEdit(from, to, segment, clean, "typed", System.currentTimeMillis()))
+    }
+
+    fun undoEdit() = editLayer { it.undo() }
+
+    fun markReference(on: Boolean) = editLayer { it.copy(reference = on, updatedAtMillis = System.currentTimeMillis()) }.also {
+        viewModelScope.launch(Dispatchers.IO) { kotlinx.coroutines.delay(300); loadOwnScores() }
+    }
+
+    fun secondOpinion(id: String) {
+        val engine = _session.value.missingSecond ?: return
+        Jobs.transcribe(getApplication(), id, engine)
+        say("Getting a second opinion. The main transcript stays as it is.")
+    }
+
+    /** What an export needs: the corrected lines and everything for the full-data file. */
+    fun exportMaterial(): Exporter.Material? {
+        val ui = _session.value
+        val s = ui.session ?: return null
+        val layers = runCatching { store.allEdits(s.id) }.getOrDefault(emptyList())
+        val corrected = ui.lines.map { it.text }
+        return Exporter.Material(s, ui.run, if (ui.reading != null) Document.lines(ui.run!!, ui.reading, ui.edits) else ui.lines,
+            TranscriptFormats.Bundle(ui.runs.filter { it.status == RunStatus.DONE }, layers, corrected))
+    }
+
+    /** Scores each engine on Fady's own sessions that he marked as right. */
+    private fun loadOwnScores() {
+        val meds = medicines()
+        val own = store.sessions().mapNotNull { s ->
+            val runs = store.runs(s.id).filter { it.status == RunStatus.DONE }
+            val layer = store.allEdits(s.id).firstOrNull { it.reference } ?: return@mapNotNull null
+            val base = runs.firstOrNull { it.id == layer.runId } ?: return@mapNotNull null
+            val reading = Compare.reading(base, null, s.mode, meds)
+            val reference = Document.lines(base, reading, layer).joinToString(" ") { it.text }
+            OwnScore(s.title, s.durationMs / 60_000.0, Scoring.score(reference, runs, meds))
+        }
+        _lab.update { it.copy(own = own) }
+    }
     fun setReadable(on: Boolean) = _session.update { it.copy(readable = on) }
 
     fun rename(id: String, title: String) = viewModelScope.launch(Dispatchers.IO) {
@@ -189,6 +330,12 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
     fun play(fromMs: Long) {
         val name = _session.value.session?.takeIf { it.hasAudio }?.audioName ?: return
         player.play(name, fromMs)
+    }
+
+    /** Plays a short stretch around a word or a difference, then stops by itself. */
+    fun playRange(fromMs: Long, toMs: Long) {
+        val name = _session.value.session?.takeIf { it.hasAudio }?.audioName ?: return
+        player.play(name, (fromMs - 600).coerceAtLeast(0), toMs + 600)
     }
     fun stopPlaying() = player.stop()
 

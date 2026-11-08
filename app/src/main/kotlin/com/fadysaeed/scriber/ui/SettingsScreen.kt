@@ -50,17 +50,17 @@ fun SettingsScreen(
     }
     Fact("Space used by Scriber's vault", Units.bytes(ui.storageBytes))
 
-    Section("Default engine")
-    Text("Dictation", style = Type.note, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
+    Section("Engines")
+    Text("Main transcript, for dictation and conversation", style = Type.note, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Choice("MedASR", st.dictationEngine == "medasr", { onChange { it.copy(dictationEngine = "medasr") } }, Modifier.weight(1f))
-        Choice("Parakeet", st.dictationEngine == "parakeet", { onChange { it.copy(dictationEngine = "parakeet") } }, Modifier.weight(1f))
+        Choice("Parakeet", st.baseEngine == "parakeet", { onChange { it.copy(baseEngine = "parakeet", secondEngine = "medasr") } }, Modifier.weight(1f))
+        Choice("MedASR", st.baseEngine == "medasr", { onChange { it.copy(baseEngine = "medasr", secondEngine = "parakeet") } }, Modifier.weight(1f))
     }
-    Text("Conversation", style = Type.note, modifier = Modifier.padding(top = 14.dp, bottom = 8.dp))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Choice("Parakeet", st.conversationEngine == "parakeet", { onChange { it.copy(conversationEngine = "parakeet") } }, Modifier.weight(1f))
-        Choice("MedASR", st.conversationEngine == "medasr", { onChange { it.copy(conversationEngine = "medasr") } }, Modifier.weight(1f))
+    Spacer(Modifier.height(6.dp))
+    Toggle("Second opinion on every session", "${if (st.secondEngine == "medasr") "MedASR" else "Parakeet"} transcribes it too, and the places where the two disagree are marked for you to check", st.secondOpinion) { on ->
+        onChange { it.copy(secondOpinion = on) }
     }
+    Fact("Medicine dictionary", "${ui.medicines} names, ${ui.personalWords} of yours")
 
     Section("Internet")
     Status(if (ui.locked) "Locked" else "Downloads open", if (ui.locked) Ink.Teal else Ink.Amber)

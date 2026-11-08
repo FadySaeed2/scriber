@@ -38,6 +38,7 @@ import com.fadysaeed.scriber.ui.LockScreen
 import com.fadysaeed.scriber.ui.ModelsScreen
 import com.fadysaeed.scriber.ui.RecordingScreen
 import com.fadysaeed.scriber.ui.ScriberTheme
+import com.fadysaeed.scriber.ui.ReviewActions
 import com.fadysaeed.scriber.ui.SessionActions
 import com.fadysaeed.scriber.ui.SessionScreen
 import com.fadysaeed.scriber.ui.SessionsScreen
@@ -111,6 +112,18 @@ class MainActivity : FragmentActivity() {
                     onExport = { kind, share -> export(sessionId, kind, share) },
                     onDeleteAudio = { vm.deleteAudio(sessionId) },
                     onDeleteSession = { vm.deleteSession(sessionId); close() },
+                    review = ReviewActions(
+                        onAccept = vm::acceptDifference,
+                        onKeep = { vm.keepDifference(it) },
+                        onAcceptMedicine = vm::acceptMedicine,
+                        onAcceptAllMedicines = { vm.acceptAllMedicines() },
+                        onEdit = { from, to, segment, text, add -> vm.editWords(from, to, segment, text, add) },
+                        onUndo = { vm.undoEdit() },
+                        onShowEdited = vm::setShowEdited,
+                        onReference = { vm.markReference(it) },
+                        onSecondOpinion = { vm.secondOpinion(sessionId) },
+                        onPlayRange = vm::playRange,
+                    ),
                 ))
             }
             else -> Frame(tab, { tab = it; vm.refreshAsync() }) {
@@ -169,27 +182,25 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun export(sessionId: String, kind: ExportKind, share: Boolean) {
-        val ui = vm.session.value
-        val s = ui.session ?: return
-        if (share) {
-            lifecycleScope.launch {
-                runCatching { withContext(Dispatchers.IO) { Exporter.shareIntent(this@MainActivity, s, ui.run, kind) } }
+        lifecycleScope.launch {
+            val m = withContext(Dispatchers.IO) { vm.exportMaterial() } ?: return@launch
+            if (share) {
+                runCatching { withContext(Dispatchers.IO) { Exporter.shareIntent(this@MainActivity, m, kind) } }
                     .onSuccess { startActivity(it) }.onFailure { vm.toastError(it) }
+            } else {
+                pendingExport = sessionId to kind
+                createDoc.launch(Exporter.fileName(m, kind))
             }
-        } else {
-            pendingExport = sessionId to kind
-            createDoc.launch(Exporter.fileName(s, ui.run, kind))
         }
     }
 
     private fun finishExport(uri: Uri) {
-        val ui = vm.session.value
-        val s = ui.session ?: return
         val kind = pendingExport?.second ?: return
         pendingExport = null
         lifecycleScope.launch {
-            runCatching { withContext(Dispatchers.IO) { Exporter.saveTo(this@MainActivity, uri, s, ui.run, kind) } }
-                .onSuccess { vm.toastSaved() }.onFailure { vm.toastError(it) }
+            runCatching {
+                withContext(Dispatchers.IO) { Exporter.saveTo(this@MainActivity, uri, vm.exportMaterial() ?: error("Nothing to export"), kind) }
+            }.onSuccess { vm.toastSaved() }.onFailure { vm.toastError(it) }
         }
     }
 

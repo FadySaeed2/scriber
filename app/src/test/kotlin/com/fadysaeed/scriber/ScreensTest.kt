@@ -172,4 +172,49 @@ class ScreensTest {
     }
 
     @Test fun lock() = shot("20_lock.png") { LockScreen(null) {} }
+
+    @Test fun lockAfterACrash() = shot("21_lock_crash.png") { LockScreen(null, stoppedLastTime = true) {} }
+
+    // Second opinion and corrections ----------------------------------------------------------
+
+    private val base = Seal.sealed(TranscriptRun("b1", "s5", "parakeet", "Parakeet TDT 0.6B v2", "a".repeat(64), emptyMap(), "b".repeat(64), now, now, RunStatus.DONE, listOf(
+        Segment(0, 4_000, "How have you been since the change to all and zapping?"),
+        Segment(4_400, 9_800, "Better. Sleeping more. I still take the quetiapin at night and the sertraline in the morning."),
+        Segment(10_200, 14_000, "Any side effects, weight gain, feeling slowed down?"),
+        Segment(14_300, 19_000, "A bit hungry. My mum says I eat more."),
+    )))
+    private val second = Seal.sealed(TranscriptRun("m1", "s5", "medasr", "Google MedASR", "a".repeat(64), emptyMap(), "b".repeat(64), now, now, RunStatus.DONE, listOf(
+        Segment(0, 4_000, "how have you been since the change to olanzapine"),
+        Segment(4_400, 9_800, "better sleeping more i still take the quetiapine at night and the sertraline in the morning"),
+        Segment(10_200, 14_000, "any side effects weight gain feeling slowed down"),
+        Segment(14_300, 19_000, "a bit hungry my mom says i eat more"),
+    )))
+    private val reviewSession = session("s5", "Ward review, bed 4", SessionMode.CONVERSATION, 0).copy(durationMs = 19_000)
+    private val reading = com.fadysaeed.scriber.core.Compare.reading(base, second, SessionMode.CONVERSATION, com.fadysaeed.scriber.core.Medicines.bundled())
+    private fun reviewUi(edits: com.fadysaeed.scriber.core.EditLayer? = null) = SessionUi(reviewSession, listOf(base, second), selectedRunId = "b1",
+        reading = reading, compareRun = second, edits = edits, engines = listOf("parakeet" to "Parakeet", "medasr" to "MedASR"))
+
+    @Test fun sessionWithSecondOpinion() = shot("15_session_second_opinion.png") { SessionScreen(reviewUi(), actions) }
+
+    @Test fun reviewSheet() = shot("16_review_sheet.png") { SessionScreen(reviewUi(), actions, SessionSheet.Review) }
+
+    @Test fun sessionAfterCorrections() {
+        val d = reading.differences.first()
+        val layer = com.fadysaeed.scriber.core.EditLayer("s5", "b1", base.seal!!)
+            .with(com.fadysaeed.scriber.core.WordEdit(d.from, d.to, d.segment, d.suggestion, "medicine", now))
+            .keep(reading.differences.last().id, now)
+        shot("17_session_corrected.png") { SessionScreen(reviewUi(layer), actions) }
+    }
+
+    @Test fun wordSheet() = shot("18_word_sheet.png") {
+        val i = reading.words.indexOfFirst { it.text == "sertraline" }
+        SessionScreen(reviewUi(), actions, SessionSheet.Words(i, i + 1, 1, "sertraline", "sertraline", 6_000, 6_600))
+    }
+
+    @Test fun labWithOwnScores() = tabShot("19_lab_own.png", Tab.Lab) {
+        LabScreen(LabUi(report = report, modelsReady = true, own = listOf(OwnScore("Role-play review", 14.2, listOf(
+            com.fadysaeed.scriber.core.Scoring.EngineScore("parakeet", "Parakeet", com.fadysaeed.scriber.core.Wer.Result(2140, 62), 9, 14),
+            com.fadysaeed.scriber.core.Scoring.EngineScore("medasr", "MedASR", com.fadysaeed.scriber.core.Wer.Result(2140, 131), 13, 14),
+        )))), {}, {})
+    }
 }

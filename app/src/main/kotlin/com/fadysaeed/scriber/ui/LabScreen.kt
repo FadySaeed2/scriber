@@ -39,7 +39,25 @@ fun LabScreen(ui: LabUi, onRun: () -> Unit, onCopy: (String) -> Unit) {
         Spacer(Modifier.height(14.dp))
         AmberButton("Run checks", onRun, Modifier.fillMaxWidth())
     }
+    if (ui.own.isNotEmpty()) OwnScores(ui.own)
     ui.report?.let { Results(it, onCopy) }
+}
+
+/** Both engines scored on Fady's own sessions that he corrected and marked as right. */
+@Composable
+private fun OwnScores(own: List<com.fadysaeed.scriber.OwnScore>) {
+    Section("Your own recordings")
+    Text("Scored against your corrected transcripts. This stays on the phone.", style = Type.small, modifier = Modifier.padding(top = 8.dp))
+    for (o in own) {
+        Spacer(Modifier.height(14.dp))
+        Text(o.sessionTitle, style = Type.title)
+        Text("${one(o.minutes)} min", style = Type.small)
+        val best = o.scores.minByOrNull { it.wer.rate }
+        for (sc in o.scores) {
+            val meds = if (sc.medicinesSaid > 0) ", medicines ${sc.medicinesHeard} of ${sc.medicinesSaid}" else ""
+            Fact(engineName(sc.engine), "${pct(sc.wer.rate)} words wrong$meds", if (sc == best && o.scores.size > 1) Ink.Teal else Ink.Bone)
+        }
+    }
 }
 
 @Composable

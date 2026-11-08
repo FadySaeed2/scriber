@@ -4,6 +4,13 @@ import com.fadysaeed.scriber.audio.PlayerState
 import com.fadysaeed.scriber.audio.RecordingState
 import com.fadysaeed.scriber.core.ModelPack
 import com.fadysaeed.scriber.core.Session
+import com.fadysaeed.scriber.core.Difference
+import com.fadysaeed.scriber.core.Document
+import com.fadysaeed.scriber.core.EditLayer
+import com.fadysaeed.scriber.core.Line
+import com.fadysaeed.scriber.core.MedicineHit
+import com.fadysaeed.scriber.core.Reading
+import com.fadysaeed.scriber.core.Scoring
 import com.fadysaeed.scriber.core.TranscriptRun
 import com.fadysaeed.scriber.data.AppSettings
 import com.fadysaeed.scriber.fetch.Fetcher
@@ -34,7 +41,10 @@ data class ModelsUi(
         rows.any { it.pack.role == com.fadysaeed.scriber.core.PackRole.VAD && it.state is PackState.Verified }
 }
 
-data class LabUi(val step: String? = null, val report: LabReport? = null, val modelsReady: Boolean = false)
+/** Engine scores on one of Fady's own sessions that he corrected and marked as right. */
+data class OwnScore(val sessionTitle: String, val minutes: Double, val scores: List<Scoring.EngineScore>)
+
+data class LabUi(val step: String? = null, val report: LabReport? = null, val modelsReady: Boolean = false, val own: List<OwnScore> = emptyList())
 
 data class SessionRow(val session: Session, val latest: TranscriptRun?, val job: JobProgress?)
 
@@ -53,8 +63,39 @@ data class SessionUi(
     val job: JobProgress? = null,
     val player: PlayerState = PlayerState(),
     val engines: List<Pair<String, String>> = emptyList(),
+    /** The selected run split into words and compared with the other engine's latest transcript. */
+    val reading: Reading? = null,
+    /** The run the selected one is compared with (the second opinion). */
+    val compareRun: TranscriptRun? = null,
+    /** Fady's corrections to the selected run. */
+    val edits: EditLayer? = null,
+    /** Show the corrected text (true) or the sealed original. */
+    val showEdited: Boolean = true,
+    /** Engine name for the second opinion that is missing, if the session has none yet. */
+    val missingSecond: String? = null,
 ) {
     val run: TranscriptRun? get() = runs.firstOrNull { it.id == selectedRunId } ?: runs.lastOrNull()
+
+    /** The text to show: corrected lines, or the sealed run's own lines. */
+    val lines: List<Line> get() {
+        val r = run ?: return emptyList()
+        val rd = reading ?: return r.segments.mapIndexed { i, s -> Line(i, s.startMs, s.endMs, s.text, false) }
+        return Document.lines(r, rd, if (showEdited) edits else null)
+    }
+
+    /** True when a correction already covers this place (made from it, or a wider one over it). */
+    private fun touched(from: Int, to: Int): Boolean = edits?.edits.orEmpty().any { e ->
+        (e.from == from && e.to == to) ||
+            (e.from < e.to && (if (from == to) e.from <= from && from < e.to else e.from < to && from < e.to))
+    }
+
+    /** Differences Fady has not dealt with yet. */
+    val openDifferences: List<Difference> get() = reading?.differences.orEmpty().filter { d -> d.id !in edits?.kept.orEmpty() && !touched(d.from, d.to) }
+
+    /** Medicines in the transcript that look misspelled and have not been dealt with. */
+    val openMedicines: List<MedicineHit> get() = reading?.medicines.orEmpty().filter { m -> !m.exact && m.id !in edits?.kept.orEmpty() && !touched(m.from, m.to) }
+
+    val corrections: Int get() = edits?.edits?.size ?: 0
 }
 
 data class SettingsUi(
@@ -68,4 +109,6 @@ data class SettingsUi(
     val storageBytes: Long = 0,
     /** Details of the last unexpected stop, until cleared. */
     val crash: String? = null,
+    val medicines: Int = 0,
+    val personalWords: Int = 0,
 )

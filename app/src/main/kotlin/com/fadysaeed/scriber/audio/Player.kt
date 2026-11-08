@@ -27,7 +27,7 @@ class Player(private val vault: Vault) {
     private val _state = MutableStateFlow(PlayerState())
     val state: StateFlow<PlayerState> = _state
 
-    fun play(name: String, fromMs: Long) {
+    fun play(name: String, fromMs: Long, untilMs: Long? = null) {
         stop()
         job = scope.launch {
             var track: AudioTrack? = null
@@ -51,7 +51,8 @@ class Player(private val vault: Vault) {
                     track!!.play()
                     val buf = ByteBuffer.allocate(info.sampleRate / 5 * 2)
                     _state.value = PlayerState(name, true, (pos / bytesPerMs).toLong(), durationMs)
-                    while (isActive && pos < info.dataBytes) {
+                    val endBytes = untilMs?.let { minOf(info.dataBytes, (it * bytesPerMs).toLong()) } ?: info.dataBytes
+                    while (isActive && pos < endBytes) {
                         buf.clear()
                         val n = ch.read(buf)
                         if (n <= 0) break
