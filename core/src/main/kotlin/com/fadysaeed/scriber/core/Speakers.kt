@@ -156,7 +156,15 @@ data class VoicePiece(val startMs: Long, val endMs: Long, val segment: Int, val 
 
 /** Voice prints of a session, made while the main transcript was written (records/prints/<session>.json). */
 @Serializable
-data class VoicePrints(val sessionId: String, val runId: String, val model: String, val pieces: List<VoicePiece>, val createdAtMillis: Long = 0)
+data class VoicePrints(
+    val sessionId: String,
+    val runId: String,
+    val model: String,
+    val pieces: List<VoicePiece>,
+    val createdAtMillis: Long = 0,
+    /** The speaker model's own turns (pyannote), used to cut lines and to place short pieces. */
+    val modelTurns: List<Turn> = emptyList(),
+)
 
 object Pieces {
     /** Shortest stretch that gets a voice print, and the most of it that is used. */
@@ -214,6 +222,48 @@ object Pieces {
             }
         }
         return pieces.mapIndexed { i, p -> Turn(p.startMs, p.endMs, labels[i]) }
+    }
+
+    /**
+     * Cuts transcript lines only where the speaker model heard a clear change inside a long line
+     * (both sides at least two seconds). Ordinary pauses inside a sentence do not cut it: short
+     * pieces make unsteady voice prints.
+     */
+    fun cutAtModelChanges(lines: List<LongRange>, model: List<Turn>): List<Pair<LongRange, Int>> {
+        val out = ArrayList<Pair<LongRange, Int>>()
+        lines.forEachIndexed { li, line ->
+            var start = line.first
+            for (t in model) {
+                if (t.startMs > start + 2000 && t.startMs < line.last - 2000 && model.any { o -> o.speaker != t.speaker && o.endMs in (t.startMs - 600)..(t.startMs + 600) }) {
+                    out += (start until t.startMs) to li; start = t.startMs
+                }
+            }
+            out += (start until line.last) to li
+        }
+        return out
+    }
+
+    /**
+     * Gives every piece a voice: pieces with a print are grouped into [k] voices; a piece too short
+     * for a print takes the voice that the speaker model's turn there most often became.
+     */
+    fun labelWithModel(pieces: List<VoicePiece>, model: List<Turn>, k: Int): List<Turn> {
+        if (pieces.isEmpty()) return emptyList()
+        val printed = pieces.indices.filter { pieces[it].print != null }
+        val label = IntArray(pieces.size) { -1 }
+        if (printed.size >= 2) {
+            val c = Voices.cluster(printed.map { pieces[it].print!!.toFloatArray() }, k)
+            printed.forEachIndexed { j, i -> label[i] = c[j] }
+        } else printed.forEach { label[it] = 0 }
+        fun modelSpeaker(p: VoicePiece) = model.maxByOrNull { t -> minOf(t.endMs, p.endMs) - maxOf(t.startMs, p.startMs) }
+            ?.takeIf { t -> minOf(t.endMs, p.endMs) > maxOf(t.startMs, p.startMs) }?.speaker ?: -1
+        val vote = HashMap<Int, HashMap<Int, Int>>()
+        for (i in printed) vote.getOrPut(modelSpeaker(pieces[i])) { HashMap() }.merge(label[i], 1, Int::plus)
+        for (i in pieces.indices) if (label[i] < 0) {
+            label[i] = vote[modelSpeaker(pieces[i])]?.maxByOrNull { it.value }?.key
+                ?: (i - 1 downTo 0).firstOrNull { label[it] >= 0 }?.let { label[it] } ?: 0
+        }
+        return pieces.mapIndexed { i, p -> Turn(p.startMs, p.endMs, label[i]) }
     }
 
     /** The voice that last spoke before [prev] other than the one at [prev]; voice 0 or 1 when none did. */

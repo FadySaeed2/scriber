@@ -80,3 +80,13 @@ prints are grouped into voices; a piece too short for a print answers the questi
 else keeps the voice before it. Speakers appear with the transcript, and asking for another number
 of voices only regroups saved prints. Finding speakers can be switched off in Settings, and hidden
 per session.
+
+**2026-11-08. Back to the speaker model first (0.0.26's way), speed from caching and order.** The
+print-only way was fast but, on Fady's real conversation, badly wrong: cutting lines at every pause
+made short, unsteady prints, and forcing two groups let a few odd pieces (a cough, a laugh) become
+"the other voice". The synthetic two-voice test had not shown it. Now pyannote listens once, lines
+are cut only where it heard a clear change, each piece gets a print of up to ten seconds, and short
+pieces take the voice pyannote heard there. Speakers run straight after the main transcript (before
+the second opinion), the transcript is readable meanwhile, and both pyannote's turns and the prints
+are saved, so another number of voices only regroups them. The print-only way stays out until it
+is measured on real conversations.

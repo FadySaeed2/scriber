@@ -199,4 +199,13 @@ class Phase2CoreTest {
         )
         assertEquals(listOf(0, 1, 1, 0, 0), Pieces.label(pieces, 2).map { it.speaker })
     }
+
+    @Test fun linesAreCutOnlyAtClearModelChangesAndShortPiecesFollowTheModel() {
+        val model = listOf(Turn(0, 6000, 0), Turn(6000, 12000, 1), Turn(12500, 13000, 0))
+        val cut = Pieces.cutAtModelChanges(listOf(0L..12000L, 12500L..13000L), model)
+        assertEquals(listOf(0L until 6000L, 6000L until 12000L, 12500L until 13000L), cut.map { it.first })
+        val a = listOf(1f, 0.1f, 0f); val b = listOf(0f, 1f, 0.1f)
+        val pieces = listOf(VoicePiece(0, 6000, 0, false, a), VoicePiece(6000, 12000, 0, false, b), VoicePiece(12500, 13000, 1, false, null), VoicePiece(13200, 19000, 2, false, a))
+        assertEquals(listOf(0, 1, 0, 0), Pieces.labelWithModel(pieces, model, 2).map { it.speaker })
+    }
 }

@@ -186,7 +186,7 @@ class Phase1OnDeviceTest {
         val models = speechModels("parakeet")
         val catalog = ModelCatalog.bundled()
         val downloader = ModelDownloader(models)
-        for (role in listOf(PackRole.SPEAKER_EMBEDDING)) {
+        for (role in listOf(PackRole.SEGMENTATION, PackRole.SPEAKER_EMBEDDING)) {
             val p = catalog.byRole(role).first()
             if (models.state(p) !is com.fadysaeed.scriber.fetch.PackState.Verified) { for (f in p.files) downloader.fetch(p, f) { _, _ -> }; models.markVerified(p) }
         }
@@ -201,7 +201,7 @@ class Phase1OnDeviceTest {
             val pcm = Wav.floatsToShorts(a + FloatArray(8000) + b)
             out.write(Wav.header(16_000, pcm.size.toLong())); out.write(pcm)
         }
-        // As on the phone: import a conversation; Parakeet transcribes it and makes voice prints as it goes.
+        // As on the phone: import a conversation; Parakeet transcribes it, then speakers are found.
         val settings = store.settings()
         store.saveSettings(com.fadysaeed.scriber.data.AppSettings(secondOpinion = false))
         val id = Importer.copyIn(context, Uri.fromFile(both), SessionMode.CONVERSATION)
@@ -219,15 +219,16 @@ class Phase1OnDeviceTest {
             assertTrue("changes $changes: ${layer.settings} turns ${layer.turns}", changes in 1..2)
         }
         check(store.speakers(id))
-        assertEquals("voice prints per line", store.speakers(id)!!.settings["method"])
+        assertEquals("speaker model, then voice prints per line", store.speakers(id)!!.settings["method"])
         assertTrue(store.prints(id)!!.runId == store.runs(id).single().id)
+        assertTrue(store.prints(id)!!.modelTurns.isNotEmpty())
         // Asking again only regroups the saved prints: well under a second of work.
         val t0 = System.currentTimeMillis()
         com.fadysaeed.scriber.work.SpeakerFinder(context).run(id, 2) {}
         assertTrue("regroup took ${System.currentTimeMillis() - t0} ms", System.currentTimeMillis() - t0 < 3000)
-        // A session transcribed before prints existed: one pass over the audio makes them.
+        // Prints from an older version (no model turns) are made again from the audio.
         store.removeSpeakers(id)
-        vault.deleteRecord("prints/$id.json")
+        store.savePrints(store.prints(id)!!.copy(modelTurns = emptyList()))
         Jobs.speakers(context, id, 2)
         val again = System.currentTimeMillis() + 5 * 60_000
         while (System.currentTimeMillis() < again && (store.speakers(id) == null || Jobs.pending(context).isNotEmpty())) Thread.sleep(300)
