@@ -51,3 +51,16 @@ letters or more that are not among 32,000 common English words (wordfreq, CC BY-
 
 **2026-11-08. Android's regex engine is stricter than desktop Java.** An unescaped closing brace
 compiles in unit tests and crashes on the phone. All text functions now also run in an on-device test.
+
+**2026-11-08. Speakers: two voices by default, cleaned lightly.** The phone's first check found both
+voices but 8 changes where 1 was right. Scriber now asks the model for two voices in a conversation
+(changeable per session and in Settings), joins a voice's neighbouring turns, and gives blips under
+0.4 s to the voice around them. Short real answers ("Yes.") are longer than that and keep their own
+voice. Inside one line, one or two words between the same voice follow it. Names and moves are
+Fady's, kept beside the transcripts. Sessions over 80 minutes are not split yet (memory).
+
+**2026-11-08. Medicine hints for Parakeet: a trial, not a default.** Measured on CI with the five
+scored public dictations (219 words): greedy 13 errors, beam search 10, beam with the medicine list
+as hotwords 12 (strength 0.5), 13 (1.0), 14 (1.5), and 35 at 3.0. Those dictations have almost no
+medicine names, so they cannot show the benefit, only the cost. The Lab therefore runs both Parakeet
+variants on Fady's own corrected sessions, where medicine names are scored, before anything changes.

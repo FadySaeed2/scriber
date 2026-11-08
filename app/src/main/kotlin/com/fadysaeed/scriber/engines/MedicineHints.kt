@@ -11,7 +11,7 @@ import java.io.File
  * app's private storage; they hold medicine names only, nothing about patients.
  */
 object MedicineHints {
-    const val SCORE = 1.5f
+    const val SCORE = 1.0f
 
     fun prepare(context: Context, parakeetDir: File, personal: PersonalWords, score: Float = SCORE): Speech.Hints {
         val dir = File(context.noBackupFilesDir, "hints").apply { mkdirs() }

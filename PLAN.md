@@ -11,13 +11,13 @@ Each phase ships as a signed APK, is tried on the phone, and only then does the 
   m4a/mp3/wav/ogg/opus/flac and the audio of video files (picker and share sheet), recording library,
   retention (keep forever by default, or delete after note approval, or after N days), transcription
   in batches during recording, sealed raw runs, export as text/SRT/VTT/JSON plus the audio.
-- **Phase 2a, second opinion and corrections (this build):** Parakeet is the main transcript in both
+- **Phase 2a, second opinion and corrections (shipped 0.0.17):** Parakeet is the main transcript in both
   modes and MedASR runs after it on every session; the two are lined up word by word and the places
   they disagree are marked; an AU/NZ medicine dictionary (generic and brand names, misspellings,
   Fady's own words) suggests medicines; a review mode steps through each place with the audio;
   corrections are a layer beside the sealed run, with undo; exports use the corrected text; a
   corrected session can be marked right so the Lab scores both engines on Fady's own voice.
-- **Phase 2b, speakers and biasing:** speaker layer with two speakers by default (Speaker 1 and 2,
+- **Phase 2b, speakers and biasing (this build):** speaker layer with two speakers by default (Speaker 1 and 2,
   named later), short turns merged, words assigned to speakers by time, lines moved between
   speakers; Lab trial of Parakeet with the medicine list as hotwords (modified beam search),
   kept only if it measurably helps on Fady's recordings.
