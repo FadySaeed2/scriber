@@ -138,8 +138,9 @@ private fun Speed(ui: LabUi, onSpeed: () -> Unit) {
         for ((engine, t) in plan.timings) {
             val best = plan.best[engine]
             val name = if (engine == "speakers") "Speakers" else engineName(engine)
-            Fact(name, t.entries.joinToString("   ") { (n, ms) -> "$n: ${one(ms / 1000.0)} s" }, Ink.Bone)
-            if (best != null) Text("Uses $best cores", style = Type.small.copy(color = Ink.Teal), modifier = Modifier.padding(bottom = 6.dp))
+            Fact(name, best?.let { b -> "$b cores, ${one((t[b] ?: 0) / 1000.0)} s" } ?: "", Ink.Teal)
+            // Every core count tried, each kept on one line piece ("2 cores 2.9 s").
+            Text(t.entries.joinToString("   ") { (n, ms) -> "$n\u00A0cores\u00A0${one(ms / 1000.0)}\u00A0s" }, style = Type.small, modifier = Modifier.padding(bottom = 6.dp))
         }
         Text("Each on the same ${one(plan.clipSeconds)} s of test speech.", style = Type.small)
     }
