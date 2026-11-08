@@ -49,15 +49,17 @@ object TranscriptFormats {
     fun plain(lines: List<Line>, mode: SessionMode, readable: Boolean): String = buildString {
         for (s in lines) {
             append('[').append(clock(s.startMs, false).substring(0, 8)).append("] ")
-            appendLine(if (readable) readable(s.text, mode) else s.text)
+            appendLine(who(s) + if (readable) readable(s.text, mode) else s.text)
         }
     }
+
+    private fun who(l: Line) = l.speakerName?.let { "$it: " } ?: ""
 
     fun srt(lines: List<Line>, mode: SessionMode, readable: Boolean): String = buildString {
         lines.forEachIndexed { i, s ->
             appendLine(i + 1)
             appendLine("${clock(s.startMs, true)} --> ${clock(s.endMs, true)}")
-            appendLine(if (readable) readable(s.text, mode) else s.text)
+            appendLine(who(s) + if (readable) readable(s.text, mode) else s.text)
             appendLine()
         }
     }
@@ -66,7 +68,7 @@ object TranscriptFormats {
         appendLine("WEBVTT"); appendLine()
         for (s in lines) {
             appendLine("${clock(s.startMs, false)} --> ${clock(s.endMs, false)}")
-            appendLine(if (readable) readable(s.text, mode) else s.text)
+            appendLine((s.speakerName?.let { "<v $it>" } ?: "") + if (readable) readable(s.text, mode) else s.text)
             appendLine()
         }
     }
@@ -78,7 +80,7 @@ object TranscriptFormats {
 
     /** Everything about one session's transcripts: every sealed run, and Fady's corrections on top. */
     @kotlinx.serialization.Serializable
-    data class Bundle(val runs: List<TranscriptRun>, val corrections: List<EditLayer>, val correctedText: List<String>)
+    data class Bundle(val runs: List<TranscriptRun>, val corrections: List<EditLayer>, val correctedText: List<String>, val speakers: SpeakerLayer? = null)
 
     fun json(bundle: Bundle): String = pretty.encodeToString(Bundle.serializer(), bundle)
 }

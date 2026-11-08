@@ -217,4 +217,17 @@ class ScreensTest {
             com.fadysaeed.scriber.core.Scoring.EngineScore("medasr", "MedASR", com.fadysaeed.scriber.core.Wer.Result(2140, 131), 13, 14),
         )))), {}, {})
     }
+
+    private val voices = com.fadysaeed.scriber.core.SpeakerLayer("s5", "a", 2, listOf(
+        com.fadysaeed.scriber.core.Turn(0, 4_000, 0), com.fadysaeed.scriber.core.Turn(4_400, 9_800, 1),
+        com.fadysaeed.scriber.core.Turn(10_200, 14_000, 0), com.fadysaeed.scriber.core.Turn(14_300, 19_000, 1)), names = mapOf(1 to "Patient"))
+    private fun speakersUi() = reviewUi().copy(speakers = voices, speakerOf = com.fadysaeed.scriber.core.Speakers.assign(reading.words, reading.segments, voices, "b1"))
+
+    @Test fun sessionWithSpeakers() = shot("22_session_speakers.png") { SessionScreen(speakersUi(), actions) }
+
+    @Test fun speakersSheet() = shot("23_speakers_sheet.png") { SessionScreen(speakersUi(), actions, SessionSheet.Speakers) }
+
+    @Test fun speakerPartSheet() = shot("24_speaker_part.png") {
+        SessionScreen(speakersUi(), actions, SessionSheet.Speaker(11, 25, 1, "Better. Sleeping more. I still take the quetiapin at night and the sertraline in the morning."))
+    }
 }

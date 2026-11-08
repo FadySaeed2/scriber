@@ -44,7 +44,7 @@ data class AsrRun(
 data class VadRun(val audioSeconds: Double, val ms: Long, val speechSegments: Int)
 
 @Serializable
-data class DiarizationRun(val audioSeconds: Double, val loadMs: Long, val processMs: Long, val speakersFound: Int, val speakersExpected: Int, val turns: Int)
+data class DiarizationRun(val audioSeconds: Double, val loadMs: Long, val processMs: Long, val speakersFound: Int, val speakersExpected: Int, val turns: Int, val rawChanges: Int = -1)
 
 @Serializable
 data class LlmRun(
@@ -87,7 +87,7 @@ data class LabReport(
             for (s in a.samples) appendLine("  ${s.file} ${f(s.seconds)}s in ${s.decodeMs} ms, error ${f(s.wer * 100)}%: ${s.heard}")
         }
         vad?.let { appendLine("Voice activity: ${it.speechSegments} speech segments in ${f(it.audioSeconds)} s of audio, ${it.ms} ms") }
-        diarization?.let { appendLine("Speaker turns: found ${it.speakersFound} of ${it.speakersExpected} voices, ${it.turns} turns, ${f(it.audioSeconds)} s audio in ${it.processMs} ms (load ${it.loadMs} ms)") }
+        diarization?.let { appendLine("Speaker turns: found ${it.speakersFound} of ${it.speakersExpected} voices, ${it.turns} speaker changes after cleaning (${it.rawChanges} before), ${f(it.audioSeconds)} s audio in ${it.processMs} ms (load ${it.loadMs} ms)") }
         llm?.let {
             appendLine("Language model ${it.model} on ${it.backend}: load ${it.loadMs} ms, first words after ${it.firstWordMs} ms, ${f(it.piecesPerSecond)} pieces/s over ${it.pieces} pieces. ${it.note}")
             appendLine("Output:"); appendLine(it.output)

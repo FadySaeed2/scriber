@@ -3,6 +3,7 @@ package com.fadysaeed.scriber.data
 import com.fadysaeed.scriber.core.EditLayer
 import com.fadysaeed.scriber.core.PersonalWords
 import com.fadysaeed.scriber.core.Retention
+import com.fadysaeed.scriber.core.SpeakerLayer
 import com.fadysaeed.scriber.core.RunStatus
 import com.fadysaeed.scriber.core.Seal
 import com.fadysaeed.scriber.core.Session
@@ -25,6 +26,8 @@ data class AppSettings(
     /** The engine that runs after it on every session, as a second opinion. */
     val secondEngine: String = "medasr",
     val secondOpinion: Boolean = true,
+    /** Voices to look for in a conversation; 0 lets the model decide. */
+    val speakers: Int = 2,
 ) {
     fun engineFor(@Suppress("UNUSED_PARAMETER") mode: SessionMode) = baseEngine
     /** The second engine to run after the base one, or null when the second opinion is off. */
@@ -99,6 +102,11 @@ class SessionStore(private val vault: Vault) {
 
     fun allEdits(sessionId: String): List<EditLayer> = records.all("edits/$sessionId", EditLayer.serializer())
 
+    /** Who spoke when (records/speakers/<session>.json). */
+    fun speakers(sessionId: String): SpeakerLayer? = runCatching { records.get("speakers/$sessionId", SpeakerLayer.serializer()) }.getOrNull()
+
+    fun saveSpeakers(layer: SpeakerLayer) { records.put("speakers/${layer.sessionId}", SpeakerLayer.serializer(), layer); touched() }
+
     fun personalWords(): PersonalWords = runCatching { records.get("personal_words", PersonalWords.serializer()) }.getOrNull() ?: PersonalWords()
 
     fun savePersonalWords(p: PersonalWords) { records.put("personal_words", PersonalWords.serializer(), p); touched() }
@@ -107,6 +115,7 @@ class SessionStore(private val vault: Vault) {
         vault.deleteTree("sessions/$id")
         vault.deleteTree("records/runs/$id")
         vault.deleteTree("records/edits/$id")
+        vault.deleteRecord("speakers/$id.json")
         vault.deleteRecord("sessions/$id.json")
         touched()
     }

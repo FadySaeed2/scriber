@@ -1,0 +1,116 @@
+package com.fadysaeed.scriber.core
+
+import kotlinx.serialization.Serializable
+
+/** A stretch of audio spoken by one voice. Speakers are numbered from 0 in order of first speaking. */
+@Serializable
+data class Turn(val startMs: Long, val endMs: Long, val speaker: Int)
+
+/** Fady moved base words [from] until [to] of run [runId] to [speaker]. */
+@Serializable
+data class SpeakerMove(val runId: String, val from: Int, val to: Int, val speaker: Int)
+
+/**
+ * Who spoke when in one session, kept beside the transcripts (never inside them). Made from the
+ * audio, so it serves every run of the session; Fady's names and moves sit on top.
+ */
+@Serializable
+data class SpeakerLayer(
+    val sessionId: String,
+    val audioSha256: String,
+    /** How many voices were asked for; 0 lets the model decide. */
+    val requested: Int,
+    val turns: List<Turn>,
+    val names: Map<Int, String> = emptyMap(),
+    val moves: List<SpeakerMove> = emptyList(),
+    val settings: Map<String, String> = emptyMap(),
+    val createdAtMillis: Long = 0,
+) {
+    val count: Int get() = (turns.map { it.speaker } + moves.map { it.speaker }).distinct().size
+    fun name(speaker: Int): String = names[speaker]?.takeIf { it.isNotBlank() } ?: "Speaker ${speaker + 1}"
+}
+
+object Speakers {
+    /**
+     * Cleans the model's raw turns: joins a speaker's neighbouring turns, gives blips too short to be
+     * a word (a cough, a breath of overlap) to the voice around them, and numbers voices in speaking
+     * order. A short real answer ("Yes.") is longer than a blip and keeps its own voice.
+     */
+    fun smooth(raw: List<Turn>, minTurnMs: Long = 400, joinGapMs: Long = 600): List<Turn> {
+        var t = raw.filter { it.endMs > it.startMs }.sortedBy { it.startMs }
+        repeat(4) {
+            t = join(t, joinGapMs)
+            if (t.size < 2) return@repeat
+            val out = ArrayList<Turn>()
+            for (i in t.indices) {
+                val cur = t[i]
+                if (cur.endMs - cur.startMs >= minTurnMs) { out += cur; continue }
+                val prev = out.lastOrNull()
+                val next = t.getOrNull(i + 1)
+                val to = when {
+                    prev != null && next != null -> if (prev.speaker == next.speaker || prev.endMs - prev.startMs >= next.endMs - next.startMs) prev.speaker else next.speaker
+                    prev != null -> prev.speaker
+                    next != null -> next.speaker
+                    else -> cur.speaker
+                }
+                out += cur.copy(speaker = to)
+            }
+            t = out
+        }
+        t = join(t, joinGapMs)
+        val order = LinkedHashMap<Int, Int>()
+        for (x in t) order.getOrPut(x.speaker) { order.size }
+        return t.map { it.copy(speaker = order.getValue(it.speaker)) }
+    }
+
+    private fun join(t: List<Turn>, gap: Long): List<Turn> {
+        val out = ArrayList<Turn>()
+        for (x in t) {
+            val last = out.lastOrNull()
+            if (last != null && last.speaker == x.speaker && x.startMs - last.endMs <= gap) out[out.size - 1] = last.copy(endMs = maxOf(last.endMs, x.endMs))
+            else out += x
+        }
+        return out
+    }
+
+    /** Number of times the voice changes. */
+    fun changes(turns: List<Turn>): Int = turns.zipWithNext().count { (a, b) -> a.speaker != b.speaker }
+
+    /**
+     * Gives every word a speaker: the voice that overlaps it most, or the nearest one. Inside a
+     * line, a run of one or two words between the same voice goes to that voice, because a real
+     * change of speaker almost always comes with a pause, and pauses already split lines.
+     */
+    fun assign(words: List<Word>, ranges: List<IntRange>, layer: SpeakerLayer, runId: String): List<Int> {
+        val turns = layer.turns
+        val out = IntArray(words.size) { -1 }
+        if (turns.isNotEmpty()) {
+            var ti = 0
+            for ((k, w) in words.withIndex()) {
+                while (ti < turns.size - 1 && turns[ti].endMs <= w.startMs) ti++
+                var best = -1; var bestOverlap = -1L; var bestGap = Long.MAX_VALUE
+                for (j in maxOf(0, ti - 1)..minOf(turns.size - 1, ti + 2)) {
+                    val t = turns[j]
+                    val overlap = minOf(t.endMs, maxOf(w.endMs, w.startMs + 1)) - maxOf(t.startMs, w.startMs)
+                    val gap = if (overlap > 0) 0 else minOf(kotlin.math.abs(t.startMs - w.endMs), kotlin.math.abs(w.startMs - t.endMs))
+                    if (overlap > bestOverlap || (overlap <= 0 && bestOverlap <= 0 && gap < bestGap)) { best = t.speaker; bestOverlap = overlap; bestGap = gap }
+                }
+                out[k] = best
+            }
+            for (r in ranges) {
+                if (r.isEmpty()) continue
+                var i = r.first
+                while (i <= r.last) {
+                    var j = i
+                    while (j + 1 <= r.last && out[j + 1] == out[i]) j++
+                    val before = if (i > r.first) out[i - 1] else -2
+                    val after = if (j < r.last) out[j + 1] else -3
+                    if (j - i + 1 <= 2 && before == after) for (x in i..j) out[x] = before
+                    i = j + 1
+                }
+            }
+        }
+        for (m in layer.moves) if (m.runId == runId) for (x in m.from until minOf(m.to, words.size)) if (x >= 0) out[x] = m.speaker
+        return out.toList()
+    }
+}

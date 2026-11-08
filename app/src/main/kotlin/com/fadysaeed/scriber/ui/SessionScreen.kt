@@ -44,6 +44,9 @@ import java.util.Locale
 
 sealed interface SessionSheet {
     data object Review : SessionSheet
+    data object Speakers : SessionSheet
+    /** A line's words [from] until [to], now said by [speaker]. */
+    data class Speaker(val from: Int, val to: Int, val speaker: Int, val text: String) : SessionSheet
     /** Edit base words [from] until [to] of line [segment]; [current] is what shows there now. */
     data class Words(val from: Int, val to: Int, val segment: Int, val current: String, val heard: String, val startMs: Long, val endMs: Long, val line: Boolean = false) : SessionSheet
     data object Export : SessionSheet
@@ -80,6 +83,9 @@ class ReviewActions(
     val onReference: (Boolean) -> Unit = {},
     val onSecondOpinion: () -> Unit = {},
     val onPlayRange: (Long, Long) -> Unit = { _, _ -> },
+    val onFindSpeakers: (Int) -> Unit = {},
+    val onRenameSpeaker: (Int, String) -> Unit = { _, _ -> },
+    val onMoveSpeaker: (Int, Int, Int) -> Unit = { _, _, _ -> },
 )
 
 private fun stamp(ms: Long) = SimpleDateFormat("d MMM yyyy, HH:mm", Locale.ENGLISH).format(Date(ms))
@@ -140,6 +146,7 @@ fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet?
                             }
                             Text("${run.wordCount} words. Tap the time to hear a line, a word to correct it.", style = Type.small)
                             SecondOpinion(ui, a) { sheet = SessionSheet.Review }
+                            SpeakersSummary(ui, { sheet = SessionSheet.Speakers }) { a.review.onFindSpeakers(ui.speakers?.requested ?: 2) }
                             Spacer(Modifier.height(10.dp))
                             if (run.segments.isEmpty()) Text("No speech was found in this audio.", style = Type.note)
                             Transcript(ui, a, readable = ui.readable && s.mode == SessionMode.DICTATION) { sheet = it }
@@ -165,6 +172,8 @@ fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet?
         when (val sh = sheet) {
             null -> Unit
             SessionSheet.Review -> ReviewSheet(ui, a, { sheet = null }) { sheet = it }
+            SessionSheet.Speakers -> SpeakersSheet(ui, a.review.onFindSpeakers, a.review.onRenameSpeaker) { sheet = null }
+            is SessionSheet.Speaker -> SpeakerPartSheet(sh, ui, a.review.onMoveSpeaker) { sheet = null }
             is SessionSheet.Words -> WordsSheet(sh, ui, a, { sheet = null }) { sheet = it }
             SessionSheet.Export -> Sheet({ sheet = null }) {
                 Eyebrow("Export"); Spacer(Modifier.height(4.dp))

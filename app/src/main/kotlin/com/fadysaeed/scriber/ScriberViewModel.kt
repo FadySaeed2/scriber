@@ -22,6 +22,9 @@ import com.fadysaeed.scriber.core.Reading
 import com.fadysaeed.scriber.core.RunStatus
 import com.fadysaeed.scriber.core.Scoring
 import com.fadysaeed.scriber.core.SessionMode
+import com.fadysaeed.scriber.core.SpeakerMove
+import com.fadysaeed.scriber.core.Speakers
+import com.fadysaeed.scriber.work.SpeakerFinder
 import com.fadysaeed.scriber.core.TranscriptFormats
 import com.fadysaeed.scriber.core.WordEdit
 import com.fadysaeed.scriber.data.AppSettings
@@ -129,16 +132,21 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
         val selected = current?.selectedRunId?.takeIf { sel -> runs.any { it.id == sel } }
             ?: done.lastOrNull { it.engine == settings.baseEngine }?.id ?: done.lastOrNull()?.id ?: runs.lastOrNull()?.id
         val run = runs.firstOrNull { it.id == selected }
-        val compare = run?.takeIf { it.status == RunStatus.DONE }?.let { r -> done.lastOrNull { it.engine != r.engine } }
+        val compare = run?.takeIf { it.status == RunStatus.DONE }?.let { r ->
+            done.lastOrNull { it.engine == settings.secondEngine && it.engine != r.engine } ?: done.lastOrNull { it.engine != r.engine && !it.engine.startsWith(r.engine) }
+        }
         val reading = if (run?.status == RunStatus.DONE) {
             val cached = readingCache?.takeIf { it.first == run.id && it.second == compare?.id && medicineCache?.first == store.personalWords() }
             cached?.third ?: runCatching { Compare.reading(run, compare, s.mode, medicines()) }.getOrNull()?.also { readingCache = Triple(run.id, compare?.id, it) }
         } else null
         val edits = run?.let { store.edits(id, it.id) }
-        val missing = if (done.isNotEmpty() && done.map { it.engine }.distinct().size < 2) engines.map { it.first }.firstOrNull { e -> done.none { it.engine == e } } else null
+        val missing = if (done.isNotEmpty() && done.none { it.engine == settings.secondEngine } && engines.any { it.first == settings.secondEngine }) settings.secondEngine else null
+        val speakers = if (s.mode == SessionMode.CONVERSATION) store.speakers(id) else null
+        val speakerOf = if (speakers != null && reading != null && run != null) Speakers.assign(reading.words, reading.segments, speakers, run.id) else null
         _session.update {
             it.copy(session = s, runs = runs, selectedRunId = selected, job = Jobs.progress.value[id], engines = engines,
-                reading = reading, compareRun = compare, edits = edits, missingSecond = missing)
+                reading = reading, compareRun = compare, edits = edits, missingSecond = missing,
+                speakers = speakers, speakerOf = speakerOf, canFindSpeakers = s.mode == SessionMode.CONVERSATION && SpeakerFinder.ready(getApplication()))
         }
     }
 
@@ -277,6 +285,30 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) { kotlinx.coroutines.delay(300); loadOwnScores() }
     }
 
+    // Speakers ------------------------------------------------------------------------------
+
+    fun findSpeakers(id: String, count: Int) {
+        Jobs.speakers(getApplication(), id, count)
+        say(if (count > 0) "Looking for $count voices." else "Letting Scriber decide how many voices.")
+    }
+
+    fun renameSpeaker(speaker: Int, name: String) = viewModelScope.launch(Dispatchers.IO) {
+        val s = _session.value.session ?: return@launch
+        val layer = store.speakers(s.id) ?: return@launch
+        store.saveSpeakers(layer.copy(names = layer.names + (speaker to name.trim())))
+        loadSession(s.id)
+    }
+
+    /** Gives base words [from] until [to] to [speaker] (a new voice when it is past the last one). */
+    fun moveToSpeaker(from: Int, to: Int, speaker: Int) = viewModelScope.launch(Dispatchers.IO) {
+        val ui = _session.value
+        val s = ui.session ?: return@launch
+        val run = ui.run ?: return@launch
+        val layer = store.speakers(s.id) ?: return@launch
+        store.saveSpeakers(layer.copy(moves = layer.moves + SpeakerMove(run.id, from, to, speaker)))
+        loadSession(s.id)
+    }
+
     fun secondOpinion(id: String) {
         val engine = _session.value.missingSecond ?: return
         Jobs.transcribe(getApplication(), id, engine)
@@ -288,9 +320,10 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
         val ui = _session.value
         val s = ui.session ?: return null
         val layers = runCatching { store.allEdits(s.id) }.getOrDefault(emptyList())
-        val corrected = ui.lines.map { it.text }
-        return Exporter.Material(s, ui.run, if (ui.reading != null) Document.lines(ui.run!!, ui.reading, ui.edits) else ui.lines,
-            TranscriptFormats.Bundle(ui.runs.filter { it.status == RunStatus.DONE }, layers, corrected))
+        val corrected = ui.lines.map { (it.speakerName?.let { n -> "$n: " } ?: "") + it.text }
+        val sp = ui.speakers
+        return Exporter.Material(s, ui.run, if (ui.reading != null) Document.lines(ui.run!!, ui.reading, ui.edits, ui.speakerOf) { sp?.name(it) ?: "Speaker ${it + 1}" } else ui.lines,
+            TranscriptFormats.Bundle(ui.runs.filter { it.status == RunStatus.DONE }, layers, corrected, sp))
     }
 
     /** Scores each engine on Fady's own sessions that he marked as right. */

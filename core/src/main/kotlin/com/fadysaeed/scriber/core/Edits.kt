@@ -61,27 +61,67 @@ data class EditLayer(
     }
 }
 
-/** A line of the finished transcript: the words of one segment after corrections. */
-data class Line(val segment: Int, val startMs: Long, val endMs: Long, val text: String, val edited: Boolean)
+/**
+ * A line of the finished transcript: the words of one segment (or of one speaker within it) after
+ * corrections. [from] until [to] are the base words it covers.
+ */
+data class Line(
+    val segment: Int,
+    val startMs: Long,
+    val endMs: Long,
+    val text: String,
+    val edited: Boolean,
+    val speaker: Int? = null,
+    val speakerName: String? = null,
+    val from: Int = -1,
+    val to: Int = -1,
+)
 
 object Document {
-    /** The run's lines with [layer] applied. With no layer, exactly the run's own text, word for word. */
-    fun lines(run: TranscriptRun, reading: Reading, layer: EditLayer?): List<Line> {
+    /**
+     * The run's lines with [layer] applied. With no layer, exactly the run's own text, word for word.
+     * With [speakers] (one per base word), a segment where the voice changes becomes one line per voice.
+     */
+    fun lines(run: TranscriptRun, reading: Reading, layer: EditLayer?, speakers: List<Int>? = null, name: (Int) -> String = { "Speaker ${it + 1}" }): List<Line> {
         val edits = layer?.edits.orEmpty()
-        return run.segments.mapIndexed { si, seg ->
+        val out = ArrayList<Line>()
+        run.segments.forEachIndexed { si, seg ->
             val range = reading.segments.getOrNull(si) ?: IntRange.EMPTY
+            if (range.isEmpty()) {
+                val ins = edits.filter { it.from == it.to && it.segment == si && it.text.isNotBlank() }
+                val text = if (ins.isEmpty()) seg.text else (ins.map { it.text.trim() }).joinToString(" ")
+                out += Line(si, seg.startMs, seg.endMs, text, ins.isNotEmpty(), from = range.first, to = range.first)
+                return@forEachIndexed
+            }
+            // Split the segment where the voice changes.
+            val spans = ArrayList<IntRange>()
+            var start = range.first
+            for (k in range.first + 1..range.last + 1) {
+                if (k > range.last || (speakers != null && speakers.getOrNull(k) != speakers.getOrNull(k - 1))) { spans += start until k; start = k }
+            }
+            fun spanOf(k: Int) = spans.indexOfFirst { k in it }.let { if (it < 0) spans.size - 1 else it }
+            val tokens = Array(spans.size) { ArrayList<String>() }
+            val touched = BooleanArray(spans.size)
             val inLine = edits.filter { (it.from < it.to && it.from >= range.first && it.from <= range.last) || (it.from == it.to && it.segment == si) }
-            if (inLine.isEmpty()) return@mapIndexed Line(si, seg.startMs, seg.endMs, seg.text, false)
-            val out = ArrayList<String>()
+                .sortedWith(compareBy({ it.from }, { if (it.from == it.to) 0 else 1 }))
             var k = range.first
-            val sorted = inLine.sortedWith(compareBy({ it.from }, { if (it.from == it.to) 0 else 1 }))
-            for (e in sorted) {
-                while (k < e.from && k <= range.last) { out += reading.words[k].text; k++ }
-                if (e.text.isNotBlank()) out += e.text.trim()
+            for (e in inLine) {
+                while (k < e.from && k <= range.last) { tokens[spanOf(k)] += reading.words[k].text; k++ }
+                val at = spanOf(minOf(e.from, range.last))
+                if (e.text.isNotBlank()) tokens[at] += e.text.trim()
+                touched[at] = true
                 if (e.to > k) k = minOf(e.to, range.last + 1)
             }
-            while (k <= range.last) { out += reading.words[k].text; k++ }
-            Line(si, seg.startMs, seg.endMs, out.joinToString(" "), true)
+            while (k <= range.last) { tokens[spanOf(k)] += reading.words[k].text; k++ }
+            spans.forEachIndexed { i, span ->
+                if (tokens[i].isEmpty() && !touched[i]) return@forEachIndexed
+                val sp = speakers?.getOrNull(span.first)?.takeIf { it >= 0 }
+                val startMs = if (spans.size == 1) seg.startMs else reading.words[span.first].startMs
+                val endMs = if (spans.size == 1) seg.endMs else reading.words[span.last].endMs
+                out += Line(si, startMs, endMs, if (inLine.isEmpty() && spans.size == 1) seg.text else tokens[i].joinToString(" "),
+                    touched[i], sp, sp?.let(name), span.first, span.last + 1)
+            }
         }
+        return out
     }
 }

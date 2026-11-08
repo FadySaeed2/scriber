@@ -72,6 +72,7 @@ private fun Results(r: LabReport, onCopy: (String) -> Unit) {
     r.diarization?.let { d ->
         Fact("Voices found", "${d.speakersFound} of ${d.speakersExpected}", if (d.speakersFound == d.speakersExpected) Ink.Teal else Ink.Amber)
         Fact("Speaker changes", "${d.turns} (1 expected)", if (d.turns == 1) Ink.Teal else Ink.Amber)
+        if (d.rawChanges >= 0) Fact("Before cleaning", "${d.rawChanges}")
         Fact("Time", "${Units.seconds(d.processMs)} for ${one(d.audioSeconds)} s")
     }
 

@@ -29,7 +29,7 @@ import kotlinx.serialization.Serializable
 data class JobProgress(val sessionId: String, val label: String, val fraction: Float)
 
 @Serializable
-data class Job(val id: String, val kind: String, val sessionId: String, val engine: String, val attempts: Int = 0, val then: String? = null)
+data class Job(val id: String, val kind: String, val sessionId: String, val engine: String, val attempts: Int = 0, val then: String? = null, val count: Int = 0)
 
 @Serializable
 private data class JobQueue(val jobs: List<Job> = emptyList())
@@ -43,6 +43,7 @@ private data class JobQueue(val jobs: List<Job> = emptyList())
 object Jobs {
     const val IMPORT = "import"
     const val TRANSCRIBE = "transcribe"
+    const val SPEAKERS = "speakers"
     private const val MAX_ATTEMPTS = 3
     private val lock = Any()
     private val _progress = MutableStateFlow<Map<String, JobProgress>>(emptyMap())
@@ -62,6 +63,16 @@ object Jobs {
         enqueue(context, TRANSCRIBE, sessionId, s.baseEngine, s.then)
     }
 
+    /** Finds who spoke when, looking for [count] voices (0 lets the model decide). Replaces earlier turns. */
+    fun speakers(context: Context, sessionId: String, count: Int) {
+        synchronized(lock) {
+            val jobs = queue(context).filterNot { it.kind == SPEAKERS && it.sessionId == sessionId && it.attempts == 0 }
+            save(context, jobs + Job(Ids.new(), SPEAKERS, sessionId, "", count = count))
+            if (_progress.value[sessionId] == null) _progress.update { it + (sessionId to JobProgress(sessionId, "Waiting to find speakers", 0f)) }
+        }
+        ProcessingService.start(context)
+    }
+
     /** One more transcript with one engine, nothing after it. */
     fun transcribe(context: Context, sessionId: String, engine: String) = enqueue(context, TRANSCRIBE, sessionId, engine, null)
 
@@ -71,7 +82,7 @@ object Jobs {
 
     fun pending(context: Context): List<Job> = synchronized(lock) { queue(context) }
 
-    private fun waiting(job: Job) = JobProgress(job.sessionId, if (job.kind == IMPORT) "Waiting to decode" else "Waiting to transcribe", 0f)
+    private fun waiting(job: Job) = JobProgress(job.sessionId, when (job.kind) { IMPORT -> "Waiting to decode"; SPEAKERS -> "Waiting to find speakers"; else -> "Waiting to transcribe" }, 0f)
 
     private fun enqueue(context: Context, kind: String, sessionId: String, engine: String, then: String?) {
         synchronized(lock) {
@@ -161,6 +172,16 @@ object Jobs {
             } catch (t: Throwable) {
                 store.update(id) { it.copy(status = SessionStatus.FAILED, problem = "Could not decode: ${t.message ?: t.javaClass.simpleName}") }
             }
+            SPEAKERS -> try {
+                report(JobProgress(id, "Finding speakers", 0f)); notify("Finding speakers")
+                var last = -1
+                SpeakerFinder(context).run(id, job.count) { f ->
+                    val pct = (f * 100).toInt()
+                    if (pct != last) { last = pct; report(JobProgress(id, "Finding speakers", f)); notify("Finding speakers, $pct%") }
+                }
+            } catch (t: Throwable) {
+                store.update(id) { it.copy(problem = "Could not find speakers: ${t.message ?: t.javaClass.simpleName}") }
+            }
             TRANSCRIBE -> try {
                 report(JobProgress(id, "Transcribing", 0f)); notify("Transcribing")
                 var last = -1
@@ -171,6 +192,14 @@ object Jobs {
                     if (pct != last) { last = pct; report(JobProgress(id, label, f)); notify("$label, $pct%") }
                 }
                 job.then?.let { enqueueBehind(context, TRANSCRIBE, id, it, null) }
+                // The end of a new session's chain: a conversation also gets its speakers.
+                val s = store.session(id)
+                if (job.then == null && s?.mode == com.fadysaeed.scriber.core.SessionMode.CONVERSATION && store.speakers(id) == null && SpeakerFinder.ready(context)) {
+                    synchronized(lock) {
+                        val jobs = queue(context)
+                        if (jobs.none { it.kind == SPEAKERS && it.sessionId == id }) save(context, jobs + Job(Ids.new(), SPEAKERS, id, "", count = store.settings().speakers))
+                    }
+                }
             } catch (_: Throwable) {
                 // The failed run is saved with its reason and shows on the session.
             }

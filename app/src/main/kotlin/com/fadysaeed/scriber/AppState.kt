@@ -11,6 +11,7 @@ import com.fadysaeed.scriber.core.Line
 import com.fadysaeed.scriber.core.MedicineHit
 import com.fadysaeed.scriber.core.Reading
 import com.fadysaeed.scriber.core.Scoring
+import com.fadysaeed.scriber.core.SpeakerLayer
 import com.fadysaeed.scriber.core.TranscriptRun
 import com.fadysaeed.scriber.data.AppSettings
 import com.fadysaeed.scriber.fetch.Fetcher
@@ -73,6 +74,12 @@ data class SessionUi(
     val showEdited: Boolean = true,
     /** Engine name for the second opinion that is missing, if the session has none yet. */
     val missingSecond: String? = null,
+    /** Who spoke when, for a conversation. */
+    val speakers: SpeakerLayer? = null,
+    /** The speaker of each base word of the selected run. */
+    val speakerOf: List<Int>? = null,
+    /** The speaker models are on the phone. */
+    val canFindSpeakers: Boolean = false,
 ) {
     val run: TranscriptRun? get() = runs.firstOrNull { it.id == selectedRunId } ?: runs.lastOrNull()
 
@@ -80,7 +87,8 @@ data class SessionUi(
     val lines: List<Line> get() {
         val r = run ?: return emptyList()
         val rd = reading ?: return r.segments.mapIndexed { i, s -> Line(i, s.startMs, s.endMs, s.text, false) }
-        return Document.lines(r, rd, if (showEdited) edits else null)
+        val sp = speakers
+        return Document.lines(r, rd, if (showEdited) edits else null, speakerOf) { sp?.name(it) ?: "Speaker ${it + 1}" }
     }
 
     /** True when a correction already covers this place (made from it, or a wider one over it). */

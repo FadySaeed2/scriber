@@ -98,9 +98,12 @@ private sealed interface Piece {
 }
 
 /** One line of the transcript as pieces: plain words, medicines, differences, corrections. */
-private fun pieces(ui: SessionUi, segment: Int): List<Piece> {
+private fun pieces(ui: SessionUi, line: com.fadysaeed.scriber.core.Line): List<Piece> {
     val reading = ui.reading ?: return emptyList()
-    val range = reading.segments.getOrNull(segment) ?: return emptyList()
+    val segment = line.segment
+    val whole = reading.segments.getOrNull(segment) ?: return emptyList()
+    val range = if (line.from >= 0 && line.to > line.from) line.from until line.to else whole
+    val lastOfSegment = range.last == whole.last
     val edits = if (ui.showEdited) ui.edits?.edits.orEmpty() else emptyList()
     val diffs = if (ui.showEdited) ui.openDifferences.filter { it.segment == segment } else emptyList()
     val misspelled = if (ui.showEdited) ui.openMedicines.filter { it.segment == segment } else emptyList()
@@ -108,6 +111,7 @@ private fun pieces(ui: SessionUi, segment: Int): List<Piece> {
     val out = ArrayList<Piece>()
     var k = range.first
     fun insertsAt(pos: Int) {
+        if (pos > range.last && !lastOfSegment) return
         edits.filter { it.from == it.to && it.from == pos && it.segment == segment && it.text.isNotBlank() }.forEach { out += Piece.Corrected(it.text, it) }
         diffs.filter { it.from == it.to && it.from == pos }.forEach { out += Piece.Missing(it) }
     }
@@ -117,9 +121,9 @@ private fun pieces(ui: SessionUi, segment: Int): List<Piece> {
         val d = diffs.firstOrNull { it.from == k && it.to > k }
         val m = misspelled.firstOrNull { it.from == k }
         when {
-            e != null -> { if (e.text.isNotBlank()) out += Piece.Corrected(e.text, e); k = minOf(e.to, range.last + 1) }
-            d != null -> { out += Piece.Different(d.baseText, d); k = d.to }
-            m != null -> { out += Piece.Misspelled(m.heard, m); k = m.to }
+            e != null -> { if (e.text.isNotBlank()) out += Piece.Corrected(e.text, e); k = maxOf(k + 1, minOf(e.to, range.last + 1)) }
+            d != null -> { out += Piece.Different(d.baseText, d); k = maxOf(k + 1, minOf(d.to, range.last + 1)) }
+            m != null -> { out += Piece.Misspelled(m.heard, m); k = maxOf(k + 1, minOf(m.to, range.last + 1)) }
             exact.any { k >= it.from && k < it.to } -> { out += Piece.Medicine(reading.words[k].text, k); k++ }
             else -> { out += Piece.Plain(reading.words[k].text, k); k++ }
         }
@@ -171,7 +175,18 @@ private fun annotated(list: List<Piece>, readable: Boolean, onTap: (Piece) -> Un
 fun Transcript(ui: SessionUi, a: SessionActions, readable: Boolean, open: (SessionSheet) -> Unit) {
     val s = ui.session ?: return
     val reading = ui.reading
+    var lastSpeaker: Int? = null
     for (line in ui.lines) {
+        val sp = line.speaker
+        if (sp != null && sp != lastSpeaker) {
+            Row(Modifier.fillMaxWidth().clickable(enabled = line.from >= 0, role = Role.Button) { open(SessionSheet.Speaker(line.from, line.to, sp, line.text)) }.padding(top = 12.dp, bottom = 2.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Spacer(Modifier.width(48.dp))
+                Dot(speakerColor(sp), 8.dp); Spacer(Modifier.width(8.dp))
+                Eyebrow(line.speakerName ?: "Speaker ${sp + 1}", color = speakerColor(sp))
+            }
+        }
+        lastSpeaker = sp ?: lastSpeaker
         val playingHere = ui.player.playing && ui.player.positionMs in line.startMs until line.endMs
         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
             Text(clock(line.startMs), style = Type.tiny.copy(color = if (playingHere) Ink.Amber else Ink.Ash),
@@ -180,7 +195,7 @@ fun Transcript(ui: SessionUi, a: SessionActions, readable: Boolean, open: (Sessi
             if (reading == null) {
                 Text(if (readable) runCatching { com.fadysaeed.scriber.core.TranscriptFormats.readable(line.text, s.mode) }.getOrDefault(line.text) else line.text, style = Type.reading.copy(color = color))
             } else {
-                val list = pieces(ui, line.segment)
+                val list = pieces(ui, line)
                 Text(annotated(list, readable) { p ->
                     when (p) {
                         is Piece.Different -> open(SessionSheet.Review)
@@ -308,6 +323,83 @@ fun WordsSheet(sh: SessionSheet.Words, ui: SessionUi, a: SessionActions, onClose
                 }, Modifier.weight(1f), minHeight = 52.dp)
             }
             AmberButton("Save", { onClose(); r.onEdit(sh.from, sh.to, sh.segment, text, addWord) }, Modifier.weight(1f))
+        }
+    }
+}
+
+
+private val speakerColors = listOf(Ink.Sand, Ink.Earth, Ink.Dust, Ink.Slate)
+fun speakerColor(speaker: Int) = speakerColors[speaker.mod(speakerColors.size)]
+
+/** How many voices the session has, a way to look again with another number, and their names. */
+@Composable
+fun SpeakersSummary(ui: SessionUi, onOpen: () -> Unit, onFind: () -> Unit) {
+    val s = ui.session ?: return
+    if (s.mode != com.fadysaeed.scriber.core.SessionMode.CONVERSATION) return
+    val layer = ui.speakers
+    when {
+        layer != null -> {
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onOpen).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                for (i in 0 until layer.count) { Dot(speakerColor(i), 8.dp); Spacer(Modifier.width(6.dp)); Text(layer.name(i), style = Type.small); Spacer(Modifier.width(14.dp)) }
+                Spacer(Modifier.weight(1f))
+                Text("Speakers", style = Type.small.copy(color = Ink.Amber))
+            }
+        }
+        ui.canFindSpeakers && ui.job == null && s.hasAudio && ui.run?.status == com.fadysaeed.scriber.core.RunStatus.DONE ->
+            ActionRow(Glyph.LIST, "Find who is speaking", onFind, "Splits the conversation between voices; the transcripts stay as they are")
+    }
+}
+
+/** Number of voices to look for, and a name for each voice. */
+@Composable
+fun SpeakersSheet(ui: SessionUi, onFind: (Int) -> Unit, onRename: (Int, String) -> Unit, onClose: () -> Unit) {
+    val layer = ui.speakers
+    Sheet(onClose) {
+        Eyebrow("Speakers"); Spacer(Modifier.height(8.dp))
+        if (layer != null) {
+            for (i in 0 until layer.count) {
+                var name by remember(layer, i) { mutableStateOf(layer.names[i].orEmpty()) }
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
+                    Dot(speakerColor(i), 9.dp); Spacer(Modifier.width(10.dp))
+                    BasicTextField(name, { name = it }, singleLine = true, textStyle = Type.body, cursorBrush = SolidColor(Ink.Amber),
+                        decorationBox = { inner -> if (name.isEmpty()) Text("Speaker ${i + 1}", style = Type.body.copy(color = Ink.Ash)); inner() },
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp).background(Ink.Field, Corner).border(1.dp, Ink.Edge, Corner).padding(13.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Save", style = Type.small.copy(color = Ink.Amber), modifier = Modifier.clickable(role = Role.Button) { onRename(i, name) }.padding(10.dp))
+                }
+            }
+            Text("Names stay on this phone, inside the encrypted vault.", style = Type.small, modifier = Modifier.padding(top = 4.dp))
+            Spacer(Modifier.height(14.dp))
+        }
+        Text("Look again for", style = Type.note)
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for ((n, label) in listOf(2 to "2 voices", 3 to "3", 4 to "4", 0 to "Decide")) {
+                Choice(label, layer?.requested == n, { onClose(); onFind(n) }, Modifier.weight(if (n == 2) 1.6f else 1f))
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text("Looking again replaces the voices found before; your corrections to words stay.", style = Type.small)
+    }
+}
+
+/** Gives one part of the conversation to another voice. */
+@Composable
+fun SpeakerPartSheet(sh: SessionSheet.Speaker, ui: SessionUi, onMove: (Int, Int, Int) -> Unit, onClose: () -> Unit) {
+    val layer = ui.speakers ?: return
+    Sheet(onClose) {
+        Eyebrow("Who said this?"); Spacer(Modifier.height(8.dp))
+        Text(sh.text, style = Type.reading, maxLines = 4)
+        Spacer(Modifier.height(12.dp))
+        for (i in 0 until layer.count + 1) {
+            val label = if (i < layer.count) layer.name(i) else "Someone else (Speaker ${i + 1})"
+            Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable(role = Role.Button) { onClose(); onMove(sh.from, sh.to, i) }.padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Dot(speakerColor(i), 9.dp); Spacer(Modifier.width(12.dp))
+                Text(label, style = Type.body.copy(color = if (i == sh.speaker) Ink.Amber else Ink.Bone), modifier = Modifier.weight(1f))
+                if (i == sh.speaker) Text("now", style = Type.small)
+            }
         }
     }
 }

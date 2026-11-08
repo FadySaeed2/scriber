@@ -24,6 +24,7 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
+        android:largeHeap="true"
         android:theme="@style/Theme.Scriber">
 
         <!-- The language model's GPU path needs these vendor libraries when the phone has them. -->

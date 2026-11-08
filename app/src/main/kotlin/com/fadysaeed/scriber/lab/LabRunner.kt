@@ -71,14 +71,15 @@ class LabRunner(private val context: Context, private val catalog: ModelCatalog,
                 // Two different voices back to back: one dictation and one unrelated speaker.
                 val audio = concat(listOf(clips.first().second, sample))
                 val t0 = SystemClock.elapsedRealtime()
-                val d = Speech.diarizer(store.file(seg, seg.files.first()), store.file(emb, emb.files.first()))
+                // Told to expect two voices, as Scriber does for a conversation, then cleaned the same way.
+                val d = Speech.diarizer(store.file(seg, seg.files.first()), store.file(emb, emb.files.first()), speakers = 2, threads = Speech.threads())
                 try {
                     val t1 = SystemClock.elapsedRealtime()
-                    val turns = d.process(audio.samples)
+                    val raw = d.process(audio.samples).map { com.fadysaeed.scriber.core.Turn((it.start * 1000).toLong(), (it.end * 1000).toLong(), it.speaker) }
                     val t2 = SystemClock.elapsedRealtime()
-                    val bySpeaker = turns.sortedBy { it.start }.map { it.speaker }
-                    val changes = bySpeaker.zipWithNext().count { (a, b) -> a != b }
-                    report = report.copy(diarization = DiarizationRun(audio.seconds, t1 - t0, t2 - t1, bySpeaker.distinct().size, 2, changes + if (bySpeaker.isEmpty()) 0 else 1))
+                    val clean = com.fadysaeed.scriber.core.Speakers.smooth(raw)
+                    report = report.copy(diarization = DiarizationRun(audio.seconds, t1 - t0, t2 - t1, clean.map { it.speaker }.distinct().size, 2,
+                        com.fadysaeed.scriber.core.Speakers.changes(clean), com.fadysaeed.scriber.core.Speakers.changes(raw.sortedBy { it.startMs })))
                 } finally { d.release() }
             }.onFailure { problems += "Speaker turns: ${it.message}" }
         }

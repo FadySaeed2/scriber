@@ -136,4 +136,34 @@ class Phase2CoreTest {
         assertTrue(TranscriptFormats.srt(lines, SessionMode.CONVERSATION, false).contains("Main PA patent."))
         assertTrue(TranscriptFormats.plain(lines, SessionMode.CONVERSATION, false).startsWith("[00:00:00] Main PA patent."))
     }
+
+    // Speakers ----------------------------------------------------------------------------------
+
+    @Test fun blipsAreSmoothedButShortAnswersStay() {
+        val raw = listOf(Turn(0, 5000, 3), Turn(5000, 5200, 1), Turn(5200, 9000, 3), Turn(9500, 10200, 1), Turn(10600, 15000, 3), Turn(15000, 15100, 7))
+        val t = Speakers.smooth(raw)
+        // The 0.2 s blip joins the doctor; the 0.7 s "Yes." stays the patient's; voices are numbered 0, 1.
+        assertEquals(listOf(Turn(0, 9000, 0), Turn(9500, 10200, 1), Turn(10600, 15100, 0)), t)
+        assertEquals(2, Speakers.changes(t))
+    }
+
+    @Test fun wordsGetTheirVoiceAndLinesSplitWhereItChanges() {
+        val base = run("parakeet", 0L..6000L to "How are you sleeping? Better, thanks.", 6500L..9000L to "Good.")
+        val r = Compare.reading(base, null, SessionMode.CONVERSATION, meds)
+        // Words: How(0) are(1) you(2) sleeping?(3) Better,(4) thanks.(5) | Good.(6); even timing over 0..6000.
+        val layer = SpeakerLayer("s", "a", 2, listOf(Turn(0, 3900, 0), Turn(3900, 6200, 1), Turn(6400, 9000, 0)))
+        val who = Speakers.assign(r.words, r.segments, layer, base.id)
+        assertEquals(listOf(0, 0, 0, 0, 1, 1, 0), who)
+        val lines = Document.lines(base, r, null, who) { layer.name(it) }
+        assertEquals(listOf("Speaker 1: How are you sleeping?", "Speaker 2: Better, thanks.", "Speaker 1: Good."), lines.map { "${it.speakerName}: ${it.text}" })
+        // A single stray word inside a line follows the voice around it.
+        val stray = Speakers.assign(r.words, r.segments, layer.copy(turns = listOf(Turn(0, 1500, 0), Turn(1500, 2400, 1), Turn(2400, 9000, 0))), base.id)
+        assertEquals(List(7) { 0 }, stray)
+        // Fady's moves win, and names show.
+        val moved = layer.copy(names = mapOf(1 to "Patient"), moves = listOf(SpeakerMove(base.id, 6, 7, 1)))
+        val w2 = Speakers.assign(r.words, r.segments, moved, base.id)
+        assertEquals(1, w2[6])
+        assertEquals("Patient", Document.lines(base, r, null, w2) { moved.name(it) }.last().speakerName)
+        assertTrue(TranscriptFormats.plain(Document.lines(base, r, null, w2) { moved.name(it) }, SessionMode.CONVERSATION, false).contains("Patient: Better, thanks."))
+    }
 }
