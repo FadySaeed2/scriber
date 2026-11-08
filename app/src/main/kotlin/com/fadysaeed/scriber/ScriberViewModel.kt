@@ -139,7 +139,7 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
     fun import(uri: Uri, mode: SessionMode, opened: (String) -> Unit) = viewModelScope.launch(Dispatchers.IO) {
         try {
             val id = Importer.copyIn(getApplication(), uri, mode)
-            Jobs.import(getApplication(), id, store.settings().engineFor(mode))
+            Jobs.import(getApplication(), id)
             withContext(Dispatchers.Main) { opened(id) }
         } catch (t: Throwable) {
             say("Could not import: ${t.message ?: t.javaClass.simpleName}")

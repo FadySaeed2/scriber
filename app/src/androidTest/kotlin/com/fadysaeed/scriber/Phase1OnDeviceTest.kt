@@ -96,11 +96,11 @@ class Phase1OnDeviceTest {
         store.deleteSession(id)
     }
 
-    private suspend fun speechModels(): ModelStore {
+    private suspend fun speechModels(vararg engines: String = arrayOf("medasr")): ModelStore {
         val catalog = ModelCatalog.bundled()
         val models = ModelStore(context)
         val downloader = ModelDownloader(models)
-        val packs = listOf(catalog.byRole(PackRole.ASR).first { it.engine == "medasr" }, catalog.byRole(PackRole.VAD).single())
+        val packs = engines.map { e -> catalog.byRole(PackRole.ASR).first { it.engine == e } } + catalog.byRole(PackRole.VAD).single()
         for (p in packs) if (models.state(p) !is com.fadysaeed.scriber.fetch.PackState.Verified) { for (f in p.files) downloader.fetch(p, f) { _, _ -> }; models.markVerified(p) }
         return models
     }
@@ -111,7 +111,7 @@ class Phase1OnDeviceTest {
     @Test fun recordsADictationAndTranscribesItAfterSaving() = runBlocking {
         speechModels()
         val settings = store.settings()
-        store.saveSettings(settings.copy(dictationEngine = "medasr"))
+        store.saveSettings(settings.copy(baseEngine = "medasr", secondOpinion = false))
         val id = com.fadysaeed.scriber.audio.RecordingService.start(context, SessionMode.DICTATION)
         Thread.sleep(7_000)
         com.fadysaeed.scriber.audio.RecordingService.stop(context)
@@ -140,36 +140,45 @@ class Phase1OnDeviceTest {
         } finally { rec.release() }
     }
 
-    @Test fun transcribesAMedicalDictationAndSealsIt() = runBlocking {
+    /** Exactly what happens on Fady's phone: import, decode, Parakeet, then MedASR as a second opinion, then the comparison. */
+    @Test fun importsADictationAndGetsBothEnginesWithASecondOpinion() = runBlocking {
         val catalog = ModelCatalog.bundled()
-        val models = speechModels()
+        val models = speechModels("medasr", "parakeet")
         val downloader = ModelDownloader(models)
         val bench = catalog.byRole(PackRole.BENCHMARK_AUDIO).single()
         val wav = bench.files.first { it.path == "1.wav" }
         downloader.fetch(bench, wav) { _, _ -> }
+        val settings = store.settings()
+        store.saveSettings(com.fadysaeed.scriber.data.AppSettings())
 
-        // The whole path Fady uses: copy in, then the background queue decodes and transcribes.
         val id = Importer.copyIn(context, Uri.fromFile(models.file(bench, wav)), SessionMode.DICTATION)
-        Jobs.import(context, id, "medasr")
-        val deadline = System.currentTimeMillis() + 10 * 60_000
+        Jobs.import(context, id)
+        val deadline = System.currentTimeMillis() + 15 * 60_000
         while (System.currentTimeMillis() < deadline) {
             val s = store.session(id)!!
             if (s.status == SessionStatus.FAILED) fail("Import failed: ${s.problem}")
-            val r = store.runs(id).lastOrNull()
-            if (r?.status == RunStatus.FAILED) fail("Transcription failed: ${r.problem}")
-            if (r?.status == RunStatus.DONE && Jobs.pending(context).isEmpty()) break
-            Thread.sleep(500)
+            store.runs(id).firstOrNull { it.status == RunStatus.FAILED }?.let { fail("${it.engine} failed: ${it.problem}") }
+            if (store.runs(id).count { it.status == RunStatus.DONE } == 2 && Jobs.pending(context).isEmpty()) break
+            Thread.sleep(1000)
         }
         assertEquals(SessionStatus.READY, store.session(id)!!.status)
-        val run = store.runs(id).single()
-        assertEquals(RunStatus.DONE, run.status)
+        val runs = store.runs(id)
+        assertEquals(listOf("parakeet", "medasr"), runs.map { it.engine })
+        for (run in runs) {
+            assertEquals(RunStatus.DONE, run.status)
+            assertTrue(Seal.intact(run))
+            assertTrue(run.text, run.wordCount >= 20)
+            assertTrue(run.segments.all { it.endMs > it.startMs })
+        }
         assertTrue(Jobs.progress.value[id] == null)
-        assertTrue(Seal.intact(run))
-        assertTrue(run.text, run.wordCount >= 20)
-        assertTrue(run.segments.all { it.endMs > it.startMs })
-        assertTrue(TranscriptFormats.srt(run, SessionMode.DICTATION, false).contains("-->"))
-        try { store.saveRun(run.copy(segments = emptyList())); fail("A sealed run must not be overwritten") } catch (expected: IllegalStateException) {}
+        val reading = com.fadysaeed.scriber.core.Compare.reading(runs[0], runs[1], SessionMode.DICTATION, com.fadysaeed.scriber.core.Medicines.bundled())
+        assertEquals(runs[0].wordCount, reading.words.size)
+        // The two engines agree on most of a clear dictation, so differences are few.
+        assertTrue("${reading.differences.size} differences", reading.differences.size < reading.words.size / 4)
+        assertTrue(TranscriptFormats.srt(runs[0], SessionMode.DICTATION, false).contains("-->"))
+        try { store.saveRun(runs[0].copy(segments = emptyList())); fail("A sealed run must not be overwritten") } catch (expected: IllegalStateException) {}
         store.deleteSession(id)
+        store.saveSettings(settings)
     }
 
     /** Encodes a 44.1 kHz stereo tone as AAC in an MP4 container, like a phone voice recorder would. */

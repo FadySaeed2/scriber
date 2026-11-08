@@ -138,6 +138,8 @@ jobs:
           arch: x86_64
           target: google_apis
           profile: pixel_6
+          ram-size: 4096M
+          disk-size: 8G
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: ./gradlew --no-daemon --continue connectedDebugAndroidTest --stacktrace; s=$?; mkdir -p out/device; adb logcat -d -b crash > out/device/crash.txt || true; tail -n 120 out/device/crash.txt || true; adb logcat -d -v brief AndroidRuntime:E DEBUG:I libc:F *:S > out/device/logcat.txt || true; tail -n 80 out/device/logcat.txt || true; exit $s

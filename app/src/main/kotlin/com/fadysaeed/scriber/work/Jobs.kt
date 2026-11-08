@@ -29,7 +29,7 @@ import kotlinx.serialization.Serializable
 data class JobProgress(val sessionId: String, val label: String, val fraction: Float)
 
 @Serializable
-data class Job(val id: String, val kind: String, val sessionId: String, val engine: String, val attempts: Int = 0)
+data class Job(val id: String, val kind: String, val sessionId: String, val engine: String, val attempts: Int = 0, val then: String? = null)
 
 @Serializable
 private data class JobQueue(val jobs: List<Job> = emptyList())
@@ -48,8 +48,22 @@ object Jobs {
     private val _progress = MutableStateFlow<Map<String, JobProgress>>(emptyMap())
     val progress: StateFlow<Map<String, JobProgress>> = _progress
 
-    fun import(context: Context, sessionId: String, thenEngine: String) = enqueue(context, IMPORT, sessionId, thenEngine)
-    fun transcribe(context: Context, sessionId: String, engine: String) = enqueue(context, TRANSCRIBE, sessionId, engine)
+    /** Decodes an imported file, then transcribes it like a new recording. [engine] overrides the base engine. */
+    fun import(context: Context, sessionId: String, engine: String? = null) {
+        val s = SessionStore.get(Vault.get(context)).settings()
+        val base = engine ?: s.baseEngine
+        val second = listOf(s.baseEngine, s.secondEngine).firstOrNull { it != base }?.takeIf { s.secondOpinion }
+        enqueue(context, IMPORT, sessionId, base, second)
+    }
+
+    /** A new session's audio is ready: the base engine, then the second opinion. */
+    fun transcribeNew(context: Context, sessionId: String) {
+        val s = SessionStore.get(Vault.get(context)).settings()
+        enqueue(context, TRANSCRIBE, sessionId, s.baseEngine, s.then)
+    }
+
+    /** One more transcript with one engine, nothing after it. */
+    fun transcribe(context: Context, sessionId: String, engine: String) = enqueue(context, TRANSCRIBE, sessionId, engine, null)
 
     private fun records(context: Context) = Records(Vault.get(context))
     private fun queue(context: Context): List<Job> = runCatching { records(context).get("jobs", JobQueue.serializer())?.jobs }.getOrNull().orEmpty()
@@ -59,11 +73,11 @@ object Jobs {
 
     private fun waiting(job: Job) = JobProgress(job.sessionId, if (job.kind == IMPORT) "Waiting to decode" else "Waiting to transcribe", 0f)
 
-    private fun enqueue(context: Context, kind: String, sessionId: String, engine: String) {
+    private fun enqueue(context: Context, kind: String, sessionId: String, engine: String, then: String?) {
         synchronized(lock) {
             val jobs = queue(context)
             if (jobs.none { it.kind == kind && it.sessionId == sessionId && it.engine == engine }) {
-                val job = Job(Ids.new(), kind, sessionId, engine)
+                val job = Job(Ids.new(), kind, sessionId, engine, then = then)
                 save(context, jobs + job)
                 if (_progress.value[sessionId] == null) _progress.update { it + (sessionId to waiting(job)) }
             }
@@ -96,7 +110,8 @@ object Jobs {
             }
             for (s in store.sessions()) {
                 if (s.source == SessionSource.IMPORTED && s.status == SessionStatus.FINALIZING && jobs.none { it.kind == IMPORT && it.sessionId == s.id }) {
-                    jobs += Job(Ids.new(), IMPORT, s.id, store.settings().engineFor(s.mode))
+                    val st = store.settings()
+                    jobs += Job(Ids.new(), IMPORT, s.id, st.baseEngine, then = st.then)
                 }
             }
             save(context, jobs)
@@ -142,17 +157,20 @@ object Jobs {
                     val pct = (f * 100).toInt()
                     if (pct != last) { last = pct; report(JobProgress(id, "Decoding", f)); notify("Decoding, $pct%") }
                 }
-                enqueueBehind(context, TRANSCRIBE, id, job.engine)
+                enqueueBehind(context, TRANSCRIBE, id, job.engine, job.then)
             } catch (t: Throwable) {
                 store.update(id) { it.copy(status = SessionStatus.FAILED, problem = "Could not decode: ${t.message ?: t.javaClass.simpleName}") }
             }
             TRANSCRIBE -> try {
                 report(JobProgress(id, "Transcribing", 0f)); notify("Transcribing")
                 var last = -1
+                val label = if (job.then == null && store.runs(id).any { it.status == RunStatus.DONE && it.engine != job.engine }) "Second opinion" else "Transcribing"
+                report(JobProgress(id, label, 0f))
                 Transcriber(context).run(id, job.engine) { f ->
                     val pct = (f * 100).toInt()
-                    if (pct != last) { last = pct; report(JobProgress(id, "Transcribing", f)); notify("Transcribing, $pct%") }
+                    if (pct != last) { last = pct; report(JobProgress(id, label, f)); notify("$label, $pct%") }
                 }
+                job.then?.let { enqueueBehind(context, TRANSCRIBE, id, it, null) }
             } catch (_: Throwable) {
                 // The failed run is saved with its reason and shows on the session.
             }
@@ -160,9 +178,9 @@ object Jobs {
     }
 
     /** Adds a follow-up job from inside the running service (no need to start it again). */
-    private fun enqueueBehind(context: Context, kind: String, sessionId: String, engine: String) = synchronized(lock) {
+    private fun enqueueBehind(context: Context, kind: String, sessionId: String, engine: String, then: String?) = synchronized(lock) {
         val jobs = queue(context)
-        if (jobs.none { it.kind == kind && it.sessionId == sessionId && it.engine == engine }) save(context, jobs + Job(Ids.new(), kind, sessionId, engine))
+        if (jobs.none { it.kind == kind && it.sessionId == sessionId && it.engine == engine }) save(context, jobs + Job(Ids.new(), kind, sessionId, engine, then = then))
     }
 }
 

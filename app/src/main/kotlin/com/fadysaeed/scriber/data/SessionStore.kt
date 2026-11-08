@@ -18,10 +18,15 @@ data class AppSettings(
     val retention: Retention = Retention(),
     /** Record at 48 kHz instead of 16 kHz (three times the space; speech models still read 16 kHz). */
     val highQuality: Boolean = false,
-    val dictationEngine: String = "medasr",
-    val conversationEngine: String = "parakeet",
+    /** The engine whose transcript is the one Fady reads and corrects, in both modes. */
+    val baseEngine: String = "parakeet",
+    /** The engine that runs after it on every session, as a second opinion. */
+    val secondEngine: String = "medasr",
+    val secondOpinion: Boolean = true,
 ) {
-    fun engineFor(mode: SessionMode) = if (mode == SessionMode.DICTATION) dictationEngine else conversationEngine
+    fun engineFor(@Suppress("UNUSED_PARAMETER") mode: SessionMode) = baseEngine
+    /** The second engine to run after the base one, or null when the second opinion is off. */
+    val then: String? get() = secondEngine.takeIf { secondOpinion && it != baseEngine }
 }
 
 /**

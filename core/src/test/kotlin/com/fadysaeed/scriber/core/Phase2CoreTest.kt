@@ -97,7 +97,7 @@ class Phase2CoreTest {
         var layer = EditLayer("s", base.id, "seal")
             .with(WordEdit(2, 3, 0, "PA", "second", 1))
             .with(WordEdit(6, 9, 1, "olanzapine", "medicine", 2))
-            .with(WordEdit(5, 5, 1, "please", "typed", 3))
+            .with(WordEdit(6, 6, 1, "please", "typed", 3))
         assertEquals(listOf("The main PA is patent.", "Continue please olanzapine nocte."), Document.lines(base, r, layer).map { it.text })
         // A newer edit over the same words wins; undo takes back the newest.
         layer = layer.with(WordEdit(6, 9, 1, "Zyprexa", "typed", 4))

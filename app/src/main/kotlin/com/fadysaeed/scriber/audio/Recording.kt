@@ -153,7 +153,7 @@ class RecordingService : Service() {
         _state.value = _state.value.copy(finishing = true)
         notify("Saving")
         runCatching {
-            if (Assembler(vault, store).finishRecording(id, recovered = false)) Jobs.transcribe(this, id, store.settings().engineFor(session.mode))
+            if (Assembler(vault, store).finishRecording(id, recovered = false)) Jobs.transcribeNew(this, id)
         }.onFailure { e -> store.update(id) { it.copy(status = SessionStatus.FAILED, problem = "Could not save: ${e.message}") } }
         _state.value = RecordingState()
         wakeLock?.let { if (it.isHeld) it.release() }
@@ -297,7 +297,7 @@ class RecordingService : Service() {
             for (s in store.sessions()) {
                 if (s.source == SessionSource.RECORDED && (s.status == SessionStatus.RECORDING || s.status == SessionStatus.FINALIZING)) {
                     if (Assembler(vault, store).finishRecording(s.id, recovered = true)) {
-                        Jobs.transcribe(context, s.id, store.settings().engineFor(s.mode)); n++
+                        Jobs.transcribeNew(context, s.id); n++
                     }
                 }
             }

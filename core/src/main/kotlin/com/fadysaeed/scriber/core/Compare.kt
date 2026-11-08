@@ -38,16 +38,25 @@ data class Reading(
 )
 
 object Words {
-    private val bracketTag = Regex("""^\[.*]$|^\[|]$""")
     private val braceCommand = Regex("""^\{.*}$""")
     private val dictationCommands = setOf("period", "comma", "colon", "semicolon", "fullstop", "newline", "newparagraph", "questionmark")
+    private val numbers = mapOf(
+        "zero" to "0", "one" to "1", "two" to "2", "three" to "3", "four" to "4", "five" to "5", "six" to "6", "seven" to "7",
+        "eight" to "8", "nine" to "9", "ten" to "10", "eleven" to "11", "twelve" to "12", "thirteen" to "13", "fourteen" to "14",
+        "fifteen" to "15", "sixteen" to "16", "seventeen" to "17", "eighteen" to "18", "nineteen" to "19", "twenty" to "20",
+        "thirty" to "30", "forty" to "40", "fifty" to "50", "sixty" to "60", "seventy" to "70", "eighty" to "80", "ninety" to "90",
+        "hundred" to "100", "thousand" to "1000",
+    )
 
-    /** Comparison key: lower-case letters and digits only. Engine markup ({period}, [PLAN]) has no key. */
+    /**
+     * Comparison key: lower-case letters and digits, number words as digits. Spoken commands in
+     * braces ({period}) have no key; section tags in brackets ([PLAN]) keep their words.
+     */
     fun key(word: String, mode: SessionMode): String {
-        if (braceCommand.matches(word) || bracketTag.containsMatchIn(word)) return ""
+        if (braceCommand.matches(word)) return ""
         val k = word.lowercase().filter { it.isLetterOrDigit() }
         if (mode == SessionMode.DICTATION && k in dictationCommands) return ""
-        return k
+        return numbers[k] ?: k
     }
 
     /**
@@ -188,7 +197,8 @@ object Compare {
 
     /** The second engine's markup ({period}, [PLAN]) is not offered as text to put in. */
     private fun cleanMarkup(text: String): String =
-        text.split(Regex("""\s+""")).filter { Words.key(it, SessionMode.CONVERSATION).isNotEmpty() }.joinToString(" ")
+        text.split(Regex("""\s+""")).filter { Words.key(it, SessionMode.CONVERSATION).isNotEmpty() }
+            .joinToString(" ") { it.trim('[', ']') }
 
     /** Medicines in the base transcript, exact or misspelled, outside places already flagged as differences. */
     private fun findMedicines(words: List<Word>, ranges: List<IntRange>, medicines: Medicines, diffs: List<Difference>): List<MedicineHit> {
