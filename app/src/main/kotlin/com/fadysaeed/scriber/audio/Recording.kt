@@ -79,10 +79,22 @@ class RecordingService : Service() {
             ACTION_START -> {
                 if (thread != null) return START_NOT_STICKY
                 val id = intent.getStringExtra(EXTRA_ID) ?: return START_NOT_STICKY
-                startForeground(NOTIFICATION_ID, notification("Recording"), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+                try {
+                    startForeground(NOTIFICATION_ID, notification("Recording"), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+                } catch (t: Throwable) {
+                    SessionStore.get(Vault.get(this)).update(id) { it.copy(status = SessionStatus.FAILED, problem = "Android did not allow recording to start: ${t.javaClass.simpleName}") }
+                    _state.value = RecordingState(problem = "Recording could not start")
+                    stopSelf(); return START_NOT_STICKY
+                }
                 wakeLock = getSystemService(PowerManager::class.java)
                     .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "scriber:recording").apply { acquire(6 * 60 * 60 * 1000L) }
-                thread = Thread({ record(id) }, "scriber-recorder").also { it.start() }
+                thread = Thread({
+                    try { record(id) } catch (t: Throwable) {
+                        com.fadysaeed.scriber.CrashLog.note(this, "recording", t)
+                        _state.value = RecordingState()
+                        stopSelf()
+                    }
+                }, "scriber-recorder").also { it.start() }
             }
             else -> if (thread == null) { stopSelf(); return START_NOT_STICKY }
         }
@@ -221,15 +233,19 @@ class RecordingService : Service() {
                 }
             } catch (_: InterruptedException) {
             } catch (t: Throwable) {
-                note = "Live preview stopped: ${t.message}"
+                note = "Live preview stopped (${t.javaClass.simpleName}); the full transcript will still be made after saving"
+                com.fadysaeed.scriber.CrashLog.note(context, "live preview", t)
                 drain()
             } finally {
-                vad?.release()
-                recognizer?.release()
+                runCatching { vad?.release() }
+                runCatching { recognizer?.release() }
             }
         }
 
-        private fun drain() { while (running) { queue.poll(500, java.util.concurrent.TimeUnit.MILLISECONDS) } }
+        /** Throws the audio away until recording stops. Stopping interrupts this wait, which is expected. */
+        private fun drain() {
+            try { while (running) { queue.poll(500, java.util.concurrent.TimeUnit.MILLISECONDS) } } catch (_: InterruptedException) {}
+        }
     }
 
     companion object {

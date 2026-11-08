@@ -30,6 +30,13 @@ object CrashLog {
         }
     }
 
+    /** Records a problem Scriber recovered from, so it shows with the crash details too. */
+    fun note(context: Context, what: String, error: Throwable) {
+        runCatching {
+            last(context.applicationContext).writeText("${stamp(System.currentTimeMillis())}, app ${BuildConfig.VERSION_NAME}, handled: $what\n${error.stackTraceToString()}")
+        }
+    }
+
     /** Text of everything not yet cleared, or null when Scriber has not stopped unexpectedly. */
     fun report(context: Context): String? {
         val seenAt = runCatching { seen(context).readText().trim().toLong() }.getOrDefault(0L)

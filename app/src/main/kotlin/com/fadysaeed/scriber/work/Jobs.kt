@@ -172,7 +172,14 @@ class ProcessingService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val type = if (Build.VERSION.SDK_INT >= 35) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING else ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-        startForeground(NOTIFICATION_ID, notification("Working"), type)
+        try {
+            startForeground(NOTIFICATION_ID, notification("Working"), type)
+        } catch (t: Throwable) {
+            // Android can refuse (for example when it restarts this service in the background after
+            // a crash). The queue is saved, so stop quietly; it resumes when Scriber is next opened.
+            stopSelf()
+            return START_NOT_STICKY
+        }
         synchronized(ProcessingService) {
             if (worker == null) {
                 busy = true
@@ -181,6 +188,12 @@ class ProcessingService : Service() {
             }
         }
         return START_NOT_STICKY
+    }
+
+    /** Android 15+ limits how long this kind of service may run each day; stop cleanly when told. */
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
     }
 
     private fun loop(wakeLock: PowerManager.WakeLock) {
