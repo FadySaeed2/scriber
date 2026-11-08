@@ -39,9 +39,9 @@ fun LabScreen(ui: LabUi, onRun: () -> Unit, onCopy: (String) -> Unit, onTryHints
         Spacer(Modifier.height(14.dp))
         AmberButton("Run checks", onRun, Modifier.fillMaxWidth())
     }
-    Speed(ui, onSpeed)
+    Speed(ui, onSpeed, onCopy)
     if (ui.own.isNotEmpty()) OwnScores(ui.own, onTryHints)
-    ui.report?.let { Results(it, onCopy) }
+    ui.report?.let { r -> Results(r) { text -> onCopy(text + (ui.speed?.let { "\n\n" + speedText(it) } ?: "")) } }
 }
 
 /** Both engines scored on Fady's own sessions that he corrected and marked as right. */
@@ -129,7 +129,7 @@ private fun AsrBlock(a: AsrRun, best: Boolean) {
 
 /** Which number of cores is fastest for each engine on this phone. */
 @Composable
-private fun Speed(ui: LabUi, onSpeed: () -> Unit) {
+private fun Speed(ui: LabUi, onSpeed: () -> Unit, onCopy: (String) -> Unit) {
     Section("Speed on this phone")
     val plan = ui.speed
     if (plan == null) {
@@ -145,5 +145,18 @@ private fun Speed(ui: LabUi, onSpeed: () -> Unit) {
         Text("Each on the same ${one(plan.clipSeconds)} s of test speech.", style = Type.small)
     }
     Spacer(Modifier.height(10.dp))
+    if (plan != null) {
+        GhostButton("Copy speeds", { onCopy(speedText(plan)) }, Modifier.fillMaxWidth(), minHeight = 52.dp)
+        Spacer(Modifier.height(8.dp))
+    }
     GhostButton(if (plan == null) "Speed check" else "Check speed again", onSpeed, Modifier.fillMaxWidth(), color = Ink.Amber, enabled = ui.step == null, minHeight = 52.dp)
 }
+
+/** The speed check as plain text, for copying into a message. */
+fun speedText(plan: com.fadysaeed.scriber.data.ThreadPlan): String = buildString {
+    appendLine("Speed on this phone (same ${one(plan.clipSeconds)} s of test speech)")
+    for ((engine, t) in plan.timings) {
+        val name = if (engine == "speakers") "Speakers" else engineName(engine)
+        appendLine("$name: uses ${plan.best[engine]} cores. " + t.entries.joinToString(", ") { (n, ms) -> "$n cores ${one(ms / 1000.0)} s" })
+    }
+}.trimEnd()
