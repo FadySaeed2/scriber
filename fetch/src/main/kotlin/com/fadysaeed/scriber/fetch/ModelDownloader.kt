@@ -17,6 +17,8 @@ import javax.net.ssl.HttpsURLConnection
 
 class IntegrityException(message: String) : IOException(message)
 class BlockedHostException(message: String) : IOException(message)
+/** The model host answered with a server error; worth trying again shortly. */
+class ServerBusyException(message: String) : IOException(message)
 
 /**
  * Downloads one catalogue file, resuming where it stopped, and refuses to keep it unless its size
@@ -40,10 +42,21 @@ class ModelDownloader(private val store: ModelStore) {
         }
         val part = store.partial(pack, f)
         part.parentFile?.mkdirs()
-        when (val plan = Resume.plan(part.length(), f.size)) {
-            ResumeAction.AlreadyComplete -> Unit
-            ResumeAction.StartFresh -> { part.delete(); download(f, part, 0, progress) }
-            is ResumeAction.ResumeFrom -> download(f, part, plan.offset, progress)
+        // A host that is briefly overloaded (HTTP 5xx) gets three more tries, a little apart;
+        // each try resumes from the bytes already on the phone.
+        var attempt = 0
+        while (true) {
+            try {
+                when (val plan = Resume.plan(part.length(), f.size)) {
+                    ResumeAction.AlreadyComplete -> Unit
+                    ResumeAction.StartFresh -> { part.delete(); download(f, part, 0, progress) }
+                    is ResumeAction.ResumeFrom -> download(f, part, plan.offset, progress)
+                }
+                break
+            } catch (e: ServerBusyException) {
+                if (++attempt > 3) throw IOException(e.message)
+                kotlinx.coroutines.delay(5_000L * attempt)
+            }
         }
         if (part.length() != f.size) throw IntegrityException("${f.path}: got ${part.length()} bytes, expected ${f.size}")
         val sha = Hashing.sha256(part) { progress.update(it, true) }
@@ -72,6 +85,7 @@ class ModelDownloader(private val store: ModelStore) {
                     true
                 }
                 code == 200 -> false
+                code in 500..599 -> throw ServerBusyException("HTTP $code for ${f.path}")
                 else -> throw IOException("HTTP $code for ${f.path}")
             }
             if (!append) part.delete()
