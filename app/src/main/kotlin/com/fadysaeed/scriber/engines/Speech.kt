@@ -40,9 +40,19 @@ object Speech {
         return Audio(Resample.mono(w.samples, w.sampleRate, SAMPLE_RATE), SAMPLE_RATE)
     }
 
-    /** A recogniser for the engine named in the catalogue ("parakeet" or "medasr"). */
-    fun recognizer(engine: String, dir: File, threads: Int = threads()): OfflineRecognizer {
-        val model = when (engine) {
+    /** Medicine names Parakeet is nudged towards while it listens (sherpa-onnx hotwords). */
+    class Hints(val hotwordsFile: File, val bpeVocab: File, val score: Float)
+
+    /** The catalogue engine behind an engine name: "parakeet+hints" runs the Parakeet model. */
+    fun modelEngine(engine: String) = engine.substringBefore('+')
+
+    /**
+     * A recogniser for an engine: "parakeet", "medasr", or "parakeet+hints" (Parakeet with beam
+     * search and the medicine list as hotwords, which needs [hints]).
+     */
+    fun recognizer(engine: String, dir: File, threads: Int = threads(), hints: Hints? = null): OfflineRecognizer {
+        val withHints = engine.endsWith("+hints") && hints != null
+        val model = when (modelEngine(engine)) {
             "parakeet" -> OfflineModelConfig(
                 transducer = OfflineTransducerModelConfig(
                     encoder = File(dir, "encoder.int8.onnx").path,
@@ -53,6 +63,8 @@ object Speech {
                 modelType = "nemo_transducer",
                 numThreads = threads,
                 provider = "cpu",
+                modelingUnit = if (withHints) "bpe" else "",
+                bpeVocab = if (withHints) hints!!.bpeVocab.path else "",
             )
             "medasr" -> OfflineModelConfig(
                 medasr = OfflineMedAsrCtcModelConfig(model = File(dir, "model.int8.onnx").path),
@@ -66,7 +78,10 @@ object Speech {
             config = OfflineRecognizerConfig(
                 featConfig = FeatureConfig(sampleRate = SAMPLE_RATE, featureDim = 80),
                 modelConfig = model,
-                decodingMethod = "greedy_search",
+                decodingMethod = if (withHints) "modified_beam_search" else "greedy_search",
+                maxActivePaths = 4,
+                hotwordsFile = if (withHints) hints!!.hotwordsFile.path else "",
+                hotwordsScore = hints?.score ?: 1.5f,
             )
         )
     }

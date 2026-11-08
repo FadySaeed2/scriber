@@ -11,6 +11,8 @@ and transcribes:
 import json, os, re, subprocess, sys, time, urllib.request, tarfile, wave
 
 subprocess.run([sys.executable, "-m", "pip", "install", "-q", "--break-system-packages", "numpy", "sherpa-onnx==2.0.1"], check=True)
+import importlib, site  # noqa: E402
+site.addsitedir(site.getusersitepackages()); importlib.invalidate_caches()
 import numpy as np  # noqa: E402
 import sherpa_onnx  # noqa: E402
 print("sherpa-onnx", sherpa_onnx.__version__ if hasattr(sherpa_onnx, "__version__") else "?")

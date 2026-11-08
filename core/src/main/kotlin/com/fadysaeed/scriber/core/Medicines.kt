@@ -111,5 +111,8 @@ class Medicines(entries: List<Entry>, private val common: Set<String>, personal:
         private val bundledCommon by lazy { resource("common_english.txt").lineSequence().filter { it.isNotBlank() && !it.startsWith("#") }.map { it.trim() }.toHashSet() }
 
         fun bundled(personal: PersonalWords = PersonalWords()): Medicines = Medicines(bundledEntries, bundledCommon, personal)
+
+        /** Every name in the bundled list, as written. */
+        fun bundledNames(): List<String> = bundledEntries.map { it.name }
     }
 }
