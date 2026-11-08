@@ -211,7 +211,7 @@ class Phase1OnDeviceTest {
         }
         val layer = store.speakers(id) ?: fail("No speakers found") as Nothing
         assertEquals("${layer.settings} turns ${layer.turns}", 2, layer.turns.map { it.speaker }.distinct().size)
-        assertTrue("changes ${com.fadysaeed.scriber.core.Speakers.changes(layer.turns)}", com.fadysaeed.scriber.core.Speakers.changes(layer.turns) in 1..3)
+        assertTrue("changes ${com.fadysaeed.scriber.core.Speakers.changes(layer.turns)}: ${layer.settings} turns ${layer.turns}", com.fadysaeed.scriber.core.Speakers.changes(layer.turns) in 1..3)
         store.deleteSession(id)
     }
 
