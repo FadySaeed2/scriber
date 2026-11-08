@@ -191,7 +191,7 @@ class Phase1OnDeviceTest {
             if (models.state(p) !is com.fadysaeed.scriber.fetch.PackState.Verified) { for (f in p.files) downloader.fetch(p, f) { _, _ -> }; models.markVerified(p) }
         }
         val bench = catalog.byRole(PackRole.BENCHMARK_AUDIO).single()
-        val wav = bench.files.first { it.path == "1.wav" }
+        val wav = bench.files.first { it.path == "0.wav" } // the same pair the Lab measures on the phone
         downloader.fetch(bench, wav) { _, _ -> }
         val pk = catalog.byRole(PackRole.ASR).first { it.engine == "parakeet" }
         val a = com.fadysaeed.scriber.engines.Speech.readWave(models.file(bench, wav)).samples
