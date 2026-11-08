@@ -79,14 +79,21 @@ object Jobs {
     fun resume(context: Context) {
         val store = SessionStore.get(Vault.get(context))
         synchronized(lock) {
+            val jobs = queue(context).toMutableList()
             if (!ProcessingService.busy) {
+                // A job that had started but is not running now stopped the app (or the phone died).
+                // Never start it again by itself: that turns one crash into a crash on every open.
+                val interrupted = jobs.filter { it.attempts >= 1 }
+                jobs.removeAll(interrupted)
+                for (j in interrupted) if (j.kind == IMPORT) store.update(j.sessionId) {
+                    it.copy(status = SessionStatus.FAILED, problem = "Scriber stopped while decoding this file. The file is kept; Transcribe again tries once more. Details are in Settings.")
+                }
                 for (s in store.sessions()) {
                     for (r in store.runs(s.id)) if (r.status == RunStatus.RUNNING) {
-                        runCatching { store.saveRun(r.copy(status = RunStatus.FAILED, finishedAtMillis = System.currentTimeMillis(), problem = "Stopped before it finished; it will run again")) }
+                        runCatching { store.saveRun(r.copy(status = RunStatus.FAILED, finishedAtMillis = System.currentTimeMillis(), problem = "Scriber stopped while making this transcript. Transcribe again to retry; details are in Settings.")) }
                     }
                 }
             }
-            val jobs = queue(context).toMutableList()
             for (s in store.sessions()) {
                 if (s.source == SessionSource.IMPORTED && s.status == SessionStatus.FINALIZING && jobs.none { it.kind == IMPORT && it.sessionId == s.id }) {
                     jobs += Job(Ids.new(), IMPORT, s.id, store.settings().engineFor(s.mode))

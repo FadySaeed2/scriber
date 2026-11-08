@@ -77,7 +77,11 @@ object Speech {
     fun decode(recognizer: OfflineRecognizer, audio: Audio): OfflineRecognizerResult {
         val stream = recognizer.createStream()
         try {
-            stream.acceptWaveform(audio.samples, audio.sampleRate)
+            // Very short pieces (a click, a breath at the end) are padded with silence to one second:
+            // some models misbehave on a handful of frames. Times stay right because the padding is at the end.
+            val min = audio.sampleRate
+            val samples = if (audio.samples.size >= min) audio.samples else audio.samples.copyOf(min)
+            stream.acceptWaveform(samples, audio.sampleRate)
             recognizer.decode(stream)
             return recognizer.getResult(stream)
         } finally {

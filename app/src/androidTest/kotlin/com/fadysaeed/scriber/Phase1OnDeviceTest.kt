@@ -96,12 +96,54 @@ class Phase1OnDeviceTest {
         store.deleteSession(id)
     }
 
-    @Test fun transcribesAMedicalDictationAndSealsIt() = runBlocking {
+    private suspend fun speechModels(): ModelStore {
         val catalog = ModelCatalog.bundled()
         val models = ModelStore(context)
         val downloader = ModelDownloader(models)
         val packs = listOf(catalog.byRole(PackRole.ASR).first { it.engine == "medasr" }, catalog.byRole(PackRole.VAD).single())
-        for (p in packs) { for (f in p.files) downloader.fetch(p, f) { _, _ -> }; models.markVerified(p) }
+        for (p in packs) if (models.state(p) !is com.fadysaeed.scriber.fetch.PackState.Verified) { for (f in p.files) downloader.fetch(p, f) { _, _ -> }; models.markVerified(p) }
+        return models
+    }
+
+    @get:org.junit.Rule val mic: androidx.test.rule.GrantPermissionRule = androidx.test.rule.GrantPermissionRule.grant(android.Manifest.permission.RECORD_AUDIO)
+
+    /** Records a short dictation through the real service, stops, and waits for the saved transcript. */
+    @Test fun recordsADictationAndTranscribesItAfterSaving() = runBlocking {
+        speechModels()
+        val settings = store.settings()
+        store.saveSettings(settings.copy(dictationEngine = "medasr"))
+        val id = com.fadysaeed.scriber.audio.RecordingService.start(context, SessionMode.DICTATION)
+        Thread.sleep(7_000)
+        com.fadysaeed.scriber.audio.RecordingService.stop(context)
+        val deadline = System.currentTimeMillis() + 5 * 60_000
+        while (System.currentTimeMillis() < deadline) {
+            val r = store.runs(id).lastOrNull()
+            if (r != null && r.status != RunStatus.RUNNING && Jobs.pending(context).isEmpty()) break
+            Thread.sleep(500)
+        }
+        val s = store.session(id)!!
+        assertEquals(SessionStatus.READY, s.status)
+        assertTrue("duration ${s.durationMs}", s.durationMs in 5_000..9_000)
+        val r = store.runs(id).single()
+        assertEquals(r.problem, RunStatus.DONE, r.status)
+        store.deleteSession(id)
+        store.saveSettings(settings)
+    }
+
+    /** Tiny pieces of sound (a click, a breath) must not upset either engine. */
+    @Test fun decodesVeryShortPieces() = runBlocking {
+        val models = speechModels()
+        val pack = ModelCatalog.bundled().byRole(PackRole.ASR).first { it.engine == "medasr" }
+        val rec = com.fadysaeed.scriber.engines.Speech.recognizer("medasr", models.dir(pack), 2)
+        try {
+            for (n in listOf(0, 1, 160, 1_600, 4_000, 8_000)) com.fadysaeed.scriber.engines.Speech.decode(rec, com.fadysaeed.scriber.engines.Audio(tone(16_000, n / 16_000.0), 16_000))
+        } finally { rec.release() }
+    }
+
+    @Test fun transcribesAMedicalDictationAndSealsIt() = runBlocking {
+        val catalog = ModelCatalog.bundled()
+        val models = speechModels()
+        val downloader = ModelDownloader(models)
         val bench = catalog.byRole(PackRole.BENCHMARK_AUDIO).single()
         val wav = bench.files.first { it.path == "1.wav" }
         downloader.fetch(bench, wav) { _, _ -> }

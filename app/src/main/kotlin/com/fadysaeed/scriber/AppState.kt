@@ -66,4 +66,6 @@ data class SettingsUi(
     val version: String = "",
     val catalogVersion: Int = 0,
     val storageBytes: Long = 0,
+    /** Details of the last unexpected stop, until cleared. */
+    val crash: String? = null,
 )

@@ -184,7 +184,8 @@ class RecordingService : Service() {
         fun start() { worker = Thread({ loop() }, "scriber-preview").also { it.start() } }
         fun offer(samples: FloatArray) { if (!queue.offer(samples)) note = "Preview is behind; the full transcript will still be complete" }
         fun lines(): List<LiveLine> = synchronized(out) { out.takeLast(40) }
-        fun close() { running = false; worker?.interrupt() }
+        /** Stops the preview and waits for its engine to be released before the full transcript starts. */
+        fun close() { running = false; worker?.interrupt(); runCatching { worker?.join(15_000) } }
 
         private fun loop() {
             val catalog = ModelCatalog.bundled()

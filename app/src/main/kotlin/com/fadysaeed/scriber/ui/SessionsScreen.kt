@@ -99,7 +99,7 @@ private fun SessionLine(row: SessionRow, onClick: () -> Unit) {
                 )
                 row.latest?.takeIf { it.status == RunStatus.DONE }?.let {
                     Spacer(Modifier.height(6.dp))
-                    Text(com.fadysaeed.scriber.core.TranscriptFormats.readable(it.text, row.session.mode).replace(Regex("\\s+"), " "), style = Type.note, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(runCatching { com.fadysaeed.scriber.core.TranscriptFormats.readable(it.text, row.session.mode) }.getOrDefault(it.text).replace(Regex("\\s+"), " "), style = Type.note, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
             Spacer(Modifier.width(12.dp))

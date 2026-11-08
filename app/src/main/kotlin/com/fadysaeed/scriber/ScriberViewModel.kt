@@ -147,7 +147,13 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Restarts unfinished decoding and transcription; called each time the app comes to the front. */
+    fun clearCrash() = viewModelScope.launch(Dispatchers.IO) {
+        CrashLog.clear(getApplication())
+        _settings.update { it.copy(crash = null) }
+    }
+
     fun resumeJobs() = viewModelScope.launch(Dispatchers.IO) {
+        _settings.update { it.copy(crash = runCatching { CrashLog.report(getApplication()) }.getOrNull()) }
         runCatching { RecordingService.recover(getApplication()) }
         runCatching { com.fadysaeed.scriber.work.Jobs.resume(getApplication()) }
     }
@@ -166,7 +172,13 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
         if (t.isNotEmpty()) store.update(id) { it.copy(title = t) }
     }
 
-    fun transcribeAgain(id: String, engine: String) {
+    fun transcribeAgain(id: String, engine: String) = viewModelScope.launch(Dispatchers.IO) {
+        val s = store.session(id)
+        if (s != null && s.workAudioName == null && s.original != null) {
+            store.update(id) { it.copy(status = com.fadysaeed.scriber.core.SessionStatus.FINALIZING, problem = null) }
+            Jobs.import(getApplication(), id, engine)
+            return@launch
+        }
         Jobs.transcribe(getApplication(), id, engine)
         say("Queued a new transcript. The earlier ones stay as they are.")
     }

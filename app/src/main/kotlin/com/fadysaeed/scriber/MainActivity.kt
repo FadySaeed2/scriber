@@ -80,7 +80,8 @@ class MainActivity : FragmentActivity() {
         setContent {
             ScriberTheme {
                 Box(Modifier.fillMaxSize()) {
-                    if (!unlocked) LockScreen(lockProblem) { authenticate("Unlock Scriber") { unlocked = true; consumeShare() } }
+                    if (!unlocked) LockScreen(lockProblem, vm.settings.collectAsState().value.crash != null,
+                        { authenticate("Copy error details") { vm.settings.value.crash?.let(::copy) } }) { authenticate("Unlock Scriber") { unlocked = true; consumeShare() } }
                     else Content()
                     vm.toast.collectAsState().value?.let { Toast(it, vm::dismissToast) }
                 }
@@ -120,7 +121,8 @@ class MainActivity : FragmentActivity() {
                         { vm.chooseLlm(it) }, { vm.setWifiOnly(it) }, vm::dismissMessage)
                     Tab.Lab -> LabScreen(vm.lab.collectAsState().value, vm::runLab, ::copy)
                     Tab.Settings -> SettingsScreen(vm.settings.collectAsState().value, { vm.updateSettings(it) },
-                        { authenticate("Allow model downloads") { vm.unlockDownloads() } }, { vm.lockDownloads() }, { vm.checkVault() })
+                        { authenticate("Allow model downloads") { vm.unlockDownloads() } }, { vm.lockDownloads() }, { vm.checkVault() },
+                        { vm.settings.value.crash?.let(::copy) }, { vm.clearCrash() })
                 }
             }
         }
@@ -211,7 +213,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun copy(text: String) {
-        getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Scriber lab report", text))
+        getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Scriber", text))
         vm.toastCopied()
     }
 

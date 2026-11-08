@@ -15,9 +15,24 @@ import com.fadysaeed.scriber.core.Units
 import com.fadysaeed.scriber.data.AppSettings
 
 @Composable
-fun SettingsScreen(ui: SettingsUi, onChange: ((AppSettings) -> AppSettings) -> Unit, onUnlock: () -> Unit, onLock: () -> Unit, onCheckVault: () -> Unit) {
+fun SettingsScreen(
+    ui: SettingsUi, onChange: ((AppSettings) -> AppSettings) -> Unit, onUnlock: () -> Unit, onLock: () -> Unit, onCheckVault: () -> Unit,
+    onCopyCrash: () -> Unit = {}, onClearCrash: () -> Unit = {},
+) {
     val st = ui.settings
     Heading("Scriber", "Settings")
+
+    ui.crash?.let { details ->
+        Section("Last problem")
+        Text("Scriber stopped unexpectedly. Copy the details and send them so it can be fixed; they hold the error only, no recordings or transcripts.", style = Type.note)
+        Spacer(Modifier.height(10.dp))
+        Text(details.lines().take(14).joinToString("\n"), style = Type.mono)
+        Spacer(Modifier.height(12.dp))
+        androidx.compose.foundation.layout.Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)) {
+            AmberButton("Copy details", onCopyCrash, Modifier.weight(1f))
+            GhostButton("Clear", onClearCrash, Modifier.weight(1f))
+        }
+    }
 
     Section("Keeping recordings")
     Toggle("Keep audio forever", "Recordings stay until you delete them, so you can transcribe them again any time", st.retention.keepForever) { on ->

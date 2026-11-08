@@ -122,7 +122,7 @@ fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet?
                                 val playingHere = ui.player.playing && ui.player.positionMs in seg.startMs until seg.endMs
                                 Row(Modifier.fillMaxWidth().clickable(enabled = s.hasAudio) { a.onPlay(seg.startMs) }.padding(vertical = 8.dp)) {
                                     Text(clock(seg.startMs), style = Type.tiny.copy(color = if (playingHere) Ink.Amber else Ink.Ash), modifier = Modifier.width(48.dp).padding(top = 5.dp))
-                                    Text(if (readable) TranscriptFormats.readable(seg.text, s.mode) else seg.text, style = Type.reading.copy(color = if (playingHere) Ink.Bone else Ink.Sand))
+                                    Text(if (readable) runCatching { TranscriptFormats.readable(seg.text, s.mode) }.getOrDefault(seg.text) else seg.text, style = Type.reading.copy(color = if (playingHere) Ink.Bone else Ink.Sand))
                                 }
                             }
                         }
@@ -139,7 +139,7 @@ fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet?
             if (s.source == SessionSource.RECORDED) Fact("Quality", "${s.sampleRate / 1000} kHz mono")
             s.audioSha256?.let { Fact("Audio fingerprint", it.take(16) + "…") }
             Spacer(Modifier.height(6.dp))
-            ActionRow(Glyph.REDO, "Transcribe again", { sheet = SessionSheet.Engine }, "A new transcript with any engine; earlier ones stay", enabled = s.hasAudio && ui.engines.isNotEmpty() && ui.job == null)
+            ActionRow(Glyph.REDO, "Transcribe again", { sheet = SessionSheet.Engine }, "A new transcript with any engine; earlier ones stay", enabled = (s.hasAudio || (s.original != null && s.workAudioName == null)) && ui.engines.isNotEmpty() && ui.job == null)
             ActionRow(Glyph.TRASH, "Delete the audio, keep transcripts", { sheet = SessionSheet.DeleteAudio }, color = Ink.Amber, enabled = s.hasAudio)
             ActionRow(Glyph.TRASH, "Delete this session", { sheet = SessionSheet.DeleteSession }, color = Ink.Ember)
         }
