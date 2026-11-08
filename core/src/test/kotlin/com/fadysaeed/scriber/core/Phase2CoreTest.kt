@@ -181,4 +181,22 @@ class Phase2CoreTest {
         val c = v(0f, 0f, 1f)
         assertEquals(listOf(0, 1, 2, 0), Voices.cluster(listOf(a[0], b[0], c, a[1]), 3).toList())
     }
+
+    @Test fun linesSplitAtLongPausesAndShortAnswersFollowQuestions() {
+        // "How are you sleeping" then a long pause, then "Badly, doctor" inside one line.
+        val parts = Pieces.split(0, 5000, listOf(0, 300, 600, 900, 3300, 3800), listOf(3, 3, 3, 8, 6, 6))
+        assertEquals(listOf(0L until 3300L, 3300L until 5000L), parts)
+        assertEquals(3000L until 7000L, Pieces.printWindow(0L until 10000L))
+        assertEquals(0L until 2000L, Pieces.printWindow(0L until 2000L))
+        assertNull(Pieces.printWindow(0L until 500L))
+        val a = listOf(1f, 0.1f, 0f); val b = listOf(0f, 1f, 0.1f)
+        val pieces = listOf(
+            VoicePiece(0, 3000, 0, question = true, print = a),
+            VoicePiece(3200, 3600, 1, question = false),          // "Yes." too short: answers the question
+            VoicePiece(4000, 8000, 2, question = false, print = b),
+            VoicePiece(8200, 12000, 3, question = false, print = a),
+            VoicePiece(12100, 12500, 4, question = false),        // "Mm." after a statement: same voice
+        )
+        assertEquals(listOf(0, 1, 1, 0, 0), Pieces.label(pieces, 2).map { it.speaker })
+    }
 }

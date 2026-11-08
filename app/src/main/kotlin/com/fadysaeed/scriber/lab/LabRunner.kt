@@ -67,26 +67,33 @@ class LabRunner(private val context: Context, private val catalog: ModelCatalog,
             }.onFailure { problems += "Voice activity: ${it.message}" }
         }
 
-        val seg = ready(PackRole.SEGMENTATION).firstOrNull()
-        val emb = ready(PackRole.SPEAKER_EMBEDDING).firstOrNull()
         val sample = catalog.packs.firstOrNull { it.engine == "parakeet" }?.takeIf { store.state(it) is PackState.Verified }
             ?.let { p -> p.files.firstOrNull { it.path == "sample.wav" }?.let { Speech.readWave(store.file(p, it)) } }
-        if (seg != null && emb != null && sample != null && clips.isNotEmpty()) {
+        val vadPack = ready(PackRole.VAD).firstOrNull()
+        if (sample != null && clips.isNotEmpty() && vadPack != null && ready(PackRole.SPEAKER_EMBEDDING).isNotEmpty()) {
             onStep("Speaker turns")
             runCatching {
-                // Two different voices back to back: one dictation and one unrelated speaker.
+                // Two different voices back to back, found the way Scriber does it in a session:
+                // a voice print for each stretch of speech, grouped into two voices.
                 val audio = concat(listOf(clips.first().second, sample))
                 val t0 = SystemClock.elapsedRealtime()
-                // Told to expect two voices, as Scriber does for a conversation, then cleaned the same way.
-                val d = Speech.diarizer(store.file(seg, seg.files.first()), store.file(emb, emb.files.first()), speakers = 2, threads = Speech.threads())
+                val printer = com.fadysaeed.scriber.engines.VoicePrinter.open(context, Speech.threads()) ?: error("voice print model missing")
                 try {
                     val t1 = SystemClock.elapsedRealtime()
-                    val raw = d.process(audio.samples).map { com.fadysaeed.scriber.core.Turn((it.start * 1000).toLong(), (it.end * 1000).toLong(), it.speaker) }
+                    val vad = Speech.vad(store.file(vadPack, vadPack.files.first()))
+                    val lines = ArrayList<com.fadysaeed.scriber.core.Segment>()
+                    try {
+                        var i = 0
+                        fun drain() { while (!vad.empty()) { val f = vad.front(); lines += com.fadysaeed.scriber.core.Segment(f.start * 1000L / Speech.SAMPLE_RATE, (f.start + f.samples.size) * 1000L / Speech.SAMPLE_RATE, ""); vad.pop() } }
+                        while (i + 512 <= audio.samples.size) { vad.acceptWaveform(audio.samples.copyOfRange(i, i + 512)); i += 512; drain() }
+                        vad.flush(); drain()
+                    } finally { vad.release() }
+                    val pieces = lines.flatMapIndexed { k, l -> printer.pieces(l, k, audio.samples, 0) }
+                    val turns = com.fadysaeed.scriber.core.Speakers.smooth(com.fadysaeed.scriber.core.Pieces.label(pieces, 2))
                     val t2 = SystemClock.elapsedRealtime()
-                    val clean = com.fadysaeed.scriber.core.Speakers.smooth(raw)
-                    report = report.copy(diarization = DiarizationRun(audio.seconds, t1 - t0, t2 - t1, clean.map { it.speaker }.distinct().size, 2,
-                        com.fadysaeed.scriber.core.Speakers.changes(clean), com.fadysaeed.scriber.core.Speakers.changes(raw.sortedBy { it.startMs })))
-                } finally { d.release() }
+                    report = report.copy(diarization = DiarizationRun(audio.seconds, t1 - t0, t2 - t1, turns.map { it.speaker }.distinct().size, 2,
+                        com.fadysaeed.scriber.core.Speakers.changes(turns), -1))
+                } finally { printer.close() }
             }.onFailure { problems += "Speaker turns: ${it.message}" }
         }
 

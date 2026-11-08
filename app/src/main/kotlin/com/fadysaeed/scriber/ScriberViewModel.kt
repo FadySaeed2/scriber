@@ -289,8 +289,10 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
 
     fun findSpeakers(id: String, count: Int) {
         Jobs.speakers(getApplication(), id, count)
-        say(if (count > 0) "Looking for $count voices." else "Letting Scriber decide how many voices.")
+        say(if (count > 0) "Grouping into $count voices." else "Letting Scriber decide how many voices.")
     }
+
+    fun hideSpeakers(id: String) = viewModelScope.launch(Dispatchers.IO) { store.removeSpeakers(id); loadSession(id) }
 
     fun renameSpeaker(speaker: Int, name: String) = viewModelScope.launch(Dispatchers.IO) {
         val s = _session.value.session ?: return@launch

@@ -186,7 +186,7 @@ class Phase1OnDeviceTest {
         val models = speechModels("parakeet")
         val catalog = ModelCatalog.bundled()
         val downloader = ModelDownloader(models)
-        for (role in listOf(PackRole.SEGMENTATION, PackRole.SPEAKER_EMBEDDING)) {
+        for (role in listOf(PackRole.SPEAKER_EMBEDDING)) {
             val p = catalog.byRole(role).first()
             if (models.state(p) !is com.fadysaeed.scriber.fetch.PackState.Verified) { for (f in p.files) downloader.fetch(p, f) { _, _ -> }; models.markVerified(p) }
         }
@@ -201,17 +201,38 @@ class Phase1OnDeviceTest {
             val pcm = Wav.floatsToShorts(a + FloatArray(8000) + b)
             out.write(Wav.header(16_000, pcm.size.toLong())); out.write(pcm)
         }
+        // As on the phone: import a conversation; Parakeet transcribes it and makes voice prints as it goes.
+        val settings = store.settings()
+        store.saveSettings(com.fadysaeed.scriber.data.AppSettings(secondOpinion = false))
         val id = Importer.copyIn(context, Uri.fromFile(both), SessionMode.CONVERSATION)
-        Importer.decode(context, id) {}
-        Jobs.speakers(context, id, 2)
+        Jobs.import(context, id)
         val deadline = System.currentTimeMillis() + 10 * 60_000
         while (System.currentTimeMillis() < deadline && (store.speakers(id) == null || Jobs.pending(context).isNotEmpty())) {
             store.session(id)?.problem?.let { fail(it) }
+            store.runs(id).firstOrNull { it.status == RunStatus.FAILED }?.let { fail(it.problem) }
             Thread.sleep(500)
         }
-        val layer = store.speakers(id) ?: fail("No speakers found") as Nothing
-        assertEquals("${layer.settings} turns ${layer.turns}", 2, layer.turns.map { it.speaker }.distinct().size)
-        assertTrue("changes ${com.fadysaeed.scriber.core.Speakers.changes(layer.turns)}: ${layer.settings} turns ${layer.turns}", com.fadysaeed.scriber.core.Speakers.changes(layer.turns) in 1..3)
+        fun check(layer: com.fadysaeed.scriber.core.SpeakerLayer?) {
+            layer ?: fail("No speakers found")
+            assertEquals("${layer!!.settings} turns ${layer.turns}", 2, layer.turns.map { it.speaker }.distinct().size)
+            val changes = com.fadysaeed.scriber.core.Speakers.changes(layer.turns)
+            assertTrue("changes $changes: ${layer.settings} turns ${layer.turns}", changes in 1..2)
+        }
+        check(store.speakers(id))
+        assertEquals("voice prints per line", store.speakers(id)!!.settings["method"])
+        assertTrue(store.prints(id)!!.runId == store.runs(id).single().id)
+        // Asking again only regroups the saved prints: well under a second of work.
+        val t0 = System.currentTimeMillis()
+        com.fadysaeed.scriber.work.SpeakerFinder(context).run(id, 2) {}
+        assertTrue("regroup took ${System.currentTimeMillis() - t0} ms", System.currentTimeMillis() - t0 < 3000)
+        // A session transcribed before prints existed: one pass over the audio makes them.
+        store.removeSpeakers(id)
+        vault.deleteRecord("prints/$id.json")
+        Jobs.speakers(context, id, 2)
+        val again = System.currentTimeMillis() + 5 * 60_000
+        while (System.currentTimeMillis() < again && (store.speakers(id) == null || Jobs.pending(context).isNotEmpty())) Thread.sleep(300)
+        check(store.speakers(id))
+        store.saveSettings(settings)
         store.deleteSession(id)
     }
 

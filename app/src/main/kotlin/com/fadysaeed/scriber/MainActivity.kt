@@ -126,6 +126,7 @@ class MainActivity : FragmentActivity() {
                         onFindSpeakers = { vm.findSpeakers(sessionId, it) },
                         onRenameSpeaker = { sp, name -> vm.renameSpeaker(sp, name) },
                         onMoveSpeaker = { from, to, sp -> vm.moveToSpeaker(from, to, sp) },
+                        onHideSpeakers = { vm.hideSpeakers(sessionId) },
                     ),
                 ))
             }

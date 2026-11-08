@@ -86,6 +86,7 @@ class ReviewActions(
     val onFindSpeakers: (Int) -> Unit = {},
     val onRenameSpeaker: (Int, String) -> Unit = { _, _ -> },
     val onMoveSpeaker: (Int, Int, Int) -> Unit = { _, _, _ -> },
+    val onHideSpeakers: () -> Unit = {},
 )
 
 private fun stamp(ms: Long) = SimpleDateFormat("d MMM yyyy, HH:mm", Locale.ENGLISH).format(Date(ms))
@@ -172,7 +173,7 @@ fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet?
         when (val sh = sheet) {
             null -> Unit
             SessionSheet.Review -> ReviewSheet(ui, a, { sheet = null }) { sheet = it }
-            SessionSheet.Speakers -> SpeakersSheet(ui, a.review.onFindSpeakers, a.review.onRenameSpeaker) { sheet = null }
+            SessionSheet.Speakers -> SpeakersSheet(ui, a.review.onFindSpeakers, a.review.onRenameSpeaker, a.review.onHideSpeakers) { sheet = null }
             is SessionSheet.Speaker -> SpeakerPartSheet(sh, ui, a.review.onMoveSpeaker) { sheet = null }
             is SessionSheet.Words -> WordsSheet(sh, ui, a, { sheet = null }) { sheet = it }
             SessionSheet.Export -> Sheet({ sheet = null }) {

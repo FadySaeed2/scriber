@@ -71,3 +71,12 @@ very same bytes; the downloader tries them in order and the SHA-256 check decide
 never change what Scriber runs. The voice-print model now comes first from the sherpa-onnx author's
 Hugging Face repository; the voice activity model keeps GitHub first with a byte-identical copy on
 Hugging Face as the fallback. The weekly model check covers every mirror too.
+
+**2026-11-08. Speakers from voice prints made during transcription; no pyannote pass.** The full
+pyannote pass took about a fifth of the session's length on the phone and its turns flipped inside
+one speaker. Now each transcript line, cut where the words pause long enough for the other person
+to start, gets a voice print (at most four seconds from its middle) while Parakeet writes it; the
+prints are grouped into voices; a piece too short for a print answers the question before it, or
+else keeps the voice before it. Speakers appear with the transcript, and asking for another number
+of voices only regroups saved prints. Finding speakers can be switched off in Settings, and hidden
+per session.

@@ -149,3 +149,78 @@ object Voices {
         return out
     }
 }
+
+/** One stretch of speech with its voice print (null when too short to carry one). */
+@Serializable
+data class VoicePiece(val startMs: Long, val endMs: Long, val segment: Int, val question: Boolean, val print: List<Float>? = null)
+
+/** Voice prints of a session, made while the main transcript was written (records/prints/<session>.json). */
+@Serializable
+data class VoicePrints(val sessionId: String, val runId: String, val model: String, val pieces: List<VoicePiece>, val createdAtMillis: Long = 0)
+
+object Pieces {
+    /** Shortest stretch that gets a voice print, and the most of it that is used. */
+    const val MIN_PRINT_MS = 800L
+    const val MAX_PRINT_MS = 4_000L
+
+    /**
+     * Splits one transcript line where the words pause long enough for the other person to have
+     * started (the gap between word starts minus a typical word), keeping each part at least a second.
+     */
+    fun split(startMs: Long, endMs: Long, wordStarts: List<Long>, wordChars: List<Int>, minPartMs: Long = 1_000, pauseMs: Long = 450): List<LongRange> {
+        val cuts = ArrayList<Long>()
+        var from = startMs
+        for (i in 0 until wordStarts.size - 1) {
+            val expected = 120L + 70L * wordChars.getOrElse(i) { 4 }
+            val gap = wordStarts[i + 1] - wordStarts[i] - expected
+            val at = wordStarts[i + 1]
+            if (gap >= pauseMs && at - from >= minPartMs && endMs - at >= minPartMs) { cuts += at; from = at }
+        }
+        val out = ArrayList<LongRange>()
+        var s = startMs
+        for (c in cuts) { out += s until c; s = c }
+        out += s until endMs
+        return out
+    }
+
+    /** The middle stretch of a piece used for its voice print, at most [MAX_PRINT_MS] long. */
+    fun printWindow(r: LongRange): LongRange? {
+        val len = r.last - r.first + 1
+        if (len < MIN_PRINT_MS) return null
+        val win = minOf(len, MAX_PRINT_MS)
+        val start = r.first + (len - win) / 2
+        return start until start + win
+    }
+
+    /**
+     * Gives every piece a voice. Pieces with a print are grouped into [k] voices; a piece too short
+     * for one takes the other voice when it answers a question, and otherwise the voice before it.
+     */
+    fun label(pieces: List<VoicePiece>, k: Int): List<Turn> {
+        if (pieces.isEmpty()) return emptyList()
+        val printed = pieces.indices.filter { pieces[it].print != null }
+        val labels = IntArray(pieces.size) { -1 }
+        if (printed.size >= 2) {
+            val c = Voices.cluster(printed.map { pieces[it].print!!.toFloatArray() }, k)
+            printed.forEachIndexed { j, i -> labels[i] = c[j] }
+        } else printed.forEach { labels[it] = 0 }
+        val voices = labels.filter { it >= 0 }.distinct().size
+        for (i in pieces.indices) if (labels[i] < 0) {
+            val prev = (i - 1 downTo 0).firstOrNull { labels[it] >= 0 }
+            labels[i] = when {
+                prev == null -> (i + 1 until pieces.size).firstOrNull { labels[it] >= 0 }?.let { labels[it] } ?: 0
+                pieces[prev].question && voices >= 2 -> otherVoice(labels, prev, i)
+                else -> labels[prev]
+            }
+        }
+        return pieces.mapIndexed { i, p -> Turn(p.startMs, p.endMs, labels[i]) }
+    }
+
+    /** The voice that last spoke before [prev] other than the one at [prev]; voice 0 or 1 when none did. */
+    private fun otherVoice(labels: IntArray, prev: Int, before: Int): Int {
+        val mine = labels[prev]
+        for (j in prev - 1 downTo 0) if (labels[j] >= 0 && labels[j] != mine) return labels[j]
+        for (j in before + 1 until labels.size) if (labels[j] >= 0 && labels[j] != mine) return labels[j]
+        return if (mine == 0) 1 else 0
+    }
+}

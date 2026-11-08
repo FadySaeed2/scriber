@@ -355,7 +355,7 @@ fun SpeakersSummary(ui: SessionUi, onOpen: () -> Unit, onFind: () -> Unit) {
 
 /** Number of voices to look for, and a name for each voice. */
 @Composable
-fun SpeakersSheet(ui: SessionUi, onFind: (Int) -> Unit, onRename: (Int, String) -> Unit, onClose: () -> Unit) {
+fun SpeakersSheet(ui: SessionUi, onFind: (Int) -> Unit, onRename: (Int, String) -> Unit, onHide: () -> Unit, onClose: () -> Unit) {
     val layer = ui.speakers
     Sheet(onClose) {
         Eyebrow("Speakers"); Spacer(Modifier.height(8.dp))
@@ -383,6 +383,10 @@ fun SpeakersSheet(ui: SessionUi, onFind: (Int) -> Unit, onRename: (Int, String) 
         }
         Spacer(Modifier.height(6.dp))
         Text("Looking again replaces the voices found before; your corrections to words stay.", style = Type.small)
+        if (layer != null) {
+            Spacer(Modifier.height(10.dp))
+            ActionRow(Glyph.CLOSE, "Hide speakers in this session", { onClose(); onHide() }, "The transcript shows without names; turning them on again is instant")
+        }
     }
 }
 

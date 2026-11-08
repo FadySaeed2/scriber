@@ -53,6 +53,11 @@ class Transcriber(private val context: Context) {
         store.saveRun(run)
 
         val recognizer = Speech.recognizer(engine, models.dir(asr), threads, hints)
+        // A conversation's main transcript also gets voice prints, line by line, for speakers.
+        val settingsNow = store.settings()
+        val printer = if (session.mode == com.fadysaeed.scriber.core.SessionMode.CONVERSATION && settingsNow.findSpeakers && engine == settingsNow.baseEngine)
+            runCatching { com.fadysaeed.scriber.engines.VoicePrinter.open(context, 2) }.getOrNull() else null
+        val pieces = ArrayList<com.fadysaeed.scriber.core.VoicePiece>()
         val vad = Speech.vad(models.file(vadPack, vadPack.files.first()))
         val segments = ArrayList<Segment>()
         try {
@@ -63,6 +68,7 @@ class Transcriber(private val context: Context) {
                 if (result.text.isBlank()) return
                 val tokens = result.tokens.mapIndexed { i, t -> Token(t, startMs + ((result.timestamps.getOrNull(i) ?: 0f) * 1000).roundToLong()) }
                 segments += Segment(startMs, endMs, result.text.trim(), tokens)
+                printer?.let { p -> runCatching { pieces += p.pieces(segments.last(), segments.lastIndex, seg.samples, startMs) } }
             }
             vault.read(audio).use { input ->
                 val info = Wav.readHeader(input)
@@ -87,6 +93,9 @@ class Transcriber(private val context: Context) {
             }
             run = run.copy(status = RunStatus.DONE, finishedAtMillis = System.currentTimeMillis(), segments = segments)
             store.saveRun(run)
+            if (printer != null && pieces.isNotEmpty()) {
+                store.savePrints(com.fadysaeed.scriber.core.VoicePrints(sessionId, run.id, printer.modelId, pieces, System.currentTimeMillis()))
+            }
             return store.runs(sessionId).first { it.id == run.id }
         } catch (t: Throwable) {
             store.saveRun(run.copy(status = RunStatus.FAILED, finishedAtMillis = System.currentTimeMillis(), segments = segments, problem = t.message ?: t.javaClass.simpleName))
@@ -94,6 +103,7 @@ class Transcriber(private val context: Context) {
         } finally {
             vad.release()
             recognizer.release()
+            printer?.close()
         }
     }
 }

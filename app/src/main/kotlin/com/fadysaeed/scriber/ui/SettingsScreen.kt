@@ -60,6 +60,9 @@ fun SettingsScreen(
     Toggle("Second opinion on every session", "${if (st.secondEngine == "medasr") "MedASR" else "Parakeet"} transcribes it too, and the places where the two disagree are marked for you to check", st.secondOpinion) { on ->
         onChange { it.copy(secondOpinion = on) }
     }
+    Toggle("Find who is speaking", "In every new conversation, while it is transcribed. Off: you can still do it for one session from its screen.", st.findSpeakers) { on ->
+        onChange { it.copy(findSpeakers = on) }
+    }
     Text("Voices to look for in a conversation", style = Type.note, modifier = Modifier.padding(top = 14.dp, bottom = 8.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         for ((n, label) in listOf(2 to "2", 3 to "3", 0 to "Decide")) Choice(label, st.speakers == n, { onChange { it.copy(speakers = n) } }, Modifier.weight(1f))

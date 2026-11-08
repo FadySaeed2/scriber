@@ -191,10 +191,15 @@ object Jobs {
                     val pct = (f * 100).toInt()
                     if (pct != last) { last = pct; report(JobProgress(id, label, f)); notify("$label, $pct%") }
                 }
+                // Speakers right away from the prints made during the main transcript: a fraction of a second.
+                val settings = store.settings()
+                if (settings.findSpeakers && store.speakers(id) == null) store.prints(id)?.let { p ->
+                    runCatching { SpeakerFinder(context).fromPrints(id, settings.speakers, p) }
+                }
                 job.then?.let { enqueueBehind(context, TRANSCRIBE, id, it, null) }
-                // The end of a new session's chain: a conversation also gets its speakers.
+                // No prints (the model was missing then): one quick pass at the end of the chain.
                 val s = store.session(id)
-                if (job.then == null && s?.mode == com.fadysaeed.scriber.core.SessionMode.CONVERSATION && store.speakers(id) == null && SpeakerFinder.ready(context)) {
+                if (job.then == null && settings.findSpeakers && s?.mode == com.fadysaeed.scriber.core.SessionMode.CONVERSATION && store.speakers(id) == null && SpeakerFinder.ready(context)) {
                     synchronized(lock) {
                         val jobs = queue(context)
                         if (jobs.none { it.kind == SPEAKERS && it.sessionId == id }) save(context, jobs + Job(Ids.new(), SPEAKERS, id, "", count = store.settings().speakers))

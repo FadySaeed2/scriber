@@ -81,16 +81,31 @@ object Words {
         val ranges = ArrayList<IntRange>()
         run.segments.forEachIndexed { si, seg ->
             val first = words.size
-            val parts = seg.text.split(Regex("""\s+""")).filter { it.isNotBlank() }
-            val times = tokenTimes(seg, parts)
-            parts.forEachIndexed { i, w ->
-                val start = times?.getOrNull(i) ?: (seg.startMs + (seg.endMs - seg.startMs) * i / parts.size.coerceAtLeast(1))
-                val end = times?.getOrNull(i + 1) ?: if (i + 1 < parts.size) seg.startMs + (seg.endMs - seg.startMs) * (i + 1) / parts.size else seg.endMs
-                words += Word(w, key(w, mode), start, maxOf(start, end), si)
-            }
+            words += ofSegment(seg, si, mode)
             ranges += first until words.size
         }
         return words to ranges
+    }
+
+    /** The words of one line with their times. */
+    fun ofSegment(seg: Segment, si: Int, mode: SessionMode): List<Word> {
+        val parts = seg.text.split(Regex("""\s+""")).filter { it.isNotBlank() }
+        val times = tokenTimes(seg, parts)
+        return parts.mapIndexed { i, w ->
+            val start = times?.getOrNull(i) ?: (seg.startMs + (seg.endMs - seg.startMs) * i / parts.size.coerceAtLeast(1))
+            val end = times?.getOrNull(i + 1) ?: if (i + 1 < parts.size) seg.startMs + (seg.endMs - seg.startMs) * (i + 1) / parts.size else seg.endMs
+            Word(w, key(w, mode), start, maxOf(start, end), si)
+        }
+    }
+
+    /** A line cut into pieces where the speaker may change, each marked if it ends in a question. */
+    fun pieces(seg: Segment, si: Int): List<Pair<LongRange, Boolean>> {
+        val w = ofSegment(seg, si, SessionMode.CONVERSATION)
+        val ranges = Pieces.split(seg.startMs, seg.endMs, w.map { it.startMs }, w.map { it.text.length })
+        return ranges.map { r ->
+            val last = w.lastOrNull { it.startMs in r }
+            r to (last?.text?.trimEnd()?.endsWith("?") == true)
+        }
     }
 
     /** Start time of each word from token timings, or null when the tokens do not spell the words. */
