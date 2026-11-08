@@ -49,6 +49,7 @@ class VaultOnDeviceTest {
         val data = ByteArray(3_000_000) { (it % 251).toByte() }
         vault.write("t/seek.bin") { it.write(data) }
         vault.openSeekable("t/seek.bin").use { ch ->
+            assertEquals(3_000_000L, ch.size())
             ch.position(2_345_678)
             val buf = java.nio.ByteBuffer.allocate(10)
             while (buf.hasRemaining() && ch.read(buf) > 0) {}

@@ -57,8 +57,13 @@ class Vault private constructor(
         streaming.newDecryptingStream(FileInputStream(file(name)), ad("file", name))
 
     /** Random access to an encrypted file, for players and media decoders that need to seek. */
-    fun openSeekable(name: String): java.nio.channels.SeekableByteChannel =
-        streaming.newSeekableDecryptingChannel(FileInputStream(file(name)).channel, ad("file", name))
+    fun openSeekable(name: String): java.nio.channels.SeekableByteChannel {
+        val channel = streaming.newSeekableDecryptingChannel(FileInputStream(file(name)).channel, ad("file", name))
+        // Tink only knows the plaintext size after the first read, so read one byte and rewind.
+        channel.read(java.nio.ByteBuffer.allocate(1))
+        channel.position(0)
+        return channel
+    }
 
     fun putRecord(name: String, plain: ByteArray) {
         val sealed = aead.encrypt(plain, ad("record", name))

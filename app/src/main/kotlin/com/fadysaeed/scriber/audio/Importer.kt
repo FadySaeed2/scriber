@@ -167,6 +167,7 @@ object Importer {
 
     /** Lets Android's media decoder read straight from the encrypted vault copy. */
     private class ChannelSource(private val channel: SeekableByteChannel) : MediaDataSource() {
+        @Synchronized
         override fun readAt(position: Long, buffer: ByteArray, offset: Int, size: Int): Int {
             if (position >= channel.size()) return -1
             channel.position(position)
@@ -175,6 +176,7 @@ object Importer {
             while (bb.hasRemaining()) { val n = channel.read(bb); if (n <= 0) break; total += n }
             return if (total == 0) -1 else total
         }
+        @Synchronized
         override fun getSize(): Long = channel.size()
         override fun close() {}
     }
