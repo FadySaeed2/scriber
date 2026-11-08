@@ -5,33 +5,25 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 @Composable
 fun LockScreen(problem: String?, onUnlock: () -> Unit) {
-    val s = LocalSignals.current
-    Column(
-        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(32.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text("Scriber", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
-        Spacer(Modifier.height(8.dp))
-        Text("Locked", style = MaterialTheme.typography.bodyLarge, color = s.muted)
+    Column(Modifier.fillMaxSize().background(Ink.Black).padding(28.dp), verticalArrangement = Arrangement.Bottom) {
+        GlyphIcon(Glyph.LOCK, Ink.Amber, 30.dp)
+        Spacer(Modifier.height(20.dp))
+        Text("Scriber", style = Type.hero)
+        Spacer(Modifier.height(10.dp))
+        Text("Locked. Recordings stay encrypted on this phone.", style = Type.note)
+        if (problem != null) { Spacer(Modifier.height(16.dp)); Text(problem, style = Type.body.copy(color = Ink.Amber)) }
         Spacer(Modifier.height(28.dp))
-        if (problem != null) {
-            Text(problem, style = MaterialTheme.typography.bodyMedium, color = s.warn, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(20.dp))
-        }
-        Button(onClick = onUnlock) { Text("Unlock") }
+        AmberButton("Unlock", onUnlock, Modifier.fillMaxWidth())
+        Spacer(Modifier.height(24.dp))
     }
 }

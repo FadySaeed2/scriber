@@ -45,6 +45,27 @@ class VaultOnDeviceTest {
         }
     }
 
+    @Test fun seeksInsideAnEncryptedFile() {
+        val data = ByteArray(3_000_000) { (it % 251).toByte() }
+        vault.write("t/seek.bin") { it.write(data) }
+        vault.openSeekable("t/seek.bin").use { ch ->
+            ch.position(2_345_678)
+            val buf = java.nio.ByteBuffer.allocate(10)
+            while (buf.hasRemaining() && ch.read(buf) > 0) {}
+            assertArrayEquals(data.copyOfRange(2_345_678, 2_345_688), buf.array())
+            assertEquals(3_000_000L, ch.size())
+        }
+        vault.delete("t/seek.bin")
+    }
+
+    @Test fun listsAndDeletesFolders() {
+        vault.write("t/dir/a.bin") { it.write(1) }
+        vault.write("t/dir/b.bin") { it.write(2) }
+        assertEquals(listOf("t/dir/a.bin", "t/dir/b.bin"), vault.list("t/dir"))
+        assertTrue(vault.deleteTree("t/dir"))
+        assertEquals(emptyList<String>(), vault.list("t/dir"))
+    }
+
     @Test fun recordsRoundTripAndMissingIsNull() {
         vault.putRecord("t-rec", "hello".toByteArray())
         assertEquals("hello", vault.getRecord("t-rec")!!.decodeToString())

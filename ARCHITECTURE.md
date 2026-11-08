@@ -20,6 +20,11 @@ Recording (original audio, recorded here or imported, kept byte for byte with it
                  └─ Note versions (each knows which run and which edits it came from)
 ```
 
+Phase 1 files in the vault: `records/sessions/<id>.json`, `records/runs/<session>/<run>.json`,
+`sessions/<id>/chunks/NNNNNN.pcm` while recording (assembled on stop, or on the next start after a
+crash), `sessions/<id>/audio.wav`, `audio16k.wav` (only for 48 kHz), `original.<ext>` for imports.
+A run's seal is the SHA-256 of its canonical JSON; a sealed run is never written again.
+
 Raw transcripts can be exported as plain text with timestamps, SRT/VTT, or JSON with word timings
 and confidence, for processing with any outside model.
 

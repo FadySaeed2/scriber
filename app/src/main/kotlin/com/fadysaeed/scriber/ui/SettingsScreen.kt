@@ -1,0 +1,76 @@
+package com.fadysaeed.scriber.ui
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.fadysaeed.scriber.SettingsUi
+import com.fadysaeed.scriber.core.Units
+import com.fadysaeed.scriber.data.AppSettings
+
+@Composable
+fun SettingsScreen(ui: SettingsUi, onChange: ((AppSettings) -> AppSettings) -> Unit, onUnlock: () -> Unit, onLock: () -> Unit, onCheckVault: () -> Unit) {
+    val st = ui.settings
+    Heading("Scriber", "Settings")
+
+    Section("Keeping recordings")
+    Toggle("Keep audio forever", "Recordings stay until you delete them, so you can transcribe them again any time", st.retention.keepForever) { on ->
+        onChange { it.copy(retention = it.retention.copy(keepForever = on)) }
+    }
+    if (!st.retention.keepForever) {
+        Text("Delete audio after", style = Type.note, modifier = Modifier.padding(top = 14.dp, bottom = 8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (d in listOf(7, 30, 90, 365)) Choice(if (d == 365) "1 year" else "$d days", st.retention.deleteAfterDays == d, { onChange { it.copy(retention = it.retention.copy(deleteAfterDays = d)) } }, Modifier.weight(1f))
+        }
+        Text("Transcripts are never deleted by this; only the audio.", style = Type.small, modifier = Modifier.padding(top = 8.dp))
+    }
+    Toggle("Studio quality", "Record at 48 kHz (about 345 MB an hour instead of 115 MB). Speech models still hear 16 kHz.", st.highQuality) { on ->
+        onChange { it.copy(highQuality = on) }
+    }
+    Fact("Space used by Scriber's vault", Units.bytes(ui.storageBytes))
+
+    Section("Default engine")
+    Text("Dictation", style = Type.note, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Choice("MedASR", st.dictationEngine == "medasr", { onChange { it.copy(dictationEngine = "medasr") } }, Modifier.weight(1f))
+        Choice("Parakeet", st.dictationEngine == "parakeet", { onChange { it.copy(dictationEngine = "parakeet") } }, Modifier.weight(1f))
+    }
+    Text("Conversation", style = Type.note, modifier = Modifier.padding(top = 14.dp, bottom = 8.dp))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Choice("Parakeet", st.conversationEngine == "parakeet", { onChange { it.copy(conversationEngine = "parakeet") } }, Modifier.weight(1f))
+        Choice("MedASR", st.conversationEngine == "medasr", { onChange { it.copy(conversationEngine = "medasr") } }, Modifier.weight(1f))
+    }
+
+    Section("Internet")
+    Status(if (ui.locked) "Locked" else "Downloads open", if (ui.locked) Ink.Teal else Ink.Amber)
+    Spacer(Modifier.height(8.dp))
+    Text(if (ui.locked) "Scriber opens no connections. Unlocking needs your fingerprint or screen lock, and only re-enables model downloads."
+        else "Scriber may reach only the model hosts below, and locks itself again once the models are in place.", style = Type.body)
+    Spacer(Modifier.height(12.dp))
+    if (ui.locked) GhostButton("Unlock downloads", onUnlock, Modifier.fillMaxWidth()) else GhostButton("Lock now", onLock, Modifier.fillMaxWidth())
+    Spacer(Modifier.height(14.dp))
+    for (h in ui.hosts) Text("$h and its subdomains", style = Type.mono)
+    Text("Every other address fails before any data is sent; plain http is refused everywhere.", style = Type.small, modifier = Modifier.padding(top = 6.dp))
+
+    Section("On this phone")
+    Fact("Storage", when (ui.vaultOk) { true -> "Encrypted, checked"; false -> "Check FAILED"; null -> "Encrypted" }, when (ui.vaultOk) { false -> Ink.Ember; true -> Ink.Teal; null -> Ink.Bone })
+    Fact("Keys", "Android Keystore")
+    Fact("Backups", "Off")
+    Fact("Screenshots", "Blocked")
+    Fact("Opening", "Fingerprint or screen lock")
+    Spacer(Modifier.height(12.dp))
+    GhostButton("Check encryption now", onCheckVault, Modifier.fillMaxWidth())
+
+    Section("Build")
+    Fact("App", ui.version)
+    Fact("Model list", "version ${ui.catalogVersion}")
+    Fact("Speech", "sherpa-onnx 2.0.1")
+    Fact("Language", "LiteRT-LM 0.19.1")
+    Spacer(Modifier.height(4.dp))
+}

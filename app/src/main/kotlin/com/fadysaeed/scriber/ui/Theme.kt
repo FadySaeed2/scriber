@@ -1,84 +1,83 @@
 package com.fadysaeed.scriber.ui
 
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import com.fadysaeed.scriber.R
 
-/** Extra colours the screens use for meaning: ready, in progress, warning, problem. */
-@Immutable
-data class Signals(
-    val ready: Color,
-    val busy: Color,
-    val warn: Color,
-    val problem: Color,
-    val muted: Color,
-    val line: Color,
-    val raised: Color,
-)
+/**
+ * Scriber shares PDFx's and CalPal's design language: true black for AMOLED, warm paper-and-stone
+ * neutrals, one amber accent for the action that matters and teal as the quiet second colour.
+ * No cards, no shadows, no gradients; hairlines and type do the structuring.
+ */
+object Ink {
+    val Black = Color(0xFF000000)
+    val Well = Color(0xFF070706)
+    val Field = Color(0xFF0C0B09)
+    val Hairline = Color(0xFF1E1B16)
+    val Rule = Color(0xFF2A2620)
+    val Edge = Color(0xFF3A352D)
 
-val LocalSignals = staticCompositionLocalOf {
-    Signals(Color.Unspecified, Color.Unspecified, Color.Unspecified, Color.Unspecified, Color.Unspecified, Color.Unspecified, Color.Unspecified)
+    val Bone = Color(0xFFECE4D3)
+    val Sand = Color(0xFFCFC6B4)
+    val Dust = Color(0xFFA0978A)
+    val Ash = Color(0xFF7D766B)
+    val Slate = Color(0xFF6E675C)
+
+    val Amber = Color(0xFFE0A43B)
+    val Teal = Color(0xFF3E9F8F)
+    val Earth = Color(0xFF8A6644)
+    val Ember = Color(0xFFD0674E)
+    val OnAmber = Color(0xFF1A1206)
 }
 
-private val Ink = Color(0xFF0B0D0E)
-private val Slate = Color(0xFF14181A)
-private val SlateHigh = Color(0xFF1C2124)
-private val Paper = Color(0xFFE8E4D8)
-private val Tide = Color(0xFF3FB8A6)
-private val Amber = Color(0xFFE0B25B)
-private val Ember = Color(0xFFE0705B)
-
-private val darkScheme = darkColorScheme(
-    primary = Tide, onPrimary = Ink,
-    secondary = Amber, onSecondary = Ink,
-    background = Ink, onBackground = Paper,
-    surface = Slate, onSurface = Paper,
-    surfaceVariant = SlateHigh, onSurfaceVariant = Color(0xFF9AA3A6),
-    outline = Color(0xFF2A3134),
-    error = Ember, onError = Ink,
+val Bricolage = FontFamily(
+    Font(R.font.bricolage_light, FontWeight.Light),
+    Font(R.font.bricolage_regular, FontWeight.Normal),
+    Font(R.font.bricolage_medium, FontWeight.Medium),
+    Font(R.font.bricolage_semibold, FontWeight.SemiBold),
+    Font(R.font.bricolage_bold, FontWeight.Bold),
+    Font(R.font.bricolage_extrabold, FontWeight.ExtraBold),
 )
 
-private val lightScheme = lightColorScheme(
-    primary = Color(0xFF167A6D), onPrimary = Color.White,
-    secondary = Color(0xFF9A6B12), onSecondary = Color.White,
-    background = Color(0xFFF6F4EE), onBackground = Color(0xFF16191A),
-    surface = Color(0xFFFFFFFF), onSurface = Color(0xFF16191A),
-    surfaceVariant = Color(0xFFEDEAE1), onSurfaceVariant = Color(0xFF5B6366),
-    outline = Color(0xFFD8D4C8),
-    error = Color(0xFFB4412C), onError = Color.White,
-)
-
-private val type = Typography(
-    headlineMedium = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.5).sp, lineHeight = 36.sp),
-    titleMedium = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.SemiBold, lineHeight = 23.sp),
-    bodyLarge = TextStyle(fontSize = 16.sp, lineHeight = 23.sp),
-    bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 20.sp),
-    bodySmall = TextStyle(fontSize = 12.5.sp, lineHeight = 17.sp),
-    labelLarge = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.2.sp),
-    labelSmall = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.4.sp),
-)
-
-val Mono = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.5.sp, lineHeight = 18.sp)
+object Type {
+    val hero = TextStyle(fontFamily = Bricolage, fontWeight = FontWeight.Light, fontSize = 64.sp, lineHeight = 62.sp, letterSpacing = (-0.045).em, color = Ink.Bone)
+    val display = TextStyle(fontFamily = Bricolage, fontWeight = FontWeight.Light, fontSize = 44.sp, lineHeight = 46.sp, letterSpacing = (-0.04).em, color = Ink.Bone)
+    val brand = TextStyle(fontFamily = Bricolage, fontWeight = FontWeight.ExtraBold, fontSize = 21.sp, letterSpacing = (-0.03).em, color = Ink.Bone)
+    val title = TextStyle(fontFamily = Bricolage, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, lineHeight = 22.sp, color = Ink.Bone)
+    val body = TextStyle(fontFamily = Bricolage, fontWeight = FontWeight.Normal, fontSize = 15.sp, lineHeight = 21.sp, color = Ink.Bone)
+    val reading = TextStyle(fontFamily = Bricolage, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 25.sp, color = Ink.Sand)
+    val bodyStrong = body.copy(fontWeight = FontWeight.SemiBold)
+    val note = TextStyle(fontFamily = Bricolage, fontWeight = FontWeight.Normal, fontSize = 13.sp, lineHeight = 19.sp, color = Ink.Dust)
+    val small = TextStyle(fontFamily = Bricolage, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp, color = Ink.Dust)
+    val eyebrow = TextStyle(fontFamily = Bricolage, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 14.sp, letterSpacing = 0.14.em, color = Ink.Ash)
+    val tiny = TextStyle(fontFamily = Bricolage, fontWeight = FontWeight.Normal, fontSize = 10.sp, lineHeight = 12.sp, color = Ink.Ash)
+    val button = TextStyle(fontFamily = Bricolage, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Ink.OnAmber)
+    val figure = TextStyle(fontFamily = Bricolage, fontWeight = FontWeight.Medium, fontSize = 13.sp, letterSpacing = 0.02.em, color = Ink.Sand)
+    val mono = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.5.sp, lineHeight = 18.sp, color = Ink.Sand)
+}
 
 @Composable
-fun ScriberTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
-    val scheme = if (dark) darkScheme else lightScheme
-    val signals = if (dark) {
-        Signals(Tide, Color(0xFF7FB3E0), Amber, Ember, Color(0xFF9AA3A6), Color(0xFF2A3134), SlateHigh)
-    } else {
-        Signals(Color(0xFF167A6D), Color(0xFF2F6FA8), Color(0xFF9A6B12), Color(0xFFB4412C), Color(0xFF5B6366), Color(0xFFD8D4C8), Color(0xFFEDEAE1))
-    }
-    androidx.compose.runtime.CompositionLocalProvider(LocalSignals provides signals) {
-        MaterialTheme(colorScheme = scheme, typography = type, content = content)
+fun ScriberTheme(content: @Composable () -> Unit) {
+    MaterialTheme(
+        colorScheme = darkColorScheme(
+            primary = Ink.Amber, onPrimary = Ink.OnAmber,
+            secondary = Ink.Teal,
+            background = Ink.Black, onBackground = Ink.Bone,
+            surface = Ink.Field, onSurface = Ink.Bone,
+            surfaceVariant = Ink.Field, onSurfaceVariant = Ink.Dust,
+            outline = Ink.Edge, error = Ink.Ember,
+        ),
+    ) {
+        CompositionLocalProvider(LocalContentColor provides Ink.Bone, content = content)
     }
 }

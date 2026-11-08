@@ -12,4 +12,11 @@ class Records(private val vault: Vault) {
 
     fun <T> put(name: String, serializer: KSerializer<T>, value: T) =
         vault.putRecord("$name.json", json.encodeToString(serializer, value).encodeToByteArray())
+
+    /** Every record in a folder, skipping any that cannot be read (reported in [problems]). */
+    fun <T> all(dir: String, serializer: KSerializer<T>, problems: MutableList<String>? = null): List<T> =
+        vault.listRecords(dir).mapNotNull { name ->
+            runCatching { vault.getRecord(name)?.let { json.decodeFromString(serializer, it.decodeToString()) } }
+                .onFailure { problems?.add("$name: ${it.message}") }.getOrNull()
+        }
 }

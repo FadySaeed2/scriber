@@ -3,8 +3,19 @@ package com.fadysaeed.scriber
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
+import com.fadysaeed.scriber.audio.LiveLine
+import com.fadysaeed.scriber.audio.PlayerState
+import com.fadysaeed.scriber.audio.RecordingState
 import com.fadysaeed.scriber.core.ModelCatalog
 import com.fadysaeed.scriber.core.PackRole
+import com.fadysaeed.scriber.core.RunStatus
+import com.fadysaeed.scriber.core.Seal
+import com.fadysaeed.scriber.core.Segment
+import com.fadysaeed.scriber.core.Session
+import com.fadysaeed.scriber.core.SessionMode
+import com.fadysaeed.scriber.core.SessionSource
+import com.fadysaeed.scriber.core.SessionStatus
+import com.fadysaeed.scriber.core.TranscriptRun
 import com.fadysaeed.scriber.fetch.Fetcher
 import com.fadysaeed.scriber.fetch.PackState
 import com.fadysaeed.scriber.lab.AsrRun
@@ -19,9 +30,15 @@ import com.fadysaeed.scriber.ui.Frame
 import com.fadysaeed.scriber.ui.LabScreen
 import com.fadysaeed.scriber.ui.LockScreen
 import com.fadysaeed.scriber.ui.ModelsScreen
+import com.fadysaeed.scriber.ui.RecordingScreen
 import com.fadysaeed.scriber.ui.ScriberTheme
-import com.fadysaeed.scriber.ui.SecurityScreen
+import com.fadysaeed.scriber.ui.SessionActions
+import com.fadysaeed.scriber.ui.SessionScreen
+import com.fadysaeed.scriber.ui.SessionSheet
+import com.fadysaeed.scriber.ui.SessionsScreen
+import com.fadysaeed.scriber.ui.SettingsScreen
 import com.fadysaeed.scriber.ui.Tab
+import com.fadysaeed.scriber.work.JobProgress
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
 import org.junit.Test
@@ -30,7 +47,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/** Renders every screen with sample data so the design can be reviewed without a phone. */
+/** Renders every screen with sample data (no patient data) so the design can be reviewed without a phone. */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], qualifiers = "w384dp-h1500dp-night-xxhdpi")
@@ -39,84 +56,120 @@ class ScreensTest {
 
     private val catalog = ModelCatalog.bundled()
     private val gb = 1024L * 1024 * 1024
-    private val device = DeviceSnapshot("Samsung", "SM-S918B", "Qualcomm SM8550", "16", 8, (11.1 * gb).toLong(), 5 * gb, 180 * gb, "cool", 0.21f)
+    private val now = 1_762_590_000_000L
+    private val device = DeviceSnapshot("Samsung", "SM-S918B", "QTI SM8550", "17", 8, (11.58 * gb).toLong(), 4 * gb, 727 * gb, "cool", 0.21f)
 
     private fun rows(state: (String) -> PackState) = catalog.packs.map {
         val st = state(it.id)
         PackRow(it, st, when (st) { PackState.Verified -> it.totalBytes; is PackState.Partial -> st.bytesOnPhone; PackState.Missing -> 0 })
     }
 
-    private fun shot(file: String, tab: Tab, content: @Composable () -> Unit) {
-        compose.setContent { ScriberTheme(dark = true) { Frame(tab, {}) { content() } } }
+    private fun tabShot(file: String, tab: Tab, content: @Composable () -> Unit) {
+        compose.setContent { ScriberTheme { Frame(tab, {}) { content() } } }
         compose.onRoot().captureRoboImage("screenshots/$file")
     }
 
-    private fun models(ui: ModelsUi, file: String) = shot(file, Tab.Models) { ModelsScreen(ui, {}, {}, {}, {}, {}, {}) }
+    private fun shot(file: String, content: @Composable () -> Unit) {
+        compose.setContent { ScriberTheme { content() } }
+        compose.onRoot().captureRoboImage("screenshots/$file")
+    }
 
-    @Test fun modelsFirstRun() = models(
-        ModelsUi(device, "E4B", "E4B", rows { PackState.Missing }, freeBytes = 180 * gb, neededBytes = (5.5 * gb).toLong()),
-        "01_models_first_run.png",
+    private fun session(id: String, title: String, mode: SessionMode, minutes: Int, source: SessionSource = SessionSource.RECORDED, recovered: Boolean = false) =
+        Session(id, title, mode, source, now - minutes * 3_600_000L, SessionStatus.READY, durationMs = minutes * 60_000L, audioName = "a", audioSha256 = "3f9a2c71b04e88d1aa", audioBytes = minutes * 1_920_000L, workAudioName = "a", recovered = recovered)
+
+    private val dictationRun = Seal.sealed(TranscriptRun("r1", "s1", "medasr", "Google MedASR", "a".repeat(64), emptyMap(), "b".repeat(64), now, now, RunStatus.DONE, listOf(
+        Segment(0, 6_200, "[MENTAL STATE] {colon} Calm and settled {comma} good eye contact {period}"),
+        Segment(6_500, 14_000, "Speech normal in rate and volume {period} Mood described as better {period} No perceptual disturbance reported today {period}"),
+        Segment(14_600, 21_000, "{new paragraph} [PLAN] {colon} Continue olanzapine fifteen milligrams nocte {period} Weight and bloods this week {period}"),
+    )))
+    private val conversationRun = Seal.sealed(TranscriptRun("r2", "s2", "parakeet", "Parakeet TDT 0.6B v2", "a".repeat(64), emptyMap(), "b".repeat(64), now, now, RunStatus.DONE, listOf(
+        Segment(0, 3_000, "How have the last few days been on the ward?"),
+        Segment(3_400, 9_000, "Better. I'm sleeping about six hours now. The voices are quieter, mostly at night."),
+        Segment(9_500, 11_000, "Are they telling you to do anything?"),
+        Segment(11_400, 14_000, "No, not anymore. They just comment."),
+    )))
+
+    private val sessionRows = listOf(
+        SessionRow(session("s9", "Session 8 Nov, 14:05", SessionMode.CONVERSATION, 0).copy(status = SessionStatus.READY), null, JobProgress("s9", "Transcribing", 0.42f)),
+        SessionRow(session("s1", "Ward review dictation", SessionMode.DICTATION, 2), dictationRun, null),
+        SessionRow(session("s2", "Session 7 Nov, 10:30", SessionMode.CONVERSATION, 26), conversationRun, null),
+        SessionRow(session("s3", "telehealth-2026-11-06.m4a", SessionMode.CONVERSATION, 52, SessionSource.IMPORTED, recovered = false), conversationRun, null),
+        SessionRow(session("s4", "Session 5 Nov, 16:12", SessionMode.CONVERSATION, 75, recovered = true), conversationRun, null),
     )
+
+    @Test fun sessionsHome() = tabShot("01_sessions.png", Tab.Sessions) {
+        SessionsScreen(SessionsUi(sessionRows, speechReady = true), SessionMode.DICTATION, {}, {}, {}, {}, {})
+    }
+
+    @Test fun sessionsWhileRecording() = tabShot("02_sessions_recording.png", Tab.Sessions) {
+        SessionsScreen(SessionsUi(sessionRows.drop(1), true, RecordingState("x", SessionMode.CONVERSATION, active = true, recordedMs = 754_000)), SessionMode.CONVERSATION, {}, {}, {}, {}, {})
+    }
+
+    @Test fun sessionsEmptyNoModels() = tabShot("03_sessions_empty.png", Tab.Sessions) {
+        SessionsScreen(SessionsUi(emptyList(), speechReady = false), SessionMode.CONVERSATION, {}, {}, {}, {}, {})
+    }
+
+    @Test fun recording() = shot("04_recording.png") {
+        RecordingScreen(RecordingState("x", SessionMode.CONVERSATION, active = true, recordedMs = 754_000,
+            levels = List(48) { ((kotlin.math.sin(it / 3.0) + 1) / 2 * 0.8).toFloat() },
+            live = conversationRun.segments.map { LiveLine(it.startMs, it.text) }), {}, {}, {}, {})
+    }
+
+    private val actions = SessionActions({}, {}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {})
+
+    @Test fun dictationSession() = shot("05_session_dictation.png") {
+        SessionScreen(SessionUi(sessionRows[1].session, listOf(dictationRun), engines = listOf("medasr" to "Google MedASR", "parakeet" to "Parakeet TDT 0.6B v2"),
+            player = PlayerState("a", true, 8_000, 21_000)), actions)
+    }
+
+    @Test fun dictationSessionRaw() = shot("06_session_dictation_raw.png") {
+        SessionScreen(SessionUi(sessionRows[1].session, listOf(dictationRun), readable = false), actions)
+    }
+
+    @Test fun conversationSessionTwoRuns() = shot("07_session_two_runs.png") {
+        val second = conversationRun.copy(id = "r3", engine = "medasr", engineTitle = "Google MedASR", startedAtMillis = now + 600_000)
+        SessionScreen(SessionUi(sessionRows[2].session, listOf(conversationRun, second), selectedRunId = "r2"), actions)
+    }
+
+    @Test fun exportSheet() = shot("08_export_sheet.png") {
+        SessionScreen(SessionUi(sessionRows[3].session, listOf(conversationRun)), actions, SessionSheet.Export)
+    }
+
+    @Test fun exportConfirm() = shot("09_export_confirm.png") {
+        SessionScreen(SessionUi(sessionRows[3].session, listOf(conversationRun)), actions, SessionSheet.Confirm(com.fadysaeed.scriber.export.ExportKind.JSON, false))
+    }
+
+    @Test fun modelsLocked() = tabShot("10_models_locked.png", Tab.Models) {
+        ModelsScreen(ModelsUi(device, "E4B", "E4B", rows { if (it == "llm-gemma4-e2b") PackState.Missing else PackState.Verified }, locked = true, freeBytes = 720 * gb, neededBytes = gb), {}, {}, {}, {}, {}, {})
+    }
 
     @Test fun modelsDownloading() {
         val llm = catalog.byRole(PackRole.LLM).first { it.variant == "E4B" }
-        models(
-            ModelsUi(
-                device, "E4B", "E4B",
-                rows { if (it == llm.id) PackState.Partial(1_200_000_000) else if (it.startsWith("llm")) PackState.Missing else PackState.Verified },
-                fetch = Fetcher.Status.Running(llm.id, "gemma-4-E4B-it.litertlm", 2_050_000_000, 4_510_000_000, false),
-                freeBytes = 176 * gb, neededBytes = 3 * gb,
-            ),
-            "02_models_downloading.png",
-        )
+        tabShot("11_models_downloading.png", Tab.Models) {
+            ModelsScreen(ModelsUi(device, "E4B", "E4B", rows { if (it == llm.id) PackState.Partial(1_200_000_000) else if (it.startsWith("llm")) PackState.Missing else PackState.Verified },
+                fetch = Fetcher.Status.Running(llm.id, "gemma-4-E4B-it.litertlm", 2_050_000_000, 4_510_000_000, false), freeBytes = 720 * gb, neededBytes = 3 * gb), {}, {}, {}, {}, {}, {})
+        }
     }
 
-    @Test fun modelsLocked() = models(
-        ModelsUi(device, "E4B", "E4B", rows { if (it == "llm-gemma4-e2b") PackState.Missing else PackState.Verified }, locked = true, freeBytes = 170 * gb, neededBytes = gb),
-        "03_models_locked.png",
-    )
-
-    @Test fun modelsFailed() = models(
-        ModelsUi(device, "E2B", "E2B", rows { PackState.Missing }, fetch = Fetcher.Status.Failed("model.int8.onnx: checksum did not match the catalogue, file discarded"),
-            freeBytes = 3 * gb, neededBytes = (4.2 * gb).toLong()),
-        "04_models_failed_low_space.png",
-    )
-
-    private val report = LabReport(
-        atMillis = 1_762_560_000_000, appVersion = "0.0.12", device = device, thermalAfter = "warm",
-        vault = VaultRun(true, 64, 210.0, 340.0, "Encrypted size on disk 64 MB"),
+    private val report = LabReport(now, "0.0.6", device, thermalAfter = "cool",
+        vault = VaultRun(true, 64, 200.6, 524.6, "Encrypted size on disk 64 MB"),
         asr = listOf(
-            AsrRun("parakeet", "Parakeet TDT 0.6B v2", 4, 2100, 117.0, 6100, 412, 37,
-                listOf(AsrSample("5.wav", 22.4, 1100, 0.08, "the patient temperature is thirty seven point two degrees celsius heart rate is seventy two beats per minute", ""))),
-            AsrRun("medasr", "Google MedASR", 4, 900, 117.0, 3900, 412, 19,
-                listOf(AsrSample("5.wav", 22.4, 700, 0.03, "the patient temperature is thirty seven point two degrees celsius heart rate is seventy two beats per minute", ""))),
+            AsrRun("parakeet", "Parakeet TDT 0.6B v2", 4, 2191, 127.2, 7945, 262, 9, listOf(AsrSample("0.wav", 43.8, 2909, 0.015, "Exam type CT chest PE protocol period", ""))),
+            AsrRun("medasr", "Google MedASR", 4, 759, 127.2, 3854, 262, 12, listOf(AsrSample("0.wav", 43.8, 1560, 0.0, "[EXAM TYPE] CT chest PE protocol {period}", ""))),
         ),
-        vad = VadRun(132.0, 410, 41),
-        diarization = DiarizationRun(58.0, 300, 4200, 2, 2, 5),
-        llm = LlmRun("Gemma 4 E4B", "GPU", 9800, 1400, 214, 17.8,
-            "History since last review: He reports sleeping about six hours and the voices are quieter, mainly at night, now commenting only without commands.\n\nMental state: Calm and engaged. Denies thoughts of harm to self or others.\n\nPlan: Continue olanzapine 15 mg nocte, weight and bloods this week, discuss weekend leave with his sister."),
-    )
+        vad = VadRun(127.2, 607, 15), diarization = DiarizationRun(51.2, 388, 9234, 2, 2, 8),
+        llm = LlmRun("Gemma 4 E4B", "GPU", 14484, 1515, 158, 14.1, "History since last review: ..."))
 
-    @Test fun labEmpty() = shot("10_lab_empty.png", Tab.Lab) { LabScreen(LabUi(modelsReady = true), {}, {}) }
-    @Test fun labRunning() = shot("11_lab_running.png", Tab.Lab) { LabScreen(LabUi(step = "Speech to text: Google MedASR", report = report, modelsReady = true), {}, {}) }
-    @Test fun labResults() = shot("12_lab_results.png", Tab.Lab) { LabScreen(LabUi(report = report, modelsReady = true), {}, {}) }
+    @Test fun lab() = tabShot("12_lab.png", Tab.Lab) { LabScreen(LabUi(report = report, modelsReady = true), {}, {}) }
 
-    @Test fun securityLocked() = shot("20_security_locked.png", Tab.Security) {
-        SecurityScreen(SecurityUi(true, listOf("huggingface.co", "hf.co", "github.com", "githubusercontent.com"), true, "Encrypted size on disk 16 MB", "0.0.12", 1), {}, {}, {})
+    @Test fun settings() = tabShot("13_settings.png", Tab.Settings) {
+        SettingsScreen(SettingsUi(locked = true, hosts = listOf("huggingface.co", "hf.co", "github.com", "githubusercontent.com"), vaultOk = true, version = "0.0.6", catalogVersion = 1, storageBytes = 1_340_000_000), {}, {}, {}, {})
     }
 
-    @Test fun securityOpen() = shot("21_security_open.png", Tab.Security) {
-        SecurityScreen(SecurityUi(false, listOf("huggingface.co", "hf.co", "github.com", "githubusercontent.com"), null, "", "0.0.12", 1), {}, {}, {})
+    @Test fun settingsRetention() = tabShot("14_settings_retention.png", Tab.Settings) {
+        SettingsScreen(SettingsUi(settings = com.fadysaeed.scriber.data.AppSettings(retention = com.fadysaeed.scriber.core.Retention(keepForever = false, deleteAfterDays = 90), highQuality = true),
+            locked = false, hosts = listOf("huggingface.co"), version = "0.0.6"), {}, {}, {}, {})
     }
 
-    @Test fun lock() {
-        compose.setContent { ScriberTheme(dark = true) { LockScreen(null) {} } }
-        compose.onRoot().captureRoboImage("screenshots/30_lock.png")
-    }
-
-    @Test @Config(qualifiers = "w384dp-h1500dp-notnight-xxhdpi")
-    fun modelsLight() {
-        compose.setContent { ScriberTheme(dark = false) { Frame(Tab.Models, {}) { ModelsScreen(ModelsUi(device, "E4B", "E4B", rows { PackState.Verified }, locked = true, freeBytes = 170 * gb, neededBytes = gb), {}, {}, {}, {}, {}, {}) } } }
-        compose.onRoot().captureRoboImage("screenshots/40_models_light.png")
-    }
+    @Test fun lock() = shot("20_lock.png") { LockScreen(null) {} }
 }

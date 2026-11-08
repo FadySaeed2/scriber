@@ -56,6 +56,10 @@ class Vault private constructor(
     fun read(name: String): InputStream =
         streaming.newDecryptingStream(FileInputStream(file(name)), ad("file", name))
 
+    /** Random access to an encrypted file, for players and media decoders that need to seek. */
+    fun openSeekable(name: String): java.nio.channels.SeekableByteChannel =
+        streaming.newSeekableDecryptingChannel(FileInputStream(file(name)).channel, ad("file", name))
+
     fun putRecord(name: String, plain: ByteArray) {
         val sealed = aead.encrypt(plain, ad("record", name))
         val target = file("records/$name")
@@ -75,6 +79,19 @@ class Vault private constructor(
     }
 
     fun delete(name: String): Boolean = file(name).delete()
+
+    /** Deletes a folder and everything in it. */
+    fun deleteTree(dir: String): Boolean = file(dir).deleteRecursively()
+
+    /** Names of the files directly inside [dir] (not temporaries), sorted. */
+    fun list(dir: String): List<String> =
+        file(dir).listFiles()?.filter { it.isFile && !it.name.endsWith(".tmp") }?.map { "$dir/${it.name}" }?.sorted().orEmpty()
+
+    /** Record names directly inside a records folder, without the "records/" prefix. */
+    fun listRecords(dir: String): List<String> =
+        file("records/$dir").listFiles()?.filter { it.isFile && !it.name.endsWith(".tmp") }?.map { "$dir/${it.name}" }?.sorted().orEmpty()
+
+    fun deleteRecord(name: String): Boolean = file("records/$name").delete()
 
     private fun ad(kind: String, name: String) = "scriber:$kind:$name".toByteArray()
 

@@ -2,10 +2,12 @@
 
 Each phase ships as a signed APK, is tried on the phone, and only then does the next start.
 
-- **Phase 0, foundation (this build):** project, CI, signing, vault, identity lock, model download
+- **Phase 0, foundation (shipped 0.0.5):** project, CI, signing, vault, identity lock, model download
   with checksums and self-lock, device check, Lab benchmarks.
-- **Phase 1, recording, import and raw transcription:** foreground recording that survives screen
-  lock, crash-safe chunks, lossless FLAC finalisation (16 kHz default, 48 kHz option), import of
+- **Phase 1, recording, import and raw transcription (this build):** two modes, dictation (spoken
+  punctuation and section commands become a readable note view) and conversation; foreground
+  recording that survives screen lock, crash-safe encrypted 5-second pieces, lossless WAV
+  (16 kHz default, 48 kHz studio option with a 16 kHz working copy), import of
   m4a/mp3/wav/ogg/opus/flac and the audio of video files (picker and share sheet), recording library,
   retention (keep forever by default, or delete after note approval, or after N days), transcription
   in batches during recording, sealed raw runs, export as text/SRT/VTT/JSON plus the audio.

@@ -6,6 +6,7 @@ import com.k2fsa.sherpa.onnx.OfflineMedAsrCtcModelConfig
 import com.k2fsa.sherpa.onnx.OfflineModelConfig
 import com.k2fsa.sherpa.onnx.OfflineRecognizer
 import com.k2fsa.sherpa.onnx.OfflineRecognizerConfig
+import com.k2fsa.sherpa.onnx.OfflineRecognizerResult
 import com.k2fsa.sherpa.onnx.OfflineSpeakerDiarization
 import com.k2fsa.sherpa.onnx.OfflineSpeakerDiarizationConfig
 import com.k2fsa.sherpa.onnx.OfflineSpeakerSegmentationModelConfig
@@ -70,12 +71,15 @@ object Speech {
         )
     }
 
-    fun transcribe(recognizer: OfflineRecognizer, audio: Audio): String {
+    fun transcribe(recognizer: OfflineRecognizer, audio: Audio): String = decode(recognizer, audio).text.trim()
+
+    /** Full result: text, tokens, and each token's time from the start of [audio], in seconds. */
+    fun decode(recognizer: OfflineRecognizer, audio: Audio): OfflineRecognizerResult {
         val stream = recognizer.createStream()
         try {
             stream.acceptWaveform(audio.samples, audio.sampleRate)
             recognizer.decode(stream)
-            return recognizer.getResult(stream).text.trim()
+            return recognizer.getResult(stream)
         } finally {
             stream.release()
         }
