@@ -2,12 +2,12 @@ package com.fadysaeed.scriber.work
 
 import android.content.Context
 import com.fadysaeed.scriber.core.Compare
-import com.fadysaeed.scriber.core.Document
 import com.fadysaeed.scriber.core.FactSet
 import com.fadysaeed.scriber.core.Ids
 import com.fadysaeed.scriber.core.Medicines
 import com.fadysaeed.scriber.core.ModelCatalog
 import com.fadysaeed.scriber.core.Note
+import com.fadysaeed.scriber.core.NoteInput
 import com.fadysaeed.scriber.core.NotePipeline
 import com.fadysaeed.scriber.core.PackRole
 import com.fadysaeed.scriber.core.RunStatus
@@ -43,19 +43,21 @@ class NoteWriter(private val context: Context) {
             val pipeline = NotePipeline(medicines) { prompt -> runBlocking { llm.ask(prompt) } }
             val saved = store.facts(sessionId)
             val facts = if (rewriteOnly && saved != null) saved else {
-                val run = store.runs(sessionId).filter { it.status == RunStatus.DONE }.let { done ->
-                    done.lastOrNull { it.engine == settings.baseEngine } ?: done.lastOrNull()
-                } ?: error("No transcript yet")
-                val reading = Compare.reading(run, null, session.mode, medicines)
+                val done = store.runs(sessionId).filter { it.status == RunStatus.DONE }
+                val run = (done.lastOrNull { it.engine == settings.baseEngine } ?: done.lastOrNull()) ?: error("No transcript yet")
+                val second = done.lastOrNull { it.engine == settings.secondEngine && it.engine != run.engine }
+                val reading = Compare.reading(run, second, session.mode, medicines)
                 val speakers = store.speakers(sessionId)
                 val who = speakers?.let { Speakers.assign(reading.words, reading.segments, it, run.id) }
-                val lines = Document.lines(run, reading, store.edits(sessionId, run.id), who) { speakers?.name(it) ?: "Speaker ${it + 1}" }
+                val input = NoteInput.lines(run, reading, store.edits(sessionId, run.id), who) { speakers?.name(it) ?: "Speaker ${it + 1}" }
                 val t0 = System.currentTimeMillis()
-                val (f, rejected) = pipeline.facts(pipeline.lines(lines)) { p -> progress("Taking out facts", p * 0.6f) }
+                progress("Working out who is the clinician", 0.01f)
+                val source = pipeline.withRoles(pipeline.lines(input.lines, input.cleaned))
+                val (f, rejected) = pipeline.facts(source, template) { p -> progress("Taking out facts", 0.03f + p * 0.57f) }
                 FactSet(sessionId, run.id, run.seal.orEmpty(), model.first, f, rejected, System.currentTimeMillis(), System.currentTimeMillis() - t0)
                     .also { store.saveFacts(it) }
             }
-            val sections = pipeline.note(template, facts.facts) { p -> progress("Writing the note", 0.6f + p * 0.4f) }
+            val sections = pipeline.note(template, facts.facts) { p -> progress("Writing and checking the note", 0.6f + p * 0.4f) }
             val note = Note(Ids.new(), sessionId, template.id, template.name, facts.createdAtMillis, sections, "${model.first} (${llm.backend})",
                 System.currentTimeMillis(), System.currentTimeMillis() - started)
             store.saveNote(note)

@@ -1,4 +1,24 @@
 # An invented ward review written for Scriber's Lab. No real patient. One line per turn.
+# Lines starting "#+" must show up in the note; lines starting "#-" must not. Label | pattern (case ignored).
+#+ no thoughts of suicide or self-harm | suicid|self-harm|harm (him|her)self|end(ing)? (his|her) life
+#+ voices quieter, no longer commanding | voices
+#+ cannabis before admission | cannabis
+#+ olanzapine 15 mg | 15 mg
+#+ weight up 2 kg | 2 (kg|kilo)
+#+ fasting glucose and lipids | glucose|lipid
+#+ his daughter | daughter
+#+ escorted ground leave | ground leave
+#+ dietitian | dietitian
+#+ family meeting next Tuesday | family meeting|tuesday
+#+ 15/60 observations | 15/60
+#+ review on Friday | friday
+#+ Mental Health Act | mental health act
+#+ sister's view | sister
+#+ less sure about the poisoning | poison
+#- preoccupied with self-harm | preoccupied with.{0,30}(self-harm|suicid)
+#- no hallucinations | no (evidence of )?(perceptual|hallucinat)
+#- a normal mental state nobody described | well[- ]groomed|cognition (is |was |appears )?intact|goal[- ]directed|linear
+#- risk labelled low, moderate or high | (low|moderate|high) risk
 Doctor: Good morning Sam, thanks for meeting with us. Present today are me, the registrar Priya and your nurse Tom.
 Sam: Morning. Okay.
 Doctor: How have the last few days been on the ward?

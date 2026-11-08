@@ -36,6 +36,9 @@ enum class FactKind(val label: String, val hint: String) {
     WARD("Ward", "observation level, ward events, nursing reports"),
     IMPRESSION("Impression", "the clinician's impression or diagnosis as stated"),
     PLAN("Plan", "what was decided or proposed"),
+    ADVICE("Advice given", "specific advice the clinician gave this patient: what to do or avoid, how to take a medicine"),
+    EDUCATION("Information given", "what the clinician explained in general, such as how medicines work, the options and their side effects; never the patient's own medicines"),
+    GOALS("Goals", "what the patient wants from treatment"),
 }
 
 /** One fact taken from the transcript, with the exact words that support it and where they were said. */
@@ -51,6 +54,8 @@ data class Fact(
     val endMs: Long,
     val removed: Boolean = false,
     val edited: Boolean = false,
+    /** Something to check before trusting it, such as a medicine name the first engine did not hear. */
+    val doubt: String? = null,
 )
 
 /** A fact the model offered that the checks threw out, kept so the Lab and Fady can see why. */
@@ -106,7 +111,13 @@ data class NoteTemplate(
 
 /** One sentence (or list item) of a note, with the facts it rests on and anything worth a look. */
 @Serializable
-data class NoteSentence(val text: String, val factIds: List<String>, val warning: String? = null)
+data class NoteSentence(
+    val text: String,
+    val factIds: List<String>,
+    val warning: String? = null,
+    /** A number not in its facts, or a sentence that contradicts them: shown in red, never to copy unread. */
+    val severe: Boolean = false,
+)
 
 @Serializable
 data class NoteSectionText(val sectionId: String, val title: String, val form: SectionForm, val sentences: List<NoteSentence>)
@@ -131,6 +142,7 @@ data class Note(
 ) {
     val text: String get() = editedText ?: NoteText.render(sections)
     val warnings: Int get() = sections.sumOf { s -> s.sentences.count { it.warning != null } }
+    val severe: Int get() = sections.sumOf { s -> s.sentences.count { it.severe } }
 }
 
 object NoteText {
@@ -154,7 +166,9 @@ object Templates {
     const val STYLE = "Write as a consultant psychiatrist in Australia and New Zealand: cohesive clinical prose, not a registrar's list. " +
         "Australian English spelling. Third person. Past tense for history, present tense for the mental state. " +
         "Describe risk qualitatively, as a formulation of the factors and their context; never label risk as high, moderate or low. " +
-        "Keep ward terms as they were said (for example 15/60 observations). Do not add anything that is not in the facts."
+        "Keep ward terms as they were said (for example 15/60 observations). Doses and numbers in digits with units (olanzapine 15 mg nocte). " +
+        "Refer to the patient as he, she or they as the facts show, not \"the patient\" in every sentence; refer to the clinician who wrote the note as I. " +
+        "Do not add anything that is not in the facts."
 
     private val MSE = listOf(FactKind.MSE_APPEARANCE, FactKind.MSE_SPEECH, FactKind.MSE_MOOD, FactKind.MSE_THOUGHT, FactKind.MSE_PERCEPTION, FactKind.MSE_COGNITION, FactKind.MSE_INSIGHT)
     private val RISK = listOf(FactKind.RISK_SELF, FactKind.RISK_OTHERS, FactKind.RISK_FROM_OTHERS, FactKind.PROTECTIVE)
@@ -162,9 +176,9 @@ object Templates {
     private fun s(id: String, title: String, instruction: String, kinds: List<FactKind>, form: SectionForm = SectionForm.PROSE, maxWords: Int = 200, omit: Boolean = true, all: Boolean = false) =
         NoteSection(id, title, instruction, kinds, form, maxWords, omit, all)
 
-    private val mseSection = s("mse", "Mental state examination", "One paragraph in the usual order: appearance and behaviour, speech, mood and affect, thought form and content, perception, cognition, insight and judgement. Leave out any part with no facts.", MSE, maxWords = 180, omit = false)
+    private val mseSection = s("mse", "Mental state examination", "Only what the facts show, in the usual order: appearance and behaviour, speech, mood and affect, thought form and content, perception, cognition, insight and judgement. Leave out every part with no fact; never write a normal finding that no fact states.", MSE, maxWords = 180, omit = false)
     private val riskSection = s("risk", "Risk", "A qualitative formulation: the static and dynamic factors, current thoughts and behaviour, protective factors, and how they fit together now. No high, moderate or low.", RISK, maxWords = 180, omit = false)
-    private val planSection = s("plan", "Plan", "Each step of the plan as it was decided.", listOf(FactKind.PLAN), SectionForm.NUMBERED, 150, omit = false)
+    private val planSection = s("plan", "Plan", "Each step of the plan as it was decided, with doses, dates and who will do it, and the advice given.", listOf(FactKind.PLAN, FactKind.ADVICE), SectionForm.NUMBERED, 150, omit = false)
     private val medsSection = s("meds", "Medication", "Each medicine with dose, recent changes, adherence, benefit and side effects; relevant physical health.", listOf(FactKind.MEDICATIONS, FactKind.ALLERGIES, FactKind.PHYSICAL), maxWords = 150)
 
     fun builtIns(): List<NoteTemplate> = listOf(
@@ -193,17 +207,19 @@ object Templates {
         )),
         NoteTemplate("adhd", "ADHD assessment", builtIn = true, sections = listOf(
             s("present", "Context", "Who was present, referral source, and the setting or telehealth details.", listOf(FactKind.CONTEXT, FactKind.REASON), maxWords = 60),
-            s("current", "Current symptoms and impact", "Inattention, hyperactivity and impulsivity now, with examples, and their impact on work, study, relationships and daily life.", listOf(FactKind.ADHD, FactKind.SYMPTOMS, FactKind.SOCIAL), maxWords = 220),
+            s("current", "Current symptoms and impact", "Inattention, hyperactivity and impulsivity now, with the patient's own examples, their impact on work, study, relationships and daily life, and the goals of treatment.", listOf(FactKind.ADHD, FactKind.SYMPTOMS, FactKind.SOCIAL, FactKind.GOALS, FactKind.REASON), maxWords = 220),
             s("childhood", "Childhood history", "Symptoms before age 12, school reports and history, and collateral from family.", listOf(FactKind.ADHD, FactKind.PERSONAL, FactKind.COLLATERAL), maxWords = 180),
             s("psych", "Psychiatric history and comorbidity", "Other mental health conditions, past and present, and how they bear on the ADHD question.", listOf(FactKind.PAST_PSYCH, FactKind.SYMPTOMS), maxWords = 150),
             s("substances", "Substance use", "Each substance, amount and pattern; misuse of stimulants.", listOf(FactKind.SUBSTANCES), maxWords = 100, omit = false),
-            s("cardiac", "Physical and cardiac health", "Blood pressure, pulse, cardiac symptoms, personal and family cardiac history including sudden death, other conditions.", listOf(FactKind.PHYSICAL, FactKind.FAMILY), maxWords = 120, omit = false),
-            s("meds", "Medication", "Current and past medicines including stimulants, doses, benefit, side effects; allergies.", listOf(FactKind.MEDICATIONS, FactKind.ALLERGIES), maxWords = 120),
+            s("family", "Family history", "Mental illness, ADHD and substance use in the family.", listOf(FactKind.FAMILY), maxWords = 120),
+            s("cardiac", "Physical and cardiac health", "Blood pressure, pulse, cardiac symptoms, other medical conditions, and cardiac history in the family including sudden death.", listOf(FactKind.PHYSICAL, FactKind.FAMILY), maxWords = 140, omit = false),
+            s("meds", "Medication", "The patient's current medicines with doses; stimulants tried before, where they came from, formulation, dose, benefit and side effects; allergies with the reaction.", listOf(FactKind.MEDICATIONS, FactKind.ALLERGIES), maxWords = 160),
+            s("discussion", "Discussion", "The treatment options I explained and why one was preferred for this patient.", listOf(FactKind.EDUCATION), maxWords = 140),
             s("measures", "Rating scales", "Scales used and their scores.", listOf(FactKind.MEASURES), maxWords = 80),
             mseSection,
             s("risk", "Risk", "A qualitative risk formulation, including the risk of misuse or diversion of stimulants.", RISK + FactKind.SUBSTANCES, maxWords = 150, omit = false),
             s("impression", "Impression", "Whether the history meets DSM-5 criteria for ADHD, with the reasoning, differentials and comorbidity.", listOf(FactKind.IMPRESSION), maxWords = 160, omit = false, all = true),
-            s("plan", "Plan", "Each step as decided, including prescribing authority or permit, monitoring of blood pressure, pulse and weight, and follow-up.", listOf(FactKind.PLAN), SectionForm.NUMBERED, 150, omit = false),
+            s("plan", "Plan", "Each step as decided, with medicine, formulation and dose, prescribing authority or permit, who prescribes, monitoring of blood pressure, pulse and weight, advice given, and follow-up.", listOf(FactKind.PLAN, FactKind.ADVICE), SectionForm.NUMBERED, 180, omit = false),
         )),
         NoteTemplate("intake", "Initial assessment", builtIn = true, sections = listOf(
             s("referral", "Referral and context", "Referral source and reason, who was present, setting.", listOf(FactKind.CONTEXT, FactKind.REASON), maxWords = 80),

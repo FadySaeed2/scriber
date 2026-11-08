@@ -77,4 +77,20 @@ class TextOnDeviceTest {
         assertEquals(null, p.groundedIn("Takes 15 mg", "I take 15 mg"))
         assertEquals(5, com.fadysaeed.scriber.core.NoteText.words("Plan\n1. Continue 15 mg"))
     }
+
+    /** The Lab's checklists are regular expressions: they must compile and match on Android's engine. */
+    @Test fun labRolePlaysScoreOnAndroid() {
+        for (f in com.fadysaeed.scriber.core.RolePlay.FILES) {
+            val r = com.fadysaeed.scriber.core.RolePlay.bundled(f)
+            r.score("nothing")
+        }
+        val adhd = com.fadysaeed.scriber.core.RolePlay.bundled("roleplay_adhd.txt")
+        val s = adhd.score("He takes sertraline 100 mg. He is currently taking atomoxetine 40 mg. BP 120/80.")
+        assertEquals(listOf("atomoxetine as his medicine", "blood pressure or pulse figures nobody said"), s.wrong)
+        val p = com.fadysaeed.scriber.core.NotePipeline(Medicines.bundled()) { "" }
+        assertEquals(true, p.unsupportedShare("He is well groomed, cooperative, with linear and goal directed thought.", "Feels better") > 0.6)
+        val out = p.applyVerdicts("S1 | CONTRADICTED | denies it\n- S2 | PARTLY | x", listOf(
+            com.fadysaeed.scriber.core.NoteSentence("a", listOf("F1")), com.fadysaeed.scriber.core.NoteSentence("b", listOf("F1"))))
+        assertEquals(true, out[0].severe); assertEquals("Only partly in its facts: x", out[1].warning)
+    }
 }

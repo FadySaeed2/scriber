@@ -130,46 +130,65 @@ class LabRunner(private val context: Context, private val catalog: ModelCatalog,
         }
     }
 
-    /** What the Lab's note check found, on an invented ward review. */
-    data class NoteCheck(
-        val model: String, val backend: String, val loadMs: Long, val factsMs: Long, val noteMs: Long,
-        val facts: Int, val rejected: List<String>, val warnings: List<String>, val note: String, val fellBack: String?,
+    /** What the note check found on one invented consultation. */
+    data class ScriptCheck(
+        val name: String, val factsMs: Long, val noteMs: Long, val facts: Int, val doubts: List<String>, val rejected: List<String>,
+        val marked: List<String>, val red: List<String>, val found: List<String>, val missing: List<String>, val wrong: List<String>, val note: String,
     ) {
+        val expected: Int get() = found.size + missing.size
+    }
+
+    /** What the Lab's note check found, on invented consultations only. */
+    data class NoteCheck(val model: String, val backend: String, val loadMs: Long, val fellBack: String?, val scripts: List<ScriptCheck>) {
         fun toText() = buildString {
-            appendLine("Note check: $model on $backend${fellBack?.let { " ($it)" } ?: ""}")
-            appendLine("Load ${loadMs / 1000.0} s, facts ${factsMs / 1000.0} s, note ${noteMs / 1000.0} s")
-            appendLine("$facts facts kept, ${rejected.size} thrown out, ${warnings.size} sentences marked")
-            rejected.forEach { appendLine("Thrown out: $it") }
-            warnings.forEach { appendLine("Marked: $it") }
-            appendLine(); append(note)
+            appendLine("Note check: $model on $backend${fellBack?.let { " ($it)" } ?: ""}, load ${loadMs / 1000.0} s")
+            for (c in scripts) {
+                appendLine()
+                appendLine("== ${c.name}: facts ${c.factsMs / 1000.0} s, note ${c.noteMs / 1000.0} s")
+                appendLine("Found ${c.found.size} of ${c.expected} that must be there; ${c.wrong.size} that must not")
+                c.missing.forEach { appendLine("Missing: $it") }
+                c.wrong.forEach { appendLine("Should not be there: $it") }
+                appendLine("${c.facts} facts kept (${c.doubts.size} to check), ${c.rejected.size} thrown out; ${c.marked.size} sentences amber, ${c.red.size} red")
+                c.doubts.forEach { appendLine("To check: $it") }
+                c.rejected.forEach { appendLine("Thrown out: $it") }
+                c.red.forEach { appendLine("Red: $it") }
+                c.marked.forEach { appendLine("Amber: $it") }
+                appendLine(); appendLine(c.note)
+            }
         }
     }
 
     /**
-     * Writes a note from an invented ward review (no patient), the same way sessions get theirs, and
-     * reports the time, the facts thrown out and the sentences marked.
+     * Writes notes from invented consultations (no patient), the same way sessions get theirs, and
+     * scores each against the things it must and must not hold.
      */
     suspend fun noteCheck(onStep: (String) -> Unit): NoteCheck = withContext(Dispatchers.Default) {
         val model = com.fadysaeed.scriber.work.NoteWriter.model(context) ?: error("Download a note writer (Gemma) in Models first")
-        val text = com.fadysaeed.scriber.core.Medicines::class.java.getResourceAsStream("/roleplay_inpatient.txt")!!.bufferedReader().readText()
-        val lines = text.lines().filter { it.isNotBlank() && !it.startsWith("#") }.mapIndexed { i, l ->
-            com.fadysaeed.scriber.core.Line(i, i * 6000L, i * 6000L + 5500, l.substringAfter(": "), false, null, l.substringBefore(": "))
-        }
+        val medicines = com.fadysaeed.scriber.core.Medicines.bundled()
         onStep("Note check: loading ${model.first}")
         val t0 = SystemClock.elapsedRealtime()
         LanguageModel.Session.open(model.second, java.io.File(context.cacheDir, "litertlm")).use { llm ->
-            val t1 = SystemClock.elapsedRealtime()
-            val pipeline = com.fadysaeed.scriber.core.NotePipeline(com.fadysaeed.scriber.core.Medicines.bundled()) { p -> kotlinx.coroutines.runBlocking { llm.ask(p) } }
-            onStep("Note check: taking out facts")
-            val (facts, rejected) = pipeline.facts(pipeline.lines(lines))
-            val t2 = SystemClock.elapsedRealtime()
-            onStep("Note check: writing the note")
-            val template = com.fadysaeed.scriber.core.Templates.builtIns().first { it.id == "inpatient" }
-            val sections = pipeline.note(template, facts)
-            val t3 = SystemClock.elapsedRealtime()
-            NoteCheck(model.first, llm.backend, t1 - t0, t2 - t1, t3 - t2, facts.size, rejected.map { "${it.reason}: ${it.raw}" },
-                sections.flatMap { s -> s.sentences.filter { it.warning != null }.map { "${it.warning}: ${it.text}" } },
-                com.fadysaeed.scriber.core.NoteText.render(sections), llm.fellBackFrom)
+            val loaded = SystemClock.elapsedRealtime()
+            val pipeline = com.fadysaeed.scriber.core.NotePipeline(medicines) { p -> kotlinx.coroutines.runBlocking { llm.ask(p) } }
+            val templates = com.fadysaeed.scriber.core.Templates.builtIns()
+            val scripts = com.fadysaeed.scriber.core.RolePlay.FILES.map { file ->
+                val play = com.fadysaeed.scriber.core.RolePlay.bundled(file)
+                val template = templates.first { it.id == if (play.name == "adhd") "adhd" else "inpatient" }
+                val t1 = SystemClock.elapsedRealtime()
+                onStep("Note check, ${play.name}: who is speaking")
+                val source = pipeline.withRoles(pipeline.lines(play.lines()))
+                val (facts, rejected) = pipeline.facts(source, template) { p -> onStep("Note check, ${play.name}: facts ${(p * 100).toInt()}%") }
+                val t2 = SystemClock.elapsedRealtime()
+                val sections = pipeline.note(template, facts) { p -> onStep("Note check, ${play.name}: writing and checking ${(p * 100).toInt()}%") }
+                val t3 = SystemClock.elapsedRealtime()
+                val text = com.fadysaeed.scriber.core.NoteText.render(sections)
+                val score = play.score(text)
+                val all = sections.flatMap { it.sentences }
+                ScriptCheck(play.name, t2 - t1, t3 - t2, facts.size, facts.filter { it.doubt != null }.map { "${it.text} (${it.doubt})" },
+                    rejected.map { "${it.reason}: ${it.raw}" }, all.filter { it.warning != null && !it.severe }.map { "${it.warning}: ${it.text}" },
+                    all.filter { it.severe }.map { "${it.warning}: ${it.text}" }, score.found, score.missing, score.wrong, text)
+            }
+            NoteCheck(model.first, llm.backend, loaded - t0, llm.fellBackFrom, scripts)
         }
     }
 

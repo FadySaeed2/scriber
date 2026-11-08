@@ -195,6 +195,7 @@ object Jobs {
             }
             NOTE -> try {
                 report(JobProgress(id, "Writing the note", 0f)); notify("Writing the note")
+                store.update(id) { if (it.problem?.startsWith("Could not write the note") == true) it.copy(problem = null) else it }
                 var last = -1
                 NoteWriter(context).run(id, job.engine.ifBlank { null }, rewriteOnly = job.count == 1) { label, f ->
                     val pct = (f * 100).toInt()

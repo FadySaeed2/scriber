@@ -109,3 +109,17 @@ model load serves all prompts; each prompt is a fresh conversation, so nothing l
 sections. Templates are data (sections, instructions, form, length, fact kinds), so Fady changes
 them on the phone without a new build; built-ins can always go back to how they came. Gemma 4 E4B
 is the default writer for accuracy; E2B is used only if it is the one chosen in Models.
+
+**2026-11-09. Notes, second round, after Fady's first real session.** On a 27-minute ADHD telehealth
+assessment the first notes mixed the clinician's general explanation of medicines with the
+patient's own, lost medicines the speech engine had misheard, missed most of the history, and
+invented normal findings; code marked none of it because it only checked numbers and medicines.
+Now: the note writer reads the transcript with medicine names the second opinion heard (Fady's
+corrections first); the model first says which speaker is the clinician; facts come from about three
+minutes of talk at a time, with the template's sections and a fixed psychiatric checklist to look
+for, and with EDUCATION and ADVICE kept apart from the patient's medicines; a medicine the line does
+not name is kept but marked to check. Each section is then checked twice: code (numbers, medicines,
+words not in the facts) and the model (each sentence against its facts). A number nobody said, or a
+contradiction, is red, and copying a note with red sentences asks first. The Lab scores notes from
+two invented consultations against lists of what must and must not appear. Real sessions stay out
+of the repository.

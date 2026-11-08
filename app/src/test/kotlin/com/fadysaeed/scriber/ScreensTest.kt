@@ -239,7 +239,7 @@ class ScreensTest {
     private val facts = com.fadysaeed.scriber.core.FactSet("s5", "b1", "x", "Gemma 4 E4B", listOf(
         com.fadysaeed.scriber.core.Fact("F1", com.fadysaeed.scriber.core.FactKind.SYMPTOMS, "Feels better and is sleeping more", "Better. Sleeping more.", 2, 4_400, 9_800),
         com.fadysaeed.scriber.core.Fact("F2", com.fadysaeed.scriber.core.FactKind.MEDICATIONS, "Takes quetiapine at night and sertraline in the morning", "take the quetiapine at night and the sertraline in the morning", 2, 4_400, 9_800),
-        com.fadysaeed.scriber.core.Fact("F3", com.fadysaeed.scriber.core.FactKind.MEDICATIONS, "Reports increased appetite since olanzapine", "A bit hungry", 4, 14_300, 19_000),
+        com.fadysaeed.scriber.core.Fact("F3", com.fadysaeed.scriber.core.FactKind.MEDICATIONS, "Reports increased appetite since olanzapine", "A bit hungry", 4, 14_300, 19_000, doubt = "medicine olanzapine not heard there: listen to the line before trusting it"),
         com.fadysaeed.scriber.core.Fact("F4", com.fadysaeed.scriber.core.FactKind.COLLATERAL, "Mother reports he eats more", "My mum says I eat more", 4, 14_300, 19_000, edited = true),
         com.fadysaeed.scriber.core.Fact("F5", com.fadysaeed.scriber.core.FactKind.SOCIAL, "Lives with his mother", "my mum", 4, 14_300, 19_000, removed = true),
     ), listOf(com.fadysaeed.scriber.core.RejectedFact("SYMPTOMS | L3 | Gained 5 kg | \"weight gain\"", "number 5 not said there")), now, 41_000)
@@ -248,7 +248,8 @@ class ScreensTest {
         com.fadysaeed.scriber.core.NoteSectionText("interval", "Progress since last review", com.fadysaeed.scriber.core.SectionForm.PROSE, listOf(
             s("He reports feeling better and sleeping more since the change to olanzapine.", "F1"),
             s("His appetite has increased, which his mother has also noticed.", "F3", "F4"),
-            s("He has gained 5 kg.", warning = "No fact behind this sentence"))),
+            com.fadysaeed.scriber.core.NoteSentence("He has gained 5 kg.", emptyList(), "No fact behind this sentence", severe = true),
+            s("He is hungry most of the day and eats at night.", "F3", warning = "Only partly in its facts: eating at night not stated"))),
         com.fadysaeed.scriber.core.NoteSectionText("meds", "Medication", com.fadysaeed.scriber.core.SectionForm.PROSE, listOf(
             s("He takes quetiapine at night and sertraline in the morning.", "F2"))),
         com.fadysaeed.scriber.core.NoteSectionText("mse", "Mental state examination", com.fadysaeed.scriber.core.SectionForm.PROSE, listOf(s("Not assessed."))),
@@ -280,4 +281,6 @@ class ScreensTest {
     @Test fun settingsNotes() = tabShot("34_settings_notes.png", Tab.Settings) {
         SettingsScreen(SettingsUi(locked = true, hosts = listOf("huggingface.co"), version = "0.0.34", templates = templates), {}, {}, {}, {})
     }
+
+    @Test fun copyRedSheet() = shot("35_copy_red.png") { SessionScreen(noteUi(), actions, SessionSheet.CopyRed, SessionView.NOTE) }
 }

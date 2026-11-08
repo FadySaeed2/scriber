@@ -33,12 +33,14 @@ class NotesTest {
             PLAN | L5 | Continue 15 mg and 15/60 observations | "continue fifteen milligrams and stay on 15/60 observations"
         """.trimIndent()
         val (facts, rejected) = p.parseFacts(answer, src, 1)
-        assertEquals(listOf("F1", "F2", "F3", "F4"), facts.map { it.id })
-        assertEquals(listOf(FactKind.SYMPTOMS, FactKind.RISK_SELF, FactKind.PROTECTIVE, FactKind.PLAN), facts.map { it.kind })
-        assertEquals(6, rejected.size)
-        // The first fact names olanzapine although the line says only "fifteen milligrams": its medicine is not there.
-        assertTrue(rejected.joinToString { it.reason }, rejected.any { it.reason.startsWith("medicine") })
-        assertTrue(rejected.any { it.reason.startsWith("number 8") })
+        assertEquals(listOf("F1", "F2", "F3", "F4", "F5", "F6"), facts.map { it.id })
+        assertEquals(listOf(FactKind.MEDICATIONS, FactKind.SYMPTOMS, FactKind.RISK_SELF, FactKind.PROTECTIVE, FactKind.MEDICATIONS, FactKind.PLAN), facts.map { it.kind })
+        assertEquals(4, rejected.size)
+        // A medicine the line does not name (the engine may have misheard it) stays, marked to check.
+        assertTrue(facts[0].doubt!!.startsWith("medicine olanzapine"))
+        assertTrue(facts[4].doubt!!.startsWith("medicine quetiapine"))
+        assertNull(facts[1].doubt)
+        assertTrue(rejected.joinToString { it.reason }, rejected.any { it.reason.startsWith("number 8") })
         assertTrue(rejected.any { it.reason.startsWith("quote not found") })
         assertTrue(rejected.any { it.reason.startsWith("unknown kind") })
         assertTrue(rejected.any { it.reason.startsWith("no such line") })
@@ -57,6 +59,7 @@ class NotesTest {
         assertNull(s[0].warning); assertNull(s[1].warning)
         assertEquals("No fact behind this sentence", s[2].warning)
         assertTrue(s[3].warning!!.startsWith("number 20"))
+        assertTrue(s[3].severe); assertTrue(!s[2].severe)
         val list = p.parseSection("1. Continue current dose [F1]\n2. Review sleep [F2]", SectionForm.NUMBERED, facts)
         assertEquals(listOf("Continue current dose", "Review sleep"), list.map { it.text })
     }
@@ -106,5 +109,83 @@ class NotesTest {
             assertTrue(x.sections.all { it.kinds.isNotEmpty() && it.instruction.isNotBlank() })
             assertTrue(x.sections.last().form == SectionForm.NUMBERED)
         }
+    }
+
+    @Test fun rolesAreReadFromTheModelsAnswer() {
+        val p = pipeline { "Speaker 1 | CLINICIAN\n**Speaker 2** | Patient\nSpeaker 9 | STAFF" }
+        val roled = p.withRoles(p.lines(lines))
+        assertEquals("clinician", roled[0].role); assertEquals("patient", roled[1].role)
+        assertEquals("L1 Speaker 1 (clinician)", roled[0].label)
+        assertTrue(p.factPrompt(roled).contains("L2 Speaker 2 (patient): Better."))
+        // No speakers: nothing to ask, lines unchanged.
+        val bare = p.lines(lines.map { it.copy(speakerName = null, speaker = null) })
+        assertEquals(bare, p.withRoles(bare))
+    }
+
+    @Test fun theCheckMarksUnsupportedAndContradictedSentences() {
+        val p = pipeline { "" }
+        val list = listOf(NoteSentence("He denies suicidal thoughts.", listOf("F1")), NoteSentence("He is preoccupied with self-harm.", listOf("F1")),
+            NoteSentence("He sleeps well and exercises daily.", listOf("F2")), NoteSentence("He wants to go home.", listOf("F3")))
+        val out = p.applyVerdicts("S1 | SUPPORTED | ok\nS2 | CONTRADICTED | F1 says he denies it\n- S3 | PARTLY | exercise not stated\nS4|supported", list)
+        assertNull(out[0].warning)
+        assertTrue(out[1].severe); assertTrue(out[1].warning!!.startsWith("Contradicts its facts: F1 says"))
+        assertTrue(!out[2].severe); assertTrue(out[2].warning!!.startsWith("Only partly"))
+        assertNull(out[3].warning)
+    }
+
+    @Test fun sentencesFullOfWordsNotInTheirFactsAreMarked() {
+        val p = pipeline { "" }
+        assertTrue(p.unsupportedShare("He is well groomed, cooperative, with linear and goal directed thought.", "Feels better and sleeps more") > 0.6)
+        assertTrue(p.unsupportedShare("He reports feeling better and sleeping more.", "Feels better and sleeps more. Better. Sleeping more.") < 0.3)
+        val facts = mapOf("F1" to Fact("F1", FactKind.SYMPTOMS, "Feels better and sleeps more", "Better. Sleeping more.", 2, 0, 1))
+        val s = p.parseSection("He presents as well groomed and cooperative with linear goal directed thinking [F1].", SectionForm.PROSE, facts)
+        assertEquals("Much of it is not in its facts", s.single().warning)
+    }
+
+    @Test fun medicinesPutInByTheCleaningAreMarkedToCheck() {
+        val p = pipeline { "" }
+        val src = p.lines(listOf(Line(0, 0, 3000, "I'm on sertraline for anxiety, fifty milligrams.", false, 1, "Speaker 2")), mapOf(0 to setOf("sertraline")))
+        val (facts, rejected) = p.parseFacts("MEDICATION | L1 | Takes sertraline 50 mg for anxiety | \"on sertraline for anxiety\"", src, 1)
+        assertTrue(rejected.isEmpty())
+        assertTrue(facts.single().doubt!!.contains("second opinion"))
+    }
+
+    @Test fun educationIsKeptApartFromThePatientsMedicines() {
+        val t = Templates.builtIns().first { it.id == "adhd" }
+        assertTrue(t.sections.any { FactKind.EDUCATION in it.kinds })
+        assertTrue(t.sections.none { it.id == "meds" && FactKind.EDUCATION in it.kinds })
+        val p = pipeline { "" }
+        assertTrue(p.factPrompt(p.lines(lines), t).contains("A medicine the clinician only explains is never one of the patient's MEDICATIONS"))
+    }
+
+    @Test fun theNoteReadsMedicinesTheSecondOpinionHeard() {
+        fun run(id: String, engine: String, vararg text: String) = TranscriptRun(id, "s", engine, engine, "", emptyMap(), "", 0, status = RunStatus.DONE,
+            segments = text.mapIndexed { i, t -> Segment(i * 5000L, i * 5000L + 4000, t) })
+        val base = run("b", "parakeet", "How have you been since the change to all and zapping?", "I still take the quetiapin at night.", "I sleep better now.")
+        val alt = run("m", "medasr", "how have you been since the change to olanzapine", "i still take the quetiapine at night", "i sleep better now")
+        val reading = Compare.reading(base, alt, SessionMode.CONVERSATION, meds)
+        val r = NoteInput.lines(base, reading, null)
+        assertTrue(r.lines[0].text, r.lines[0].text.contains("olanzapine"))
+        assertTrue(r.lines[1].text, r.lines[1].text.contains("quetiapine"))
+        assertEquals("I sleep better now.", r.lines[2].text)
+        assertEquals(setOf(0, 1), r.cleaned.keys)
+        // A difference Fady kept as the base had it stays as it was.
+        val kept = EditLayer("s", "b", "", kept = reading.differences.filter { it.medicine == "olanzapine" }.map { it.id }.toSet())
+        assertTrue(!NoteInput.lines(base, reading, kept).lines[0].text.contains("olanzapine"))
+    }
+
+    @Test fun theLabsRolePlaysAndTheirChecklistsRead() {
+        for (f in RolePlay.FILES) {
+            val r = RolePlay.bundled(f)
+            assertTrue(f, r.turns.size > 20 && r.expected.size > 10 && r.forbidden.size >= 4)
+            assertTrue(r.turns.none { it.first.startsWith("#") })
+        }
+        val adhd = RolePlay.bundled("roleplay_adhd.txt")
+        assertEquals(setOf("Speaker 1", "Speaker 2"), adhd.turns.map { it.first }.toSet())
+        val s = adhd.score("He takes sertraline 100 mg. He is currently taking atomoxetine 40 mg. BP 120/80.")
+        assertTrue(s.found.contains("sertraline 100 mg"))
+        assertEquals(listOf("atomoxetine as his medicine", "blood pressure or pulse figures nobody said"), s.wrong)
+        assertTrue(s.missing.contains("Concerta 36 mg"))
+        assertTrue(adhd.score("I explained atomoxetine takes weeks to work.").wrong.isEmpty())
     }
 }

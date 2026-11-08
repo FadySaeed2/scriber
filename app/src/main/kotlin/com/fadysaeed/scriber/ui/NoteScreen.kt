@@ -96,8 +96,9 @@ fun NoteView(ui: SessionUi, a: SessionActions, open: (SessionSheet) -> Unit) {
         GlyphIcon(Glyph.DOWN, Ink.Dust)
     }
     Spacer(Modifier.height(10.dp))
-    if (note.warnings > 0) Status("${note.warnings} ${if (note.warnings == 1) "sentence" else "sentences"} to check, marked in amber", Ink.Amber)
-    else Status("Every sentence rests on facts from the transcript", Ink.Teal)
+    if (note.severe > 0) Status("${note.severe} ${if (note.severe == 1) "sentence" else "sentences"} in red: a number not said, or against the facts", Ink.Ember)
+    if (note.warnings > note.severe) Status("${note.warnings - note.severe} ${if (note.warnings - note.severe == 1) "sentence" else "sentences"} to check, marked in amber", Ink.Amber)
+    if (note.warnings == 0) Status("Every sentence rests on facts from the transcript", Ink.Teal)
     val facts = ui.facts
     if (facts != null && facts.changedAtMillis > note.createdAtMillis) {
         Spacer(Modifier.height(12.dp))
@@ -141,7 +142,7 @@ fun NoteView(ui: SessionUi, a: SessionActions, open: (SessionSheet) -> Unit) {
 
     Spacer(Modifier.height(20.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        AmberButton("Copy note", { a.note.onCopy(note.text) }, Modifier.weight(1f))
+        AmberButton("Copy note", { if (note.severe > 0 && note.editedText == null) open(SessionSheet.CopyRed) else a.note.onCopy(note.text) }, Modifier.weight(1f))
         GhostButton("Edit", { open(SessionSheet.EditNote) }, Modifier.weight(1f), minHeight = 52.dp)
     }
     Spacer(Modifier.height(8.dp))
@@ -153,7 +154,11 @@ fun NoteView(ui: SessionUi, a: SessionActions, open: (SessionSheet) -> Unit) {
 private fun sentences(list: List<NoteSentence>, onTap: (Int) -> Unit) = buildAnnotatedString {
     list.forEachIndexed { i, x ->
         if (i > 0) append(" ")
-        val style = if (x.warning != null) SpanStyle(color = Ink.Amber, textDecoration = TextDecoration.Underline) else SpanStyle(color = Ink.Sand)
+        val style = when {
+            x.severe -> SpanStyle(color = Ink.Ember, textDecoration = TextDecoration.Underline)
+            x.warning != null -> SpanStyle(color = Ink.Amber, textDecoration = TextDecoration.Underline)
+            else -> SpanStyle(color = Ink.Sand)
+        }
         withLink(LinkAnnotation.Clickable("s$i", TextLinkStyles(style = style)) { onTap(i) }) { append(x.text) }
     }
 }
@@ -169,7 +174,7 @@ fun SourcesSheet(ui: SessionUi, sh: SessionSheet.Sources, a: SessionActions, clo
             Eyebrow(section.title)
             Spacer(Modifier.height(8.dp))
             Text(sentence.text, style = Type.reading.copy(color = Ink.Bone))
-            sentence.warning?.let { Spacer(Modifier.height(8.dp)); Text(it + ". Check it against the transcript before you use it.", style = Type.note.copy(color = Ink.Amber)) }
+            sentence.warning?.let { Spacer(Modifier.height(8.dp)); Text(it + ". Check it against the transcript before you use it.", style = Type.note.copy(color = if (sentence.severe) Ink.Ember else Ink.Amber)) }
             for (id in sentence.factIds) {
                 val f = byId[id] ?: continue
                 Spacer(Modifier.height(14.dp)); Hairline(); Spacer(Modifier.height(10.dp))
@@ -187,6 +192,7 @@ private fun FactCard(f: Fact, canPlay: Boolean, onPlay: () -> Unit) {
     Text(f.text, style = Type.body)
     Spacer(Modifier.height(4.dp))
     Text("“${f.quote}”", style = Type.note)
+    f.doubt?.let { Spacer(Modifier.height(4.dp)); Text(it, style = Type.small.copy(color = Ink.Amber)) }
     Spacer(Modifier.height(6.dp))
     Row {
         Text("Line ${f.line} · ${clock(f.startMs)}", style = Type.small, modifier = Modifier.weight(1f).padding(top = 14.dp))
@@ -266,6 +272,7 @@ private fun FactRow(f: Fact, onClick: () -> Unit) {
             textDecoration = if (f.removed) TextDecoration.LineThrough else null))
         Spacer(Modifier.height(3.dp))
         Text("${clock(f.startMs)}  “${f.quote}”" + if (f.edited) "  · edited" else "", style = Type.small, maxLines = 2)
+        f.doubt?.let { Text(it, style = Type.small.copy(color = Ink.Amber), maxLines = 2) }
     }
     Hairline()
 }
@@ -303,6 +310,22 @@ fun DroppedSheet(ui: SessionUi, close: () -> Unit) {
                 Text(r.reason, style = Type.small.copy(color = Ink.Amber))
                 Spacer(Modifier.height(8.dp)); Hairline(); Spacer(Modifier.height(8.dp))
             }
+        }
+    }
+}
+
+/** Copying a note with red sentences asks first. */
+@Composable
+fun CopyRedSheet(ui: SessionUi, a: SessionActions, onEdit: () -> Unit, close: () -> Unit) {
+    val note = ui.note ?: return
+    Sheet(close) {
+        Eyebrow("Red sentences in this note")
+        Spacer(Modifier.height(10.dp))
+        Text("${note.severe} ${if (note.severe == 1) "sentence has" else "sentences have"} a number nobody said, or ${if (note.severe == 1) "says" else "say"} the opposite of the facts. Fix them with Edit first, or copy and fix them where you paste.", style = Type.body)
+        Spacer(Modifier.height(16.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            GhostButton("Copy anyway", { close(); a.note.onCopy(note.text) }, Modifier.weight(1f), minHeight = 52.dp)
+            AmberButton("Edit first", onEdit, Modifier.weight(1f))
         }
     }
 }

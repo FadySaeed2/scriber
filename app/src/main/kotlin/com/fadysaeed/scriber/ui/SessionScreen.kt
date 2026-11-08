@@ -62,6 +62,7 @@ sealed interface SessionSheet {
     data object EditNote : SessionSheet
     data class FactSheet(val factId: String) : SessionSheet
     data object Dropped : SessionSheet
+    data object CopyRed : SessionSheet
 }
 
 class SessionActions(
@@ -160,6 +161,7 @@ fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet?
             SessionSheet.EditNote -> EditNoteSheet(ui, a) { sheet = null }
             is SessionSheet.FactSheet -> FactSheet(ui, sh, a) { sheet = null }
             SessionSheet.Dropped -> DroppedSheet(ui) { sheet = null }
+            SessionSheet.CopyRed -> CopyRedSheet(ui, a, { sheet = SessionSheet.EditNote }) { sheet = null }
             SessionSheet.Review -> ReviewSheet(ui, a, { sheet = null }) { sheet = it }
             SessionSheet.Speakers -> SpeakersSheet(ui, a.review.onFindSpeakers, a.review.onRenameSpeaker, a.review.onHideSpeakers) { sheet = null }
             is SessionSheet.Speaker -> SpeakerPartSheet(sh, ui, a.review.onMoveSpeaker) { sheet = null }

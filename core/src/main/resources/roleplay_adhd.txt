@@ -1,0 +1,68 @@
+# An invented ADHD telehealth assessment written for Scriber's Lab. No real patient. One line per turn.
+# The patient's medicine names are spelled the way a speech engine often mishears them.
+# Lines starting "#+" must show up in the note; lines starting "#-" must not. Label | pattern (case ignored).
+#+ sertraline | sertraline
+#+ sertraline 100 mg | 100 mg
+#+ Ritalin taken from his brother | brother
+#+ asthma | asthma
+#+ Symbicort | symbicort|budesonide
+#+ amoxicillin allergy | amoxicillin
+#+ father's high blood pressure | father|dad
+#+ uncle's sudden death | uncle
+#+ alcohol | alcohol|beer|drinks
+#+ no thoughts of suicide or self-harm | suicid|self-harm|harm (him|her)self|end (his|her) life
+#+ goals: meetings and deadlines | deadline|meeting
+#+ Concerta 36 mg | 36 mg
+#+ ECG before starting | ecg|electrocardiogram
+#+ blood pressure and pulse at 4 weeks | pulse
+#+ no energy drinks | energy drink
+#+ letter to the GP | letter
+#+ review in 3 months | 3 months|three months|12 weeks
+#- atomoxetine as his medicine | (taking|takes|prescribed|currently|commenced)\W+(\w+\W+){0,3}atomoxetine
+#- an amphetamine as his medicine | (taking|takes|prescribed|currently|commenced)\W+(\w+\W+){0,3}(dexamfetamine|lisdexamfetamine|vyvanse)
+#- blood pressure or pulse figures nobody said | \d{2,3}/\d{2,3}|\d+\s*bpm|pulse of \d
+#- a normal mental state nobody described | well[- ]groomed|cognition (is |was |appears )?intact|goal[- ]directed|no (evidence of )?(perceptual|hallucinat)
+#- risk labelled low, moderate or high | (low|moderate|high) risk
+Speaker 1: Hi Jordan, I'm Dr Mansour, the psychiatrist. Can you hear me okay on the video?
+Speaker 2: Yes, loud and clear. I'm at home in my office.
+Speaker 1: Thanks. You've done the questionnaires with our psychologist, and the results fit the inattentive type of ADHD. Today I want to go through your medical history and then talk about treatment.
+Speaker 2: Sounds good.
+Speaker 1: What would you like treatment to help with?
+Speaker 2: I work as a software engineer. I lose track in meetings and I keep missing deadlines because I start five things and finish none.
+Speaker 2: And at home I forget bills and appointments. My partner ends up doing all of it.
+Speaker 1: Have you ever taken a stimulant before?
+Speaker 2: A few times, yeah. My brother has a prescription for Ritalin and I took some of his before exams.
+Speaker 1: How did it go?
+Speaker 2: Honestly it was the first time my head felt quiet. I could read for two hours straight. It wore off after about four hours though.
+Speaker 1: Any side effects?
+Speaker 2: Not hungry at lunch, and a bit of a headache in the evening. Nothing major.
+Speaker 1: Any medical conditions?
+Speaker 2: Asthma since I was a kid. I use symbi court twice a day and it's well controlled.
+Speaker 1: Any allergies?
+Speaker 2: Amoxicillin. I came out in hives all over when I was twelve.
+Speaker 1: Any other medicines?
+Speaker 2: I'm on search lane for anxiety, a hundred milligrams in the morning. I've been on it about two years.
+Speaker 1: Is it helping?
+Speaker 2: Yeah, a lot. I used to have panic attacks on the train and I haven't had one in over a year.
+Speaker 1: Any palpitations, chest pain or fainting?
+Speaker 2: No, none of that.
+Speaker 1: Is there any heart disease in the family, or anyone who died suddenly when they were young?
+Speaker 2: My dad has high blood pressure. And my uncle on mum's side died suddenly at forty one. They said it was his heart.
+Speaker 1: Do you know what it was exactly?
+Speaker 2: No, I don't think anyone ever found out.
+Speaker 1: Any mental illness in the family?
+Speaker 2: My mum has had depression. My brother has ADHD, he's the one with the Ritalin.
+Speaker 1: How about alcohol or drugs?
+Speaker 2: A few beers on the weekend, maybe four or five a week. No drugs.
+Speaker 1: Any thoughts of ending your life or harming yourself, now or in the past?
+Speaker 2: No, never.
+Speaker 1: Let me go through the options. There is a non-stimulant called atomoxetine. It takes four to six weeks to work and you take it every day, so it is a bigger commitment.
+Speaker 1: Then there are the stimulants. Methylphenidate comes as short acting Ritalin, which lasts three to four hours, and as extended release Concerta, which lasts up to twelve hours.
+Speaker 1: The other group is dexamfetamine, and lisdexamfetamine, which is Vyvanse. Because you take sertraline, I'm cautious with the amphetamines, as together they raise the risk of serotonin syndrome.
+Speaker 2: That makes sense. The Ritalin worked for me anyway.
+Speaker 1: So my recommendation is extended release methylphenidate, Concerta, thirty six milligrams in the morning. If it isn't enough after two weeks, your GP can go up to fifty four.
+Speaker 1: Because of your uncle, I'd like your GP to do an ECG before you start, and check your blood pressure and pulse at four weeks.
+Speaker 1: Please cut out energy drinks while you're on it. One coffee in the morning is fine.
+Speaker 2: I drink about two energy drinks a day, so that will hurt, but okay.
+Speaker 1: I'll write to your GP, Dr Hart, today with the plan and the special authority, and I'll see you again in three months.
+Speaker 2: Great, thank you.

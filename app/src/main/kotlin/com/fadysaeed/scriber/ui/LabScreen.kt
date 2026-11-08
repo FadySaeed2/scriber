@@ -168,16 +168,21 @@ private fun NoteCheckSection(ui: LabUi, onRun: () -> Unit, onCopy: (String) -> U
     Section("Note writer")
     val c = ui.noteCheck
     if (c == null) {
-        Text("Writes a note from an invented ward review, the same way your sessions get theirs, and shows the time, the facts it threw out and any sentence it marked. No patient data. A few minutes.", style = Type.small, modifier = Modifier.padding(top = 8.dp))
+        Text("Writes notes from two invented consultations, a ward review and an ADHD telehealth assessment, the same way your sessions get theirs, and counts what each note holds that it must, and what it must not. No patient data. About ten minutes.", style = Type.small, modifier = Modifier.padding(top = 8.dp))
     } else {
-        Fact("Model", "${c.model}, ${c.backend}")
-        Fact("Time", "load ${one(c.loadMs / 1000.0)} s, facts ${one(c.factsMs / 1000.0)} s, note ${one(c.noteMs / 1000.0)} s")
-        Fact("Facts", "${c.facts} kept, ${c.rejected.size} thrown out", if (c.rejected.isEmpty()) Ink.Teal else Ink.Bone)
-        Fact("Marked sentences", "${c.warnings.size}", if (c.warnings.isEmpty()) Ink.Teal else Ink.Amber)
+        Fact("Model", "${c.model}, ${c.backend}, load ${one(c.loadMs / 1000.0)} s")
+        for (x in c.scripts) {
+            Spacer(Modifier.height(12.dp))
+            Eyebrow(x.name)
+            Fact("Must be there", "${x.found.size} of ${x.expected}", if (x.missing.isEmpty()) Ink.Teal else Ink.Amber)
+            Fact("Must not be there", "${x.wrong.size}", if (x.wrong.isEmpty()) Ink.Teal else Ink.Ember)
+            Fact("Sentences", "${x.red.size} red, ${x.marked.size} amber", if (x.red.isEmpty()) Ink.Bone else Ink.Ember)
+            Fact("Time", "facts ${one(x.factsMs / 1000.0)} s, note ${one(x.noteMs / 1000.0)} s")
+            if (x.missing.isNotEmpty()) Text("Missing: " + x.missing.joinToString("; "), style = Type.small.copy(color = Ink.Amber), modifier = Modifier.padding(top = 6.dp))
+            if (x.wrong.isNotEmpty()) Text("Should not be there: " + x.wrong.joinToString("; "), style = Type.small.copy(color = Ink.Ember), modifier = Modifier.padding(top = 6.dp))
+        }
         Spacer(Modifier.height(10.dp))
-        Text(c.note, style = Type.reading)
-        Spacer(Modifier.height(10.dp))
-        GhostButton("Copy the check", { onCopy(c.toText()) }, Modifier.fillMaxWidth(), minHeight = 52.dp)
+        GhostButton("Copy the check, with both notes", { onCopy(c.toText()) }, Modifier.fillMaxWidth(), minHeight = 52.dp)
     }
     Spacer(Modifier.height(8.dp))
     GhostButton(if (c == null) "Note check" else "Check the note writer again", onRun, Modifier.fillMaxWidth(), color = Ink.Amber, enabled = ui.step == null, minHeight = 52.dp)
