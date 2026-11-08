@@ -36,7 +36,7 @@ class DownloadOnDeviceTest {
     private val segmentation = catalog.byRole(PackRole.SEGMENTATION).single()
     private val vadPack = catalog.byRole(PackRole.VAD).single()
 
-    @Test fun downloadsVerifiesAndMarksAPack() = runBlocking {
+    @Test fun downloadsVerifiesAndMarksAPack() : Unit = runBlocking {
         store.delete(segmentation)
         for (f in segmentation.files) downloader.fetch(segmentation, f) { _, _ -> }
         store.markVerified(segmentation)
@@ -45,7 +45,7 @@ class DownloadOnDeviceTest {
         assertEquals(f.sha256, Hashing.sha256(store.file(segmentation, f)))
     }
 
-    @Test fun resumesAPartialFile() = runBlocking {
+    @Test fun resumesAPartialFile() : Unit = runBlocking {
         store.delete(vadPack)
         val f = vadPack.files.single()
         // Take the first 200 KB by downloading fully elsewhere, then cutting it short.
@@ -62,7 +62,7 @@ class DownloadOnDeviceTest {
         assertFalse(part.exists())
     }
 
-    @Test fun rejectsAFileWhoseChecksumDoesNotMatch() = runBlocking {
+    @Test fun rejectsAFileWhoseChecksumDoesNotMatch() : Unit = runBlocking {
         val f = segmentation.files.single()
         val wrong = f.copy(path = "wrong.onnx", sha256 = "0".repeat(64))
         try {
@@ -74,7 +74,7 @@ class DownloadOnDeviceTest {
         assertFalse(store.partial(segmentation, wrong).exists())
     }
 
-    @Test fun refusesHostsOutsideTheList() = runBlocking {
+    @Test fun refusesHostsOutsideTheList() : Unit = runBlocking {
         val evil = ModelFile("evil.bin", "https://example.com/model.onnx", 10, "0".repeat(64))
         try {
             downloader.fetch(segmentation, evil) { _, _ -> }
@@ -91,7 +91,7 @@ class DownloadOnDeviceTest {
         assertFalse(FetchLock.isLocked(vault))
     }
 
-    @Test fun speechLibraryLoadsAndHearsNoSpeechInATone() = runBlocking {
+    @Test fun speechLibraryLoadsAndHearsNoSpeechInATone() : Unit = runBlocking {
         val f = vadPack.files.single()
         if (store.file(vadPack, f).length() != f.size) downloader.fetch(vadPack, f) { _, _ -> }
         val vad = Speech.vad(store.file(vadPack, f))

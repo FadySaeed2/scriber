@@ -33,7 +33,7 @@ import org.robolectric.annotation.GraphicsMode
 /** Renders every screen with sample data so the design can be reviewed without a phone. */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [35], qualifiers = "w384dp-h1500dp-xxhdpi-night")
+@Config(sdk = [35], qualifiers = "w384dp-h1500dp-night-xxhdpi")
 class ScreensTest {
     @get:Rule val compose = createComposeRule()
 
@@ -114,7 +114,7 @@ class ScreensTest {
         compose.onRoot().captureRoboImage("screenshots/30_lock.png")
     }
 
-    @Test @Config(qualifiers = "w384dp-h1500dp-xxhdpi-notnight")
+    @Test @Config(qualifiers = "w384dp-h1500dp-notnight-xxhdpi")
     fun modelsLight() {
         compose.setContent { ScriberTheme(dark = false) { Frame(Tab.Models, {}) { ModelsScreen(ModelsUi(device, "E4B", "E4B", rows { PackState.Verified }, locked = true, freeBytes = 170 * gb, neededBytes = gb), {}, {}, {}, {}, {}, {}) } } }
         compose.onRoot().captureRoboImage("screenshots/40_models_light.png")
