@@ -37,3 +37,17 @@ changing the layers.
 **2026-11-08. Design language from PDFx/CalPal.** True black, ink palette (bone, sand, dust, ash),
 amber for the one main action, Bricolage Grotesque, no cards or shadows, hairlines and type only,
 line icons drawn in code. Dark only, like PDFx.
+
+**2026-11-08. Parakeet first, MedASR as a second opinion, in both modes.** Fady's own trial: Parakeet
+clearly better on ordinary speech, MedASR better on medicine names. Both run automatically on every
+session; Parakeet's transcript is the one he reads. Disagreements are marked rather than merged
+automatically, and nothing changes without his tap. Words only Parakeet heard are not flagged;
+words only MedASR heard are flagged only when they name a medicine, to keep the review short.
+
+**2026-11-08. Medicine dictionary bundled, everyday words protected.** About 1,000 generic and AU/NZ
+brand names written for Scriber. A misspelling is matched by edit distance only for words of six
+letters or more that are not among 32,000 common English words (wordfreq, CC BY-SA 4.0), so
+"concert" is never turned into Concerta. Fady's corrections teach it what the engine heard.
+
+**2026-11-08. Android's regex engine is stricter than desktop Java.** An unescaped closing brace
+compiles in unit tests and crashes on the phone. All text functions now also run in an on-device test.

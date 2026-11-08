@@ -56,7 +56,19 @@ object Words {
         if (braceCommand.matches(word)) return ""
         val k = word.lowercase().filter { it.isLetterOrDigit() }
         if (mode == SessionMode.DICTATION && k in dictationCommands) return ""
-        return numbers[k] ?: k
+        return numbers[k] ?: spelling(k)
+    }
+
+    /** British and American spellings of the same word get one key (mum and mom, oedema and edema). */
+    private fun spelling(k: String): String {
+        if (k.length < 3) return k
+        var x = k
+        if (x == "mum" || x == "mums") return x.replace("mum", "mom")
+        x = x.replace("ae", "e").replace("oe", "e")
+        x = x.replace(Regex("""isation(s?)$"""), "ization$1").replace(Regex("""is(e|ed|es|ing)$"""), "iz$1")
+        x = x.replace(Regex("""our(s?)$"""), "or$1").replace(Regex("""tre(s?)$"""), "ter$1")
+        x = x.replace(Regex("""ogue(s?)$"""), "og$1").replace(Regex("""lled$"""), "led").replace(Regex("""lling$"""), "ling")
+        return x
     }
 
     /**
@@ -192,7 +204,20 @@ object Compare {
         val start = minOf(spanA.first().startMs, spanB.firstOrNull()?.let { words[it].startMs } ?: Long.MAX_VALUE)
         val end = maxOf(spanA.last().endMs, spanB.lastOrNull()?.let { words[it].endMs } ?: 0L)
         val suggestion = if (altMedicine != null && medicine != null) medicines.respell(spanA.map { it.text }, altMedicine) else altText
-        return Difference(from, to, si, baseText, altText, start, end, medicine, cleanMarkup(suggestion))
+        return Difference(from, to, si, baseText, altText, start, end, medicine, dressLike(baseText, cleanMarkup(suggestion)))
+    }
+
+    /**
+     * The second engine writes without capitals or punctuation; its words take the base words'
+     * leading capital and trailing punctuation, so accepting them keeps the sentence intact.
+     */
+    private fun dressLike(base: String, text: String): String {
+        if (base.isBlank() || text.isBlank()) return text
+        var t = text
+        if (base.first().isUpperCase() && t.first().isLowerCase()) t = t.replaceFirstChar { it.uppercase() }
+        val trail = base.takeLastWhile { !it.isLetterOrDigit() }
+        if (trail.isNotEmpty() && !t.endsWith(trail)) t = t.trimEnd { !it.isLetterOrDigit() } + trail
+        return t
     }
 
     /** The second engine's markup ({period}, [PLAN]) is not offered as text to put in. */

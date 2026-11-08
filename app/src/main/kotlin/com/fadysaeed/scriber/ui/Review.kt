@@ -59,7 +59,7 @@ fun SecondOpinion(ui: SessionUi, a: SessionActions, onReview: () -> Unit) {
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 AmberButton("Review ${diffs.size + meds.size}", onReview, Modifier.weight(1f))
-                if (medSuggestions > 0) GhostButton("Take all $medSuggestions medicines", r.onAcceptAllMedicines, Modifier.weight(1f), color = Ink.Teal, minHeight = 52.dp)
+                if (medSuggestions > 0) GhostButton(if (medSuggestions == 1) "Take the medicine" else "Take all $medSuggestions medicines", r.onAcceptAllMedicines, Modifier.weight(1f), color = Ink.Teal, minHeight = 52.dp)
             }
         }
         compare != null -> Status("Checked against ${engineName(compare.engine)}: nothing left to look at", Ink.Teal)
@@ -156,7 +156,7 @@ private fun annotated(list: List<Piece>, readable: Boolean, onTap: (Piece) -> Un
             is Piece.Plain -> SpanStyle()
             is Piece.Medicine -> SpanStyle(color = Ink.Teal)
             is Piece.Misspelled -> SpanStyle(color = Ink.Teal, textDecoration = TextDecoration.Underline)
-            is Piece.Different -> SpanStyle(color = Ink.Amber, textDecoration = TextDecoration.Underline)
+            is Piece.Different -> SpanStyle(color = if (p.diff.medicine != null) Ink.Teal else Ink.Amber, textDecoration = TextDecoration.Underline)
             is Piece.Missing -> SpanStyle(color = Ink.Amber)
             is Piece.Corrected -> SpanStyle(color = Ink.Bone)
         }

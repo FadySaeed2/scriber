@@ -73,6 +73,9 @@ class Phase2CoreTest {
         assertEquals("olanzapine", d.medicine)
         assertEquals("olanzapine", d.suggestion)
         assertEquals(1, d.from); assertEquals(4, d.to)
+        // Punctuation and capitals of the base words carry over to what is put in.
+        val q = Compare.reading(run("p", 0L..5000L to "Since the change to all and zapping?"), run("m", 0L..5000L to "since the change to olanzapine"), SessionMode.CONVERSATION, meds)
+        assertEquals("olanzapine?", q.differences.single().suggestion)
     }
 
     @Test fun wordsOnlyTheSecondEngineHeardShowOnlyWhenTheyNameAMedicine() {
@@ -82,6 +85,14 @@ class Phase2CoreTest {
         val drug = run("medasr", 0L..5000L to "he is on fluoxetine twenty mg daily")
         val d = Compare.reading(base, drug, SessionMode.CONVERSATION, meds).differences.single()
         assertEquals(3, d.from); assertEquals(3, d.to); assertEquals("fluoxetine", d.medicine)
+    }
+
+    @Test fun britishAndAmericanSpellingsAreNotDifferences() {
+        val base = run("parakeet", 0L..5000L to "My mum noticed oedema and the colour changed, she apologised.")
+        val alt = run("medasr", 0L..5000L to "my mom noticed edema and the color changed she apologized")
+        assertTrue(Compare.reading(base, alt, SessionMode.CONVERSATION, meds).differences.isEmpty())
+        // But a real one-letter medical difference still shows.
+        assertEquals(1, Compare.reading(run("p", 0L..1000L to "main PE"), run("m", 0L..1000L to "main PA"), SessionMode.CONVERSATION, meds).differences.size)
     }
 
     @Test fun medicinesInTheBaseAreMarkedAndMisspellingsOffered() {

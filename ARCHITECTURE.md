@@ -24,6 +24,8 @@ Phase 1 files in the vault: `records/sessions/<id>.json`, `records/runs/<session
 `sessions/<id>/chunks/NNNNNN.pcm` while recording (assembled on stop, or on the next start after a
 crash), `sessions/<id>/audio.wav`, `audio16k.wav` (only for 48 kHz), `original.<ext>` for imports.
 A run's seal is the SHA-256 of its canonical JSON; a sealed run is never written again.
+Phase 2a adds `records/edits/<session>/<run>.json` (Fady's corrections to one sealed run, with the
+run's seal) and `records/personal_words.json` (his own medicines and what the engines heard).
 
 Raw transcripts can be exported as plain text with timestamps, SRT/VTT, or JSON with word timings
 and confidence, for processing with any outside model.

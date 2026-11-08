@@ -28,7 +28,7 @@ private fun one(d: Double) = String.format(Locale.ROOT, "%.1f", d)
 
 @Composable
 fun LabScreen(ui: LabUi, onRun: () -> Unit, onCopy: (String) -> Unit) {
-    Heading("Scriber", "Lab", "Measures every model on this phone with public test recordings only. No patient audio is used here.")
+    Heading("Scriber", "Lab", "Measures every model on this phone: public test recordings, and your own sessions once you have corrected them.")
     if (ui.step != null) {
         Status("Running", Ink.Teal); Spacer(Modifier.height(8.dp))
         Text(ui.step, style = Type.title)
