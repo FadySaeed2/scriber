@@ -56,7 +56,7 @@ class ScreensTest {
 
     private val catalog = ModelCatalog.bundled()
     private val gb = 1024L * 1024 * 1024
-    private val now = 1_762_590_000_000L
+    private val now = 1_794_150_000_000L
     private val device = DeviceSnapshot("Samsung", "SM-S918B", "QTI SM8550", "17", 8, (11.58 * gb).toLong(), 4 * gb, 727 * gb, "cool", 0.21f)
 
     private fun rows(state: (String) -> PackState) = catalog.packs.map {

@@ -134,7 +134,7 @@ fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet?
             }
 
             Section("This session")
-            Fact("Source", if (s.source == SessionSource.IMPORTED) "Imported: ${s.original?.displayName}" else "Recorded here")
+            Fact("Source", if (s.source == SessionSource.IMPORTED) s.original?.let { "Imported: ${it.displayName}" } ?: "Imported" else "Recorded here")
             Fact("Audio", s.audioDeletedAtMillis?.let { "Deleted ${stamp(it)}" } ?: "${Units.bytes(s.audioBytes + (s.original?.size ?: 0))}, kept")
             if (s.source == SessionSource.RECORDED) Fact("Quality", "${s.sampleRate / 1000} kHz mono")
             s.audioSha256?.let { Fact("Audio fingerprint", it.take(16) + "…") }
