@@ -104,8 +104,8 @@ fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet?
     val s = ui.session ?: return
     var sheet by remember { mutableStateOf(sheetOverride) }
     val views = s.mode == SessionMode.CONVERSATION && (ui.canWriteNotes || ui.note != null || ui.facts != null)
-    var view by remember(s.id) { mutableStateOf(viewOverride ?: SessionView.TRANSCRIPT) }
-    if (!views) view = SessionView.TRANSCRIPT
+    var chosen by remember(s.id) { mutableStateOf(viewOverride ?: SessionView.TRANSCRIPT) }
+    val view = if (views) chosen else SessionView.TRANSCRIPT
     Box {
         Page(s.title, a.onBack, actions = { IconButton(Glyph.RENAME, "Rename", { sheet = SessionSheet.Rename }) }, footer = {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -132,7 +132,7 @@ fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet?
 
             if (views) {
                 Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    for (v in SessionView.entries) Choice(v.label, v == view, { view = v }, Modifier.weight(1f))
+                    for (v in SessionView.entries) Choice(v.label, v == view, { chosen = v }, Modifier.weight(1f))
                 }
             }
             when (view) {
