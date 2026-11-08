@@ -2,6 +2,10 @@ name: Probe sources
 
 on:
   workflow_dispatch:
+    inputs:
+      script:
+        description: Probe script in tools/
+        default: probe.py
 
 permissions:
   contents: read
@@ -15,4 +19,4 @@ jobs:
       - name: Versions and model files
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python3 tools/probe.py
+        run: python3 tools/${{ inputs.script }}
