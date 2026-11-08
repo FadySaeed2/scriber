@@ -38,7 +38,7 @@ data class Reading(
 )
 
 object Words {
-    private val braceCommand = Regex("""^\{.*}$""")
+    private val braceCommand = Regex("""^\{.*\}$""")
     private val dictationCommands = setOf("period", "comma", "colon", "semicolon", "fullstop", "newline", "newparagraph", "questionmark")
     private val numbers = mapOf(
         "zero" to "0", "one" to "1", "two" to "2", "three" to "3", "four" to "4", "five" to "5", "six" to "6", "seven" to "7",
