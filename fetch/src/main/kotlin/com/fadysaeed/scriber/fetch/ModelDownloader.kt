@@ -19,6 +19,8 @@ class IntegrityException(message: String) : IOException(message)
 class BlockedHostException(message: String) : IOException(message)
 /** The model host answered with a server error; worth trying again shortly. */
 class ServerBusyException(message: String) : IOException(message)
+/** This place no longer has the file; another place may. */
+class MissingThereException(message: String) : IOException(message)
 
 /**
  * Downloads one catalogue file, resuming where it stopped, and refuses to keep it unless its size
@@ -42,22 +44,33 @@ class ModelDownloader(private val store: ModelStore) {
         }
         val part = store.partial(pack, f)
         part.parentFile?.mkdirs()
-        // A host that is briefly overloaded (HTTP 5xx) gets three more tries, a little apart;
-        // each try resumes from the bytes already on the phone.
-        var attempt = 0
-        while (true) {
-            try {
-                when (val plan = Resume.plan(part.length(), f.size)) {
-                    ResumeAction.AlreadyComplete -> Unit
-                    ResumeAction.StartFresh -> { part.delete(); download(f, part, 0, progress) }
-                    is ResumeAction.ResumeFrom -> download(f, part, plan.offset, progress)
+        // Each place that has the file gets a few tries when its host is overloaded (HTTP 5xx) or
+        // the file is missing there; then the next place. Every try resumes from the bytes already
+        // on the phone, and whichever place served them, the checksum below decides.
+        val urls = f.urls
+        var last: IOException? = null
+        var ok = false
+        for ((i, url) in urls.withIndex()) {
+            var attempt = 0
+            while (!ok) {
+                try {
+                    when (val plan = Resume.plan(part.length(), f.size)) {
+                        ResumeAction.AlreadyComplete -> Unit
+                        ResumeAction.StartFresh -> { part.delete(); download(f, url, part, 0, progress) }
+                        is ResumeAction.ResumeFrom -> download(f, url, part, plan.offset, progress)
+                    }
+                    ok = true
+                } catch (e: ServerBusyException) {
+                    last = e
+                    if (++attempt > (if (i == urls.lastIndex) 3 else 1)) break
+                    kotlinx.coroutines.delay(5_000L * attempt)
+                } catch (e: MissingThereException) {
+                    last = e; break
                 }
-                break
-            } catch (e: ServerBusyException) {
-                if (++attempt > 3) throw IOException(e.message)
-                kotlinx.coroutines.delay(5_000L * attempt)
             }
+            if (ok) break
         }
+        if (!ok) throw IOException(last?.message ?: "Could not download ${f.path}")
         if (part.length() != f.size) throw IntegrityException("${f.path}: got ${part.length()} bytes, expected ${f.size}")
         val sha = Hashing.sha256(part) { progress.update(it, true) }
         if (!sha.equals(f.sha256, ignoreCase = true)) {
@@ -74,8 +87,8 @@ class ModelDownloader(private val store: ModelStore) {
         return Hashing.sha256(done) { progress.update(it, true) }.equals(f.sha256, ignoreCase = true)
     }
 
-    private suspend fun download(f: ModelFile, part: File, offset: Long, progress: Progress) {
-        val conn = open(f.url, offset)
+    private suspend fun download(f: ModelFile, url: String, part: File, offset: Long, progress: Progress) {
+        val conn = open(url, offset)
         try {
             val code = conn.responseCode
             val append = when {
@@ -86,6 +99,7 @@ class ModelDownloader(private val store: ModelStore) {
                 }
                 code == 200 -> false
                 code in 500..599 -> throw ServerBusyException("HTTP $code for ${f.path}")
+                code == 404 || code == 410 -> throw MissingThereException("HTTP $code for ${f.path}")
                 else -> throw IOException("HTTP $code for ${f.path}")
             }
             if (!append) part.delete()

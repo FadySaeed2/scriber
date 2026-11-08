@@ -20,7 +20,11 @@ data class ModelFile(
     val url: String,
     val size: Long,
     val sha256: String,
-)
+    /** Other places with the very same bytes (same SHA-256), tried in order when [url] fails. */
+    val mirrors: List<String> = emptyList(),
+) {
+    val urls: List<String> get() = listOf(url) + mirrors
+}
 
 @Serializable
 data class ModelPack(

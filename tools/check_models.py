@@ -18,7 +18,9 @@ class Recorder(urllib.request.HTTPRedirectHandler):
 catalog = json.load(open(sys.argv[1]))
 bad = 0
 for pack in catalog["packs"]:
-    for f in pack["files"]:
+    for f0 in pack["files"]:
+      for u in [f0["url"]] + f0.get("mirrors", []):
+        f = dict(f0, url=u)
         rec = Recorder()
         opener = urllib.request.build_opener(rec)
         h = hashlib.sha256(); n = 0

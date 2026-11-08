@@ -9,8 +9,8 @@ class CatalogTest {
     private val catalog = ModelCatalog.bundled()
 
     @Test fun everyFileIsHttpsOnAnAllowedHost() {
-        for (p in catalog.packs) for (f in p.files) {
-            val uri = URI(f.url)
+        for (p in catalog.packs) for (f in p.files) for (u in f.urls) {
+            val uri = URI(u)
             assertEquals("${p.id}/${f.path} must use https", "https", uri.scheme)
             assertTrue("${p.id}/${f.path} host ${uri.host} is not allowed", AllowedHosts.isAllowed(uri.host))
         }
@@ -24,8 +24,8 @@ class CatalogTest {
     }
 
     @Test fun huggingFaceFilesArePinnedToACommit() {
-        for (p in catalog.packs) for (f in p.files) if (URI(f.url).host == "huggingface.co") {
-            assertTrue("${p.id}/${f.path} is not pinned: ${f.url}", Regex("/resolve/[0-9a-f]{40}/").containsMatchIn(f.url))
+        for (p in catalog.packs) for (f in p.files) for (u in f.urls) if (URI(u).host == "huggingface.co") {
+            assertTrue("${p.id}/${f.path} is not pinned: $u", Regex("/resolve/[0-9a-f]{40}/").containsMatchIn(u))
         }
     }
 

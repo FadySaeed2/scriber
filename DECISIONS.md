@@ -64,3 +64,10 @@ scored public dictations (219 words): greedy 13 errors, beam search 10, beam wit
 as hotwords 12 (strength 0.5), 13 (1.0), 14 (1.5), and 35 at 3.0. Those dictations have almost no
 medicine names, so they cannot show the benefit, only the cost. The Lab therefore runs both Parakeet
 variants on Fady's own corrected sessions, where medicine names are scored, before anything changes.
+
+**2026-11-08. Mirrors for the two models from GitHub releases.** k2-fsa's release downloads on GitHub
+returned 504 for hours, blocking the device tests. Each catalogue file can now list mirrors with the
+very same bytes; the downloader tries them in order and the SHA-256 check decides, so a mirror can
+never change what Scriber runs. The voice-print model now comes first from the sherpa-onnx author's
+Hugging Face repository; the voice activity model keeps GitHub first with a byte-identical copy on
+Hugging Face as the fallback. The weekly model check covers every mirror too.

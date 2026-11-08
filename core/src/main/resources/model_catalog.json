@@ -133,7 +133,10 @@
           "path": "silero_vad.onnx",
           "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx",
           "size": 643854,
-          "sha256": "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6"
+          "sha256": "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6",
+          "mirrors": [
+            "https://huggingface.co/R4kSo1997/sherpa-onnx-silero-vad-v5/resolve/4a6e5a75370a3ca741c950f8feda0dbed11c18ac/silero_vad.onnx"
+          ]
         }
       ]
     },
@@ -165,9 +168,12 @@
       "files": [
         {
           "path": "campplus_en_voxceleb_16k.onnx",
-          "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx",
+          "url": "https://huggingface.co/csukuangfj/speaker-embedding-models/resolve/0743f301363dec56491a490f6d6cbc9d67f9a3bf/3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx",
           "size": 29596978,
-          "sha256": "357a834f702b80161e5b981182c038e18553c1f2ca752ed6cec2052365d4129b"
+          "sha256": "357a834f702b80161e5b981182c038e18553c1f2ca752ed6cec2052365d4129b",
+          "mirrors": [
+            "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx"
+          ]
         }
       ]
     },
