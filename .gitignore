@@ -1,0 +1,30 @@
+# Build output
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+.kotlin/
+captures/
+*.apk
+*.aab
+
+# Keys: only the encrypted key may ever be committed
+*.jks
+*.keystore
+*.p12
+!signing/*.enc
+
+# Never commit audio, transcripts or model files (patient privacy, size)
+*.wav
+*.flac
+*.m4a
+*.mp3
+*.ogg
+*.opus
+*.onnx
+*.litertlm
+*.tflite
+*.tar.bz2
+/models/
+/recordings/
