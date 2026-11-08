@@ -16,6 +16,7 @@ import com.k2fsa.sherpa.onnx.SpeakerEmbeddingExtractorConfig
 import com.k2fsa.sherpa.onnx.Vad
 import com.k2fsa.sherpa.onnx.VadModelConfig
 import com.k2fsa.sherpa.onnx.WaveReader
+import com.fadysaeed.scriber.core.Resample
 import java.io.File
 
 /** 16 kHz mono audio, the format every speech model here expects. */
@@ -32,9 +33,10 @@ object Speech {
 
     fun threads(): Int = Runtime.getRuntime().availableProcessors().coerceIn(2, 4)
 
+    /** Reads a wave file and always returns 16 kHz audio, whatever rate it was saved at. */
     fun readWave(file: File): Audio {
         val w = WaveReader.readWave(file.absolutePath)
-        return Audio(w.samples, w.sampleRate)
+        return Audio(Resample.mono(w.samples, w.sampleRate, SAMPLE_RATE), SAMPLE_RATE)
     }
 
     /** A recogniser for the engine named in the catalogue ("parakeet" or "medasr"). */

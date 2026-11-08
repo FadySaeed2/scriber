@@ -70,7 +70,7 @@ private fun Results(r: LabReport, onCopy: (String) -> Unit) {
     Panel {
         r.diarization?.let { d ->
             Fact("Voices found", "${d.speakersFound} of ${d.speakersExpected}", if (d.speakersFound == d.speakersExpected) s.ready else s.warn)
-            Fact("Turns", "${d.turns}")
+            Fact("Speaker changes", "${d.turns}")
             Fact("Time", "${Units.seconds(d.processMs)} for ${one(d.audioSeconds)} s of audio")
         } ?: Text("Speaker turns not measured.", color = s.muted)
         r.vad?.let { v -> Fact("Speech segments", "${v.speechSegments} in ${one(v.audioSeconds)} s (${v.ms} ms)") }
@@ -135,6 +135,6 @@ private fun AsrPanel(a: AsrRun, best: Boolean) {
                 Text(x.heard, style = Mono)
             }
         }
-        Text("Numbers said as words (\"fifty four\" against \"54\") count as errors here, so real accuracy is a little better.", style = MaterialTheme.typography.bodySmall, color = s.muted)
+        Text("Spoken and written numbers, section tags and dictation commands are evened out before counting.", style = MaterialTheme.typography.bodySmall, color = s.muted)
     }
 }

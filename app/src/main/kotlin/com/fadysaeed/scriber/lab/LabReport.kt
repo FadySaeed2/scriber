@@ -90,7 +90,7 @@ data class LabReport(
         diarization?.let { appendLine("Speaker turns: found ${it.speakersFound} of ${it.speakersExpected} voices, ${it.turns} turns, ${f(it.audioSeconds)} s audio in ${it.processMs} ms (load ${it.loadMs} ms)") }
         llm?.let {
             appendLine("Language model ${it.model} on ${it.backend}: load ${it.loadMs} ms, first words after ${it.firstWordMs} ms, ${f(it.piecesPerSecond)} pieces/s over ${it.pieces} pieces. ${it.note}")
-            appendLine("Output: ${it.output.replace('\n', ' ').take(600)}")
+            appendLine("Output:"); appendLine(it.output)
         }
         for (p in problems) appendLine("Problem: $p")
     }

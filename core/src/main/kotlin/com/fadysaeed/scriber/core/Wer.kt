@@ -5,8 +5,8 @@ package com.fadysaeed.scriber.core
  *
  * Both sides are normalised the same way first: lower case, punctuation removed, and spoken
  * dictation commands ("period", "comma", "colon", "new paragraph") dropped, because one engine may
- * write them as words and another as symbols. Numbers are compared as written, so "54" against
- * "fifty four" still counts as an error; the report says so.
+ * write them as words and another as symbols. Section tags keep their words, "%" reads as
+ * "percent", and spoken numbers become digits, so "thirty seven point two" equals "37.2".
  */
 object Wer {
     data class Result(val referenceWords: Int, val errors: Int) {
@@ -15,12 +15,58 @@ object Wer {
 
     private val dictationCommands = listOf("new paragraph", "new line", "full stop", "period", "comma", "colon", "semicolon")
 
+    private val units = mapOf(
+        "zero" to 0, "one" to 1, "two" to 2, "three" to 3, "four" to 4, "five" to 5, "six" to 6, "seven" to 7,
+        "eight" to 8, "nine" to 9, "ten" to 10, "eleven" to 11, "twelve" to 12, "thirteen" to 13, "fourteen" to 14,
+        "fifteen" to 15, "sixteen" to 16, "seventeen" to 17, "eighteen" to 18, "nineteen" to 19,
+    )
+    private val tens = mapOf("twenty" to 20, "thirty" to 30, "forty" to 40, "fifty" to 50, "sixty" to 60, "seventy" to 70, "eighty" to 80, "ninety" to 90)
+
+    /** "thirty seven point two" -> "37.2", "fifty four" -> "54", so spoken and written numbers compare equal. */
+    internal fun spokenNumbersToDigits(words: List<String>): List<String> {
+        val out = ArrayList<String>()
+        var i = 0
+        fun readInt(): Int? {
+            var value: Int? = null
+            while (i < words.size) {
+                val w = words[i]
+                when {
+                    w in tens && (value == null || value % 100 == 0) -> { value = (value ?: 0) + tens.getValue(w); i++ }
+                    w in units && (value == null || (value % 100 == 0) || (value % 10 == 0 && value % 100 >= 20)) -> { value = (value ?: 0) + units.getValue(w); i++ }
+                    w == "hundred" && value != null && value in 1..9 -> { value *= 100; i++ }
+                    w == "and" && value != null && value % 100 == 0 && i + 1 < words.size && (words[i + 1] in units || words[i + 1] in tens) -> i++
+                    else -> return value
+                }
+            }
+            return value
+        }
+        while (i < words.size) {
+            val start = i
+            val n = readInt()
+            if (n == null) { out += words[i]; i++; continue }
+            var text = n.toString()
+            if (i + 1 < words.size && words[i] == "point" && words[i + 1] in units) {
+                i++
+                val digits = StringBuilder()
+                while (i < words.size && words[i] in units && units.getValue(words[i]) < 10) { digits.append(units.getValue(words[i])); i++ }
+                text += ".$digits"
+            }
+            if (i == start) i++
+            out += text
+        }
+        return out
+    }
+
     fun normalise(text: String): List<String> {
         var t = text.lowercase()
-        t = t.replace(Regex("""[{\[<][^}\]>]*[}\]>]"""), " ")
+        // Section tags such as "[EXAM TYPE]" and commands such as "{period}" keep their words.
+        t = t.replace(Regex("""[\[\]{}<>]"""), " ")
+        t = t.replace("%", " percent ")
         for (c in dictationCommands) t = t.replace(Regex("""\b${Regex.escape(c)}\b"""), " ")
+        t = t.replace(Regex("""(\d)\.(\d)"""), "$1d$2") // keep decimals through punctuation removal
         t = t.replace(Regex("""[^\p{L}\p{N}' ]"""), " ").replace("'", "")
-        return t.split(Regex("""\s+""")).filter { it.isNotBlank() }
+        val words = t.split(Regex("""\s+""")).filter { it.isNotBlank() }
+        return spokenNumbersToDigits(words).map { it.replace('.', 'd') }
     }
 
     fun compute(reference: String, hypothesis: String): Result {

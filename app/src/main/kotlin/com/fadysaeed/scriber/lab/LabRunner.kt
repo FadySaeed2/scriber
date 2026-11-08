@@ -74,7 +74,9 @@ class LabRunner(private val context: Context, private val catalog: ModelCatalog,
                     val t1 = SystemClock.elapsedRealtime()
                     val turns = d.process(audio.samples)
                     val t2 = SystemClock.elapsedRealtime()
-                    report = report.copy(diarization = DiarizationRun(audio.seconds, t1 - t0, t2 - t1, turns.map { it.speaker }.distinct().size, 2, turns.size))
+                    val bySpeaker = turns.sortedBy { it.start }.map { it.speaker }
+                    val changes = bySpeaker.zipWithNext().count { (a, b) -> a != b }
+                    report = report.copy(diarization = DiarizationRun(audio.seconds, t1 - t0, t2 - t1, bySpeaker.distinct().size, 2, changes + if (bySpeaker.isEmpty()) 0 else 1))
                 } finally { d.release() }
             }.onFailure { problems += "Speaker turns: ${it.message}" }
         }
