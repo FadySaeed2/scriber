@@ -23,12 +23,16 @@ import org.junit.runner.RunWith
 class TextOnDeviceTest {
     private fun run(engine: String, text: String) = TranscriptRun(engine, "s", engine, engine, "", emptyMap(), "", 0, status = RunStatus.DONE, segments = listOf(Segment(0, 5000, text)))
 
+    private fun one(s: String) = s.replace("\n", "⏎")
+
     @Test fun dictationFormattingRunsOnAndroid() {
-        assertEquals("Exam type: CT chest PE protocol.\n\nFindings: The main PA is patent.\n\nImpression: Acute PE.",
+        same("Exam type: CT chest PE protocol.\n\nFindings: The main PA is patent.\n\nImpression: Acute PE.",
             TranscriptFormats.readable("[EXAM TYPE] CT chest PE protocol {period} [FINDINGS] the main PA is patent {period} [IMPRESSION] acute PE {period}", SessionMode.DICTATION))
-        assertEquals("Mental state: calm and settled.\n\nPlan: continue olanzapine.",
+        same("Mental state: calm and settled.\n\nPlan: continue olanzapine.",
             TranscriptFormats.readable("mental state colon calm and settled period new paragraph plan colon continue olanzapine period", SessionMode.DICTATION))
     }
+
+    private fun same(expected: String, actual: String) = assertEquals(one(expected), one(actual))
 
     @Test fun comparisonDictionaryAndScoringRunOnAndroid() {
         val meds = Medicines.bundled()
