@@ -181,6 +181,40 @@ class Phase1OnDeviceTest {
         store.saveSettings(settings)
     }
 
+    /** Two different voices one after the other: the speaker finder must run through the real queue and find both. */
+    @Test fun findsTwoSpeakersThroughTheQueue() = runBlocking {
+        val models = speechModels("parakeet")
+        val catalog = ModelCatalog.bundled()
+        val downloader = ModelDownloader(models)
+        for (role in listOf(PackRole.SEGMENTATION, PackRole.SPEAKER_EMBEDDING)) {
+            val p = catalog.byRole(role).first()
+            if (models.state(p) !is com.fadysaeed.scriber.fetch.PackState.Verified) { for (f in p.files) downloader.fetch(p, f) { _, _ -> }; models.markVerified(p) }
+        }
+        val bench = catalog.byRole(PackRole.BENCHMARK_AUDIO).single()
+        val wav = bench.files.first { it.path == "1.wav" }
+        downloader.fetch(bench, wav) { _, _ -> }
+        val pk = catalog.byRole(PackRole.ASR).first { it.engine == "parakeet" }
+        val a = com.fadysaeed.scriber.engines.Speech.readWave(models.file(bench, wav)).samples
+        val b = com.fadysaeed.scriber.engines.Speech.readWave(models.file(pk, pk.files.first { it.path == "sample.wav" })).samples
+        val both = File(context.cacheDir, "two-voices.wav")
+        both.outputStream().use { out ->
+            val pcm = Wav.floatsToShorts(a + FloatArray(8000) + b)
+            out.write(Wav.header(16_000, pcm.size.toLong())); out.write(pcm)
+        }
+        val id = Importer.copyIn(context, Uri.fromFile(both), SessionMode.CONVERSATION)
+        Importer.decode(context, id) {}
+        Jobs.speakers(context, id, 2)
+        val deadline = System.currentTimeMillis() + 10 * 60_000
+        while (System.currentTimeMillis() < deadline && (store.speakers(id) == null || Jobs.pending(context).isNotEmpty())) {
+            store.session(id)?.problem?.let { fail(it) }
+            Thread.sleep(500)
+        }
+        val layer = store.speakers(id) ?: fail("No speakers found") as Nothing
+        assertEquals(2, layer.turns.map { it.speaker }.distinct().size)
+        assertTrue("changes ${com.fadysaeed.scriber.core.Speakers.changes(layer.turns)}", com.fadysaeed.scriber.core.Speakers.changes(layer.turns) in 1..3)
+        store.deleteSession(id)
+    }
+
     /** Parakeet with the medicine list as hotwords must load and decode, not crash the app. */
     @Test fun parakeetWithMedicineHintsDecodes() = runBlocking {
         val models = speechModels("parakeet")
