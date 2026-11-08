@@ -1,0 +1,404 @@
+# Medicines for Scriber's dictionary: generic name | brand names used in Australia and New Zealand.
+# One medicine per line. Generic names are lower case; brands as written on the pack.
+# Psychotropics are complete for routine adult practice; other groups cover what an inpatient
+# psychiatry unit commonly sees. Fady's own corrections are kept separately on the phone.
+
+## Antipsychotics
+amisulpride | Solian, Sulprix, Amipride
+aripiprazole | Abilify, Abilify Maintena, Abilify Asimtufii, Aripiprazole Sandoz
+asenapine | Saphris
+brexpiprazole | Rexulti
+cariprazine | Reagila, Vraylar
+chlorpromazine | Largactil
+clozapine | Clozaril, Clopine, Versacloz
+flupentixol | Fluanxol, Fluanxol Depot
+fluphenazine | Modecate
+haloperidol | Serenace, Haldol, Haldol Decanoate
+levomepromazine | Nozinan
+loxapine |
+lumateperone | Caplyta
+lurasidone | Latuda
+olanzapine | Zyprexa, Zyprexa Relprevv, Zypine, Ozin, Olanzacor
+paliperidone | Invega, Invega Sustenna, Invega Trinza, Invega Hafyera
+pericyazine | Neulactil
+periciazine |
+pimozide | Orap
+quetiapine | Seroquel, Seroquel XR, Quetia, Delucon
+risperidone | Risperdal, Risperdal Consta, Rispa, Rixadone, Rispericor, Uzedy, Okedi
+sulpiride |
+trifluoperazine | Stelazine
+ziprasidone | Zeldox
+zuclopenthixol | Clopixol, Clopixol Acuphase, Clopixol Depot
+
+## Antidepressants
+agomelatine | Valdoxan
+amitriptyline | Endep
+bupropion | Zyban
+citalopram | Cipramil, Celapram, Talohexal
+clomipramine | Anafranil, Placil
+desvenlafaxine | Pristiq, Desfax, Elahvy
+dosulepin | Dothep, Prothiaden
+dothiepin |
+doxepin | Deptran, Sinequan
+duloxetine | Cymbalta, Dytrex, Andepra
+escitalopram | Lexapro, Esipram, Escitalopram Sandoz, Loxalate
+esketamine | Spravato
+fluoxetine | Prozac, Lovan, Zactin, Fluox, Fluoxetine Mylan
+fluvoxamine | Luvox, Faverin, Movox
+imipramine | Tofranil
+ketamine | Ketalar
+mianserin | Lumin, Tolvon
+mirtazapine | Remeron, Avanza, Axit, Mirtazon
+moclobemide | Aurorix
+nortriptyline | Allegron, Norpress
+paroxetine | Aropax, Paxtine, Loxamine
+phenelzine | Nardil
+reboxetine | Edronax
+sertraline | Zoloft, Setrona, Eleva, Sertra
+tranylcypromine | Parnate
+trazodone | Molipaxin
+trimipramine | Surmontil
+venlafaxine | Efexor, Efexor XR, Enlafax, Altven, Venlexor
+vortioxetine | Brintellix, Trintellix
+zuranolone |
+brexanolone |
+
+## Mood stabilisers and antiepileptics
+brivaracetam | Briviact
+carbamazepine | Tegretol, Teril
+clobazam | Frisium
+clonazepam | Rivotril, Paxam
+ethosuximide | Zarontin
+gabapentin | Neurontin, Nupentin, Gabaran
+lacosamide | Vimpat
+lamotrigine | Lamictal, Lamidus, Logem, Elmendos
+levetiracetam | Keppra, Kerron, Levact
+lithium carbonate | Lithicarb, Quilonum, Priadel, Lithicarb FC
+lithium |
+oxcarbazepine | Trileptal
+perampanel | Fycompa
+phenobarbitone |
+phenobarbital |
+phenytoin | Dilantin
+pregabalin | Lyrica, Lyzalon, Pregabalin Sandoz
+sodium valproate | Epilim, Valpro, Valprease
+valproate |
+valproic acid |
+divalproex |
+topiramate | Topamax, Tamate
+vigabatrin | Sabril
+zonisamide | Zonegran
+
+## Anxiolytics, hypnotics and sedatives
+alprazolam | Xanax, Kalma, Alprax
+bromazepam | Lexotan
+chlordiazepoxide | Librium
+daridorexant | Quviviq
+diazepam | Valium, Antenex, Ranzepam, Ducene
+dexmedetomidine | Precedex
+lemborexant | Dayvigo
+lorazepam | Ativan
+melatonin | Circadin, Slenyto
+midazolam | Hypnovel
+nitrazepam | Mogadon, Alodorm
+oxazepam | Serepax, Alepam, Murelax
+promethazine | Phenergan, Avomine
+suvorexant | Belsomra
+temazepam | Normison, Temaze, Temtabs
+zolpidem | Stilnox, Dormizol
+zopiclone | Imovane, Imrest
+buspirone | Buspar
+hydroxyzine | Atarax
+doxylamine | Restavit, Dozile
+
+## ADHD and wakefulness
+armodafinil | Nuvigil
+atomoxetine | Strattera, Attentin
+clonidine | Catapres, Clonidine Sandoz
+dexamfetamine | Aspen Dexamfetamine, Dexamphetamine
+dexamphetamine |
+dexmethylphenidate | Focalin
+guanfacine | Intuniv
+lisdexamfetamine | Vyvanse
+methylphenidate | Ritalin, Ritalin LA, Concerta, Rubifen, Rubifen SR, Methylphenidate Teva
+modafinil | Modavigil, Mododil
+viloxazine | Qelbree
+
+## Dementia
+donepezil | Aricept, Donepezil Sandoz
+galantamine | Galantyl, Reminyl, Galamer
+memantine | Ebixa, Memanxa
+rivastigmine | Exelon, Exelon Patch
+lecanemab | Leqembi
+donanemab | Kisunla
+
+## Substance use
+acamprosate | Campral
+baclofen | Lioresal, Clofen
+buprenorphine | Subutex, Suboxone, Sublocade, Buvidal, Norspan, Temgesic
+disulfiram | Antabuse
+methadone | Biodone, Methatabs, Physeptone
+nalmefene | Selincro
+naloxone | Narcan, Nyxoid, Prenoxad
+naltrexone | Revia, Naltrexone Accord
+nicotine | Nicorette, Nicabate, QuitX, Habitrol
+thiamine | Betamin, Benerva
+varenicline | Champix, Varenapix
+cytisine | Tabex
+naltrexone bupropion | Contrave
+
+## Movement side effects and other psychiatric adjuncts
+benzatropine | Cogentin, Benztrop
+benztropine |
+benzhexol | Artane
+trihexyphenidyl |
+biperiden | Akineton
+procyclidine | Kemadrin
+propranolol | Inderal, Deralin
+valbenazine | Ingrezza
+deutetrabenazine | Austedo
+tetrabenazine | Xenazine
+prazosin | Minipress, Pratsiol
+cyproheptadine | Periactin
+glycopyrronium | Robinul
+hyoscine butylbromide | Buscopan
+hyoscine hydrobromide | Kwells
+amantadine | Symmetrel
+pramipexole | Sifrol
+ropinirole | Repreve
+cabergoline | Dostinex, Cabaser
+bromocriptine | Parlodel
+dantrolene | Dantrium
+oxytocin | Syntocinon
+cyproterone | Androcur
+medroxyprogesterone | Provera, Depo-Provera, Depo-Ralovera
+leuprorelin | Lucrin, Eligard
+metformin | Diabex, Diaformin, Glucophage
+
+## Pain
+aspirin | Cartia, Astrix, Aspro, Disprin, Cardiprin
+celecoxib | Celebrex
+codeine | Panadeine, Panadeine Forte, Codral
+diclofenac | Voltaren, Fenac
+fentanyl | Durogesic, Sublimaze, Denpax
+hydromorphone | Dilaudid, Jurnista
+ibuprofen | Nurofen, Brufen, Advil
+indomethacin | Indocid
+ketorolac | Toradol
+meloxicam | Mobic, Movalis
+morphine | MS Contin, Kapanol, Anamorph, Ordine, Sevredol
+naproxen | Naprosyn, Naprogesic, Anaprox
+oxycodone | Endone, OxyContin, OxyNorm, Targin, Oxycodone Sandoz
+paracetamol | Panadol, Panamax, Panadol Osteo, Dymadon, Paracetamol Pharmacare
+tapentadol | Palexia
+tramadol | Tramal, Zydol, Tramedo
+methoxyflurane | Penthrox
+sumatriptan | Imigran
+rizatriptan | Maxalt
+
+## Heart and blood pressure
+amiodarone | Cordarone, Aratac
+amlodipine | Norvasc, Amlo, Nordip
+atenolol | Tenormin, Noten
+atorvastatin | Lipitor, Lorstat, Atorvachol
+bisoprolol | Bicor, Bisoprolol Sandoz
+candesartan | Atacand
+captopril | Capoten
+carvedilol | Dilatrend, Kredex
+clopidogrel | Plavix, Iscover, Piax
+dabigatran | Pradaxa
+apixaban | Eliquis
+rivaroxaban | Xarelto
+digoxin | Lanoxin
+diltiazem | Cardizem, Vasocardol
+enalapril | Renitec
+enoxaparin | Clexane
+ezetimibe | Ezetrol, Ezemibe
+felodipine | Plendil
+frusemide | Lasix, Urex
+furosemide |
+glyceryl trinitrate | Anginine, Nitrolingual, Transiderm-Nitro
+heparin |
+hydrochlorothiazide | Dithiazide
+indapamide | Natrilix, Dapa-Tabs
+irbesartan | Avapro, Karvea
+isosorbide mononitrate | Imdur, Monodur
+lercanidipine | Zanidip
+lisinopril | Prinivil, Zestril
+losartan | Cozaar
+metoprolol | Betaloc, Minax, Toprol, Lopresor
+nifedipine | Adalat
+perindopril | Coversyl
+pravastatin | Pravachol
+ramipril | Tritace, Prilace
+rosuvastatin | Crestor, Rosuzet
+sacubitril valsartan | Entresto
+simvastatin | Zocor, Lipex
+sotalol | Sotacor
+spironolactone | Aldactone, Spiractin
+telmisartan | Micardis
+ticagrelor | Brilinta
+valsartan | Diovan
+verapamil | Isoptin, Anpec
+warfarin | Coumadin, Marevan
+eplerenone | Inspra
+ivabradine | Coralan
+moxonidine | Physiotens
+
+## Diabetes and weight
+dapagliflozin | Forxiga
+dulaglutide | Trulicity
+empagliflozin | Jardiance, Jardiamet
+exenatide | Byetta, Bydureon
+gliclazide | Diamicron, Glyade, Oziclide
+glimepiride | Amaryl, Dimirel
+glipizide | Minidiab, Melizide
+insulin |
+insulin aspart | NovoRapid, Fiasp
+insulin detemir | Levemir
+insulin degludec | Tresiba
+insulin glargine | Lantus, Optisulin, Toujeo, Semglee
+insulin glulisine | Apidra
+insulin isophane | Protaphane, Humulin NPH
+insulin lispro | Humalog, Lyumjev
+liraglutide | Victoza, Saxenda
+linagliptin | Trajenta
+orlistat | Xenical
+phentermine | Duromine, Metermine
+pioglitazone | Actos
+semaglutide | Ozempic, Wegovy, Rybelsus
+sitagliptin | Januvia, Janumet
+tirzepatide | Mounjaro, Zepbound
+vildagliptin | Galvus
+ertugliflozin | Steglatro
+
+## Stomach and bowel
+docusate | Coloxyl
+esomeprazole | Nexium
+lactulose | Duphalac, Actilax
+loperamide | Imodium, Gastro-Stop
+macrogol | Movicol, OsmoLax, ClearLax
+metoclopramide | Maxolon, Pramin
+omeprazole | Losec, Acimax
+ondansetron | Zofran, Ondaz
+pantoprazole | Somac, Salpraz
+prochlorperazine | Stemetil
+rabeprazole | Pariet
+ranitidine | Zantac
+famotidine | Pepcid
+senna | Senokot
+sennosides | Coloxyl with Senna
+bisacodyl | Dulcolax
+domperidone | Motilium
+mesalazine | Pentasa, Salofalk, Mezavant
+sucralfate | Carafate
+psyllium | Metamucil
+
+## Thyroid, hormones and bones
+alendronate | Fosamax, Fonat
+calcitriol | Rocaltrol
+carbimazole | Neo-Mercazole
+cholecalciferol | Ostelin, Ostevit-D
+denosumab | Prolia, Xgeva
+estradiol | Estrofem, Progynova, Estradot, Climara
+oestradiol |
+ethinylestradiol levonorgestrel | Levlen, Microgynon, Monofeme
+levonorgestrel | Mirena, Jadelle, Postinor
+etonogestrel | Implanon
+levothyroxine | Eutroxsig, Oroxine, Eltroxin
+thyroxine |
+liothyronine | Tertroxin
+propylthiouracil |
+raloxifene | Evista
+risedronate | Actonel
+testosterone | Testogel, Reandron, Androforte
+zoledronic acid | Aclasta, Zometa
+progesterone | Prometrium, Crinone
+dienogest | Visanne
+
+## Steroids, allergy and lungs
+beclometasone | Qvar
+budesonide | Pulmicort, Entocort
+budesonide formoterol | Symbicort, DuoResp
+cetirizine | Zyrtec, Zilarex
+dexamethasone | Dexmethsone
+desloratadine | Aerius
+fexofenadine | Telfast
+fluticasone | Flixotide, Flixonase, Avamys
+fluticasone salmeterol | Seretide
+fluticasone vilanterol | Breo Ellipta
+hydrocortisone | Solu-Cortef, Hysone
+ipratropium | Atrovent
+loratadine | Claratyne
+methylprednisolone | Solu-Medrol, Depo-Medrol
+montelukast | Singulair
+prednisolone | Panafcortelone, Redipred, Solone
+prednisone | Panafcort, Sone
+salbutamol | Ventolin, Asmol, Airomir
+terbutaline | Bricanyl
+tiotropium | Spiriva
+umeclidinium vilanterol | Anoro Ellipta
+adrenaline | EpiPen, Anapen
+
+## Infections
+amoxicillin | Amoxil, Alphamox, Moxacin
+amoxicillin clavulanate | Augmentin, Augmentin Duo, Clamoxyl, Curam
+azithromycin | Zithromax
+cefalexin | Keflex, Ialex, Cephalexin
+cephalexin |
+cefazolin |
+ceftriaxone | Rocephin
+ciprofloxacin | Ciproxin
+clarithromycin | Klacid
+clindamycin | Dalacin C
+doxycycline | Doryx, Doxsig, Vibramycin
+erythromycin | Eryc
+flucloxacillin | Flucil, Staphylex
+fluconazole | Diflucan
+gentamicin |
+metronidazole | Flagyl
+nitrofurantoin | Macrodantin, Macrobid
+phenoxymethylpenicillin | Cilicaine VK, Abbocillin VK
+piperacillin tazobactam | Tazocin
+roxithromycin | Rulide
+trimethoprim | Alprim, Triprim
+trimethoprim sulfamethoxazole | Bactrim, Resprim
+vancomycin |
+valaciclovir | Valtrex
+aciclovir | Zovirax
+oseltamivir | Tamiflu
+nirmatrelvir ritonavir | Paxlovid
+hydroxychloroquine | Plaquenil
+ivermectin | Stromectol
+
+## Blood, vitamins and other
+allopurinol | Zyloprim, Progout
+colchicine | Colgout
+cyanocobalamin | Cytamen
+hydroxocobalamin | Neo-B12
+ferrous sulfate | Ferro-Grad, Ferro-Gradumet
+ferric carboxymaltose | Ferinject
+folic acid | Megafol
+iron polymaltose | Ferrosig, Maltofer
+magnesium | Mag-Sup
+potassium chloride | Slow-K
+calcium carbonate | Caltrate, Cal-Sup
+vitamin D |
+methotrexate | Methoblastin, Trexject
+finasteride | Proscar, Propecia
+tamsulosin | Flomax
+dutasteride tamsulosin | Duodart
+oxybutynin | Ditropan, Oxytrol
+mirabegron | Betmiga
+sildenafil | Viagra, Revatio
+tadalafil | Cialis
+tranexamic acid | Cyklokapron
+desmopressin | Minirin
+latanoprost | Xalatan
+timolol | Timoptol
+botulinum toxin | Botox
+adalimumab | Humira, Amgevita, Hadlima
+etanercept | Enbrel, Brenzys
+infliximab | Remicade, Inflectra
+dupilumab | Dupixent
+ustekinumab | Stelara

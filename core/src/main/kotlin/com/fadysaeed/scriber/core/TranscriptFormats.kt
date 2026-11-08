@@ -37,15 +37,21 @@ object TranscriptFormats {
         return String.format(Locale.ROOT, "%02d:%02d:%02d%s%03d", h, m, s, if (comma) "," else ".", f)
     }
 
-    fun plain(run: TranscriptRun, mode: SessionMode, readable: Boolean): String = buildString {
-        for (s in run.segments) {
+    private fun linesOf(run: TranscriptRun) = run.segments.mapIndexed { i, s -> Line(i, s.startMs, s.endMs, s.text, false) }
+
+    fun plain(run: TranscriptRun, mode: SessionMode, readable: Boolean): String = plain(linesOf(run), mode, readable)
+    fun srt(run: TranscriptRun, mode: SessionMode, readable: Boolean): String = srt(linesOf(run), mode, readable)
+    fun vtt(run: TranscriptRun, mode: SessionMode, readable: Boolean): String = vtt(linesOf(run), mode, readable)
+
+    fun plain(lines: List<Line>, mode: SessionMode, readable: Boolean): String = buildString {
+        for (s in lines) {
             append('[').append(clock(s.startMs, false).substring(0, 8)).append("] ")
             appendLine(if (readable) readable(s.text, mode) else s.text)
         }
     }
 
-    fun srt(run: TranscriptRun, mode: SessionMode, readable: Boolean): String = buildString {
-        run.segments.forEachIndexed { i, s ->
+    fun srt(lines: List<Line>, mode: SessionMode, readable: Boolean): String = buildString {
+        lines.forEachIndexed { i, s ->
             appendLine(i + 1)
             appendLine("${clock(s.startMs, true)} --> ${clock(s.endMs, true)}")
             appendLine(if (readable) readable(s.text, mode) else s.text)
@@ -53,9 +59,9 @@ object TranscriptFormats {
         }
     }
 
-    fun vtt(run: TranscriptRun, mode: SessionMode, readable: Boolean): String = buildString {
+    fun vtt(lines: List<Line>, mode: SessionMode, readable: Boolean): String = buildString {
         appendLine("WEBVTT"); appendLine()
-        for (s in run.segments) {
+        for (s in lines) {
             appendLine("${clock(s.startMs, false)} --> ${clock(s.endMs, false)}")
             appendLine(if (readable) readable(s.text, mode) else s.text)
             appendLine()
@@ -66,4 +72,10 @@ object TranscriptFormats {
 
     /** Everything: engine, model hash, settings, segments with token times, and the seal. */
     fun json(run: TranscriptRun): String = pretty.encodeToString(TranscriptRun.serializer(), run)
+
+    /** Everything about one session's transcripts: every sealed run, and Fady's corrections on top. */
+    @kotlinx.serialization.Serializable
+    data class Bundle(val runs: List<TranscriptRun>, val corrections: List<EditLayer>, val correctedText: List<String>)
+
+    fun json(bundle: Bundle): String = pretty.encodeToString(Bundle.serializer(), bundle)
 }
