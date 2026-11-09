@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -304,7 +305,7 @@ fun TranscriptFull(ui: SessionUi, a: SessionActions, readable: Boolean, find: Tr
     androidx.activity.compose.BackHandler(onBack = close)
     val starts = remember(ui.lines) { speakerStarts(ui.lines) }
     val found = remember(ui.lines, find.query) { matches(ui.lines, find.query) }
-    Column(Modifier.fillMaxSize().background(Ink.Black).statusBarsPadding().navigationBarsPadding().padding(horizontal = 16.dp)) {
+    Column(Modifier.fillMaxSize().background(Ink.Black).statusBarsPadding().navigationBarsPadding().imePadding().padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(ui.session?.title.orEmpty(), style = Type.title, modifier = Modifier.weight(1f), maxLines = 1)
             IconButton(Glyph.CLOSE, "Back to the page", close)

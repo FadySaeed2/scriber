@@ -14,14 +14,19 @@ COMMON = 4.6          # wordfreq Zipf: words at least this common are everyday E
 BRANCHES = ("A", "C", "D", "E", "F01", "F02", "F03", "G09")
 
 def fetch():
-    for year in (2026, 2025):
-        url = f"https://nlmpubs.nlm.nih.gov/projects/mesh/MESH_FILES/asciimesh/d{year}.bin"
-        try:
-            data = urllib.request.urlopen(url, timeout=300).read().decode("utf-8", "replace")
-            print("MeSH", year, len(data), "chars")
-            return year, data
-        except Exception as e:
-            print("could not fetch", url, e)
+    bases = ["https://nlmpubs.nlm.nih.gov/projects/mesh/MESH_FILES/asciimesh/d{y}.bin",
+             "https://nlmpubs.nlm.nih.gov/projects/mesh/{y}/asciimesh/d{y}.bin"]
+    for year in (2027, 2026, 2025):
+        for b in bases:
+            url = b.format(y=year)
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "scriber-build"})
+                data = urllib.request.urlopen(req, timeout=300).read().decode("utf-8", "replace")
+                print("got", url, len(data), "chars; starts", repr(data[:60]))
+                if "*NEWRECORD" in data[:2000]:
+                    return year, data
+            except Exception as e:
+                print("could not fetch", url, e)
     sys.exit(1)
 
 def common(w):
@@ -53,5 +58,7 @@ def main():
         for w in sorted(words | phrases):
             f.write(w + "\n")
     print("descriptors", kept, "words", len(words), "phrases", len(phrases))
+    if kept < 10000:
+        sys.exit("too few descriptors")
 
 main()

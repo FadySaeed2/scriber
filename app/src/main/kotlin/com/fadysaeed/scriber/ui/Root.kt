@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -31,15 +32,18 @@ import androidx.compose.ui.unit.dp
 enum class Tab(val label: String) { Sessions("Sessions"), Models("Models"), Lab("Lab"), Settings("Settings") }
 
 /** Tabbed screens: scrolling content on true black, tabs as words on a hairline. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun Frame(tab: Tab, onTab: (Tab) -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxSize().background(Ink.Black)) {
+    // While typing, the tabs step aside and the page ends above the keyboard.
+    val typing = androidx.compose.foundation.layout.WindowInsets.isImeVisible
+    Column(Modifier.fillMaxSize().background(Ink.Black).imePadding()) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp)) {
             content()
             Spacer(Modifier.height(28.dp))
         }
-        Hairline()
-        Row(Modifier.fillMaxWidth().background(Ink.Black).navigationBarsPadding().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (!typing) Hairline()
+        if (!typing) Row(Modifier.fillMaxWidth().background(Ink.Black).navigationBarsPadding().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             for (t in Tab.entries) {
                 val on = t == tab
                 Column(
@@ -58,7 +62,7 @@ fun Frame(tab: Tab, onTab: (Tab) -> Unit, content: @Composable ColumnScope.() ->
 /** A full screen above the tabs, with a back arrow. */
 @Composable
 fun Page(title: String, onBack: () -> Unit, actions: @Composable () -> Unit = {}, footer: (@Composable () -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxSize().background(Ink.Black)) {
+    Column(Modifier.fillMaxSize().background(Ink.Black).imePadding()) {
         Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 6.dp).heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(Glyph.BACK, "Back", onBack)
             Text(title, style = Type.title, maxLines = 1, modifier = Modifier.weight(1f).padding(horizontal = 6.dp))
@@ -87,7 +91,7 @@ fun Sheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
         Column(
             Modifier.fillMaxWidth().background(Ink.Well)
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
-                .navigationBarsPadding().padding(horizontal = 20.dp, vertical = 16.dp),
+                .navigationBarsPadding().imePadding().padding(horizontal = 20.dp, vertical = 16.dp),
         ) {
             content()
         }
