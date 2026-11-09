@@ -120,6 +120,11 @@ class CleanTranscriptTest {
             assertTrue(p.id, p.text.contains("A question is not an answer"))
             assertTrue(p.id, p.text.contains("Not covered today"))
             assertTrue(p.id, p.text.contains("only when the patient or family was asked and clearly said no"))
+            assertTrue(p.id, p.text.contains("\"no evidence of\"") && p.text.contains("from the patient's point of view"))
+            assertTrue(p.id, p.text.contains("Examples of getting it right") && p.text.contains("maternal grandmother"))
+            // The reminder after the transcript carries the same traps.
+            val after = Prompts.split(p.text).second
+            assertTrue(p.id, after.contains("no evidence of") && after.contains("grandmother") && after.contains("never bullets"))
         }
         // Finished documents, not questionnaires: no placeholders to fill in, no questions back.
         for (p in all) {

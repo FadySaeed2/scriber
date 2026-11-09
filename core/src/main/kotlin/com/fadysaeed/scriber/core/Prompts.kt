@@ -43,8 +43,10 @@ object Prompts {
         Hard rules:
         1. Use only what is in the transcript. Never invent findings, numbers, doses, dates, diagnoses, scores, history or reasoning.
         2. A question is not an answer. If a question got no clear answer ("okay", "perfect", silence, or unclear words), that topic was not covered.
-        3. Write "denies", "no history of", "no known" or "nil" only when the patient or family was asked and clearly said no. The topics most often wrongly written as negative are: allergies; alcohol and drugs; chest pain, palpitations, shortness of breath and fainting; family history of heart disease or sudden death; weight change; current suicidal thoughts; whether diagnostic criteria are met.
+        3. Write a negative ("denies", "no history of", "no known", "nil", "no evidence of", "absent", "not present", "no current") only when the patient or family was asked and clearly said no. The topics most often wrongly written as negative are: allergies; alcohol and drugs; caffeine; chest pain, palpitations, shortness of breath and fainting; family history of heart disease or sudden death; weight change; current suicidal thoughts or intent.
+        3a. Do not write that diagnostic criteria are met, or that a diagnosis is confirmed, unless the clinician said so in this consultation.
         4. A clear yes or no counts even when the details are unclear: record the answer and say the details were unclear (for example "reported past self-harm; details unclear").
+        4a. Family relationships are always from the patient's point of view. When a parent is speaking, "my mum" is the patient's grandmother and "my kids" are the patient and their siblings. If it is unclear who is speaking, write the relationship exactly as it was said.
         5. Correct obvious mishearings without comment (medicine names, places, terms). Only where something that matters (a dose, a medicine, a legal status, a date) is genuinely unclear or impossible, write your best reading followed by [check: what was heard]. A handful at most.
         6. Do not state a dose or strength as certain when only the clinician assumed it and it was not confirmed.
         7. Never grade risk: do not put low, moderate, high, minimal or significant in front of "risk". Describe it instead.
@@ -52,6 +54,11 @@ object Prompts {
         9. Write as the clinician, in the first person where the clinician acted (I reviewed, I explained, I recommended). Australian and New Zealand English spelling. Doses in digits with units (sertraline 50 mg mane).
         10. Plain text only: each heading on its own line, the plan numbered 1. 2. 3., no markdown, no asterisks, no hash signs, no bold, no em dashes.
         11. If a NOTE FROM THE CLINICIAN follows these instructions, follow it and treat its facts as true.
+
+        Examples of getting it right:
+        - Clinician: "Do you drink coffee in the morning?" Reply: "Okay. Perfect." That is not an answer: caffeine goes in "Not covered today", not "denies caffeine".
+        - The mother says: "My mum has Parkinson's." Write: maternal grandmother has Parkinson's disease. Not: mother has Parkinson's disease.
+        - Current suicidal thoughts were never asked about. Write them in "Not covered today". Not: "no evidence of suicidal ideation".
     """.trimIndent().replace("{TRANSCRIPT}", TRANSCRIPT)
 
     private val NOTE_STYLE = """
@@ -81,11 +88,12 @@ object Prompts {
         $AFTER
         Before you write, remember:
         - Only what the transcript says. A question without a clear answer means the topic was not covered.
-        - No "denies", "no history of", "no known" or "nil" unless the question was asked and clearly answered no.
+        - No negative ("denies", "no history of", "no known", "nil", "no evidence of", "absent") unless the question was asked and clearly answered no. No "criteria met" unless the clinician said it.
+        - Family relationships from the patient's point of view: a parent's "my mum" is the patient's grandmother.
         - Medicines the clinician only explained are not the patient's.
         - Check every date against the recording date. Use [check: ...] only for what matters and is unclear.
         - Never grade risk as low, moderate or high.
-        - Plain text, numbered plan, no asterisks or markdown. End with "Not covered today: ..." if anything important was not covered.
+        - Plain text: the plan numbered 1. 2. 3., never bullets, asterisks or markdown. End with "Not covered today: ..." if anything important was not covered.
         Now write the document.
     """.trimIndent()
 
