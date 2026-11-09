@@ -93,6 +93,8 @@ data class SessionUi(
     val promptId: String = "",
     val copyTimes: Boolean = false,
     val copyNoticeSeen: Boolean = false,
+    /** Opening: the session is on screen, its transcripts or their comparison are still being read. */
+    val preparing: Boolean = false,
 ) {
     val run: TranscriptRun? get() = runs.firstOrNull { it.id == selectedRunId } ?: runs.lastOrNull()
 

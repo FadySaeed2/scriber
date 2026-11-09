@@ -61,6 +61,7 @@ fun SecondOpinion(ui: SessionUi, a: SessionActions, onReview: () -> Unit) {
     // While MedASR is still to come, one check waits for it rather than two arriving one after the other.
     val waiting = compare == null && ui.secondPending
     when {
+        ui.preparing -> Status("Reading the medical check", Ink.Dust)
         waiting -> Status("Medical check after ${engineName(ui.missingSecond)}", Ink.Dust)
         compare != null && (diffs.isNotEmpty() || meds.isNotEmpty()) -> {
             Text(if (ui.allDifferences) listOfNotNull(

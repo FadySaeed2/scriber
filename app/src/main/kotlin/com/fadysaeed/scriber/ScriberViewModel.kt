@@ -16,6 +16,7 @@ import com.fadysaeed.scriber.core.Compare
 import com.fadysaeed.scriber.core.Difference
 import com.fadysaeed.scriber.core.Document
 import com.fadysaeed.scriber.core.EditLayer
+import com.fadysaeed.scriber.core.MedicalTerms
 import com.fadysaeed.scriber.core.MedicineHit
 import com.fadysaeed.scriber.core.Medicines
 import com.fadysaeed.scriber.core.PersonalWords
@@ -76,6 +77,8 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
     private data class Prefs(val wifiOnly: Boolean = true)
 
     init {
+        // The medical word list is large: read it now, while the library is on screen, not when a session opens.
+        viewModelScope.launch(Dispatchers.Default) { runCatching { MedicalTerms.bundled() } }
         viewModelScope.launch(Dispatchers.IO) {
             val device = DeviceInfo.snapshot(app)
             val prefs = Records(vault).get("prefs", Prefs.serializer()) ?: Prefs()
@@ -117,13 +120,21 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
     private fun medicines(): Medicines {
         val p = store.personalWords()
         medicineCache?.let { (cp, m) -> if (cp == p) return m }
+        // New personal words change what counts as a medicine: comparisons made before are stale.
+        synchronized(readings) { readings.clear() }
         return Medicines.bundled(p).also { medicineCache = p to it }
     }
 
-    private var readingCache: Triple<String, String?, Reading>? = null
+    /** The last few sessions' comparisons, so going back to one opens it at once. */
+    private val readings = object : LinkedHashMap<String, Reading>(8, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Reading>?) = size > 5
+    }
+
+    /** The session on screen; work for one that was left is not shown. */
+    @Volatile private var openId: String? = null
 
     private fun loadSession(id: String) {
-        val s = store.session(id) ?: run { _session.value = SessionUi(); return }
+        val s = store.session(id) ?: run { if (openId == id) _session.value = SessionUi(); return }
         val engines = catalog.byRole(PackRole.ASR).filter { models.state(it) is PackState.Verified }.map { it.engine!! to it.title }
         val runs = store.runs(id)
         val done = runs.filter { it.status == RunStatus.DONE }
@@ -136,23 +147,36 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
         val compare = run?.takeIf { it.status == RunStatus.DONE }?.let { r ->
             done.lastOrNull { it.engine == settings.secondEngine && it.engine != r.engine } ?: done.lastOrNull { it.engine != r.engine && !it.engine.startsWith(r.engine) }
         }
-        val reading = if (run?.status == RunStatus.DONE) {
-            val cached = readingCache?.takeIf { it.first == run.id && it.second == compare?.id && medicineCache?.first == store.personalWords() }
-            cached?.third ?: runCatching { Compare.reading(run, compare, s.mode, medicines()) }.getOrNull()?.also { readingCache = Triple(run.id, compare?.id, it) }
-        } else null
+        val key = run?.let { "${it.id}|${compare?.id}|${s.mode}" }
+        val known = if (run?.status == RunStatus.DONE && key != null) synchronized(readings) { readings[key] } else null
         val edits = run?.let { store.edits(id, it.id) }
         val missing = if (done.isNotEmpty() && done.none { it.engine == settings.secondEngine } && engines.any { it.first == settings.secondEngine }) settings.secondEngine else null
         val speakers = if (s.mode != SessionMode.DICTATION) store.speakers(id) else null
-        val speakerOf = if (speakers != null && reading != null && run != null) Speakers.assign(reading.words, reading.segments, speakers, run.id) else null
-        _session.update {
-            it.copy(session = s, runs = runs, selectedRunId = selected, job = Jobs.progress.value[id], engines = engines,
-                reading = reading, compareRun = compare, edits = edits, missingSecond = missing,
-                speakers = speakers, speakerOf = speakerOf, canFindSpeakers = s.mode != SessionMode.DICTATION && SpeakerFinder.ready(getApplication()),
-                allDifferences = settings.showAllDifferences,
-                prompts = store.prompts(), promptId = settings.promptFor(s.mode), copyTimes = settings.copyTimes, copyNoticeSeen = settings.copyNoticeSeen,
-                secondPending = missing != null && (store.runs(id).any { it.engine == missing && it.status == RunStatus.RUNNING } ||
-                    Jobs.pending(getApplication()).any { it.kind == Jobs.TRANSCRIBE && it.sessionId == id && it.engine == missing }))
+        val prompts = store.prompts()
+        val secondPending = missing != null && (runs.any { it.engine == missing && it.status == RunStatus.RUNNING } ||
+            Jobs.pending(getApplication()).any { it.kind == Jobs.TRANSCRIBE && it.sessionId == id && it.engine == missing })
+
+        fun show(reading: Reading?, preparing: Boolean) {
+            if (openId != id) return
+            val speakerOf = if (speakers != null && reading != null && run != null) Speakers.assign(reading.words, reading.segments, speakers, run.id) else null
+            _session.update {
+                it.copy(session = s, runs = runs, selectedRunId = selected, job = Jobs.progress.value[id], engines = engines,
+                    reading = reading, compareRun = if (preparing) null else compare, edits = edits, missingSecond = missing,
+                    speakers = speakers, speakerOf = speakerOf, canFindSpeakers = s.mode != SessionMode.DICTATION && SpeakerFinder.ready(getApplication()),
+                    allDifferences = settings.showAllDifferences,
+                    prompts = prompts, promptId = settings.promptFor(s.mode), copyTimes = settings.copyTimes, copyNoticeSeen = settings.copyNoticeSeen,
+                    secondPending = secondPending, preparing = preparing)
+            }
         }
+
+        if (run?.status != RunStatus.DONE || known != null) { show(known, false); return }
+        // Not compared yet: the words go on screen now, the comparison follows. A comparison
+        // already on screen for these same transcripts stays until the new one is ready.
+        val onScreen = current?.takeIf { it.reading != null && it.run?.id == run.id && it.compareRun?.id == compare?.id }
+        if (onScreen == null) show(null, true)
+        val reading = runCatching { Compare.reading(run, compare, s.mode, medicines()) }.getOrNull()
+        if (reading != null && key != null) synchronized(readings) { readings[key] = reading }
+        show(reading, false)
     }
 
     /** Re-reads models, lock, storage and sessions. Call off the main thread. */
@@ -215,8 +239,13 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun open(id: String?) {
+        openId = id
         if (id == null) { player.stop(); _session.value = SessionUi(); return }
-        if (_session.value.session?.id != id) { player.stop(); _session.value = SessionUi() }
+        if (_session.value.session?.id != id) {
+            player.stop()
+            // The page comes up at once with what the library already knows; the rest fills in.
+            _session.value = SessionUi(session = _sessions.value.rows.firstOrNull { it.session.id == id }?.session, preparing = true)
+        }
         viewModelScope.launch(Dispatchers.IO) { loadSession(id) }
     }
 
@@ -394,7 +423,7 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
         say("Deleted the audio of ${ids.size - busy.size} " + (if (ids.size - busy.size == 1) "session" else "sessions") + ". Transcripts kept.")
     }
 
-    fun deleteSession(id: String) = viewModelScope.launch(Dispatchers.IO) { player.stop(); store.deleteSession(id); _session.value = SessionUi() }
+    fun deleteSession(id: String) = viewModelScope.launch(Dispatchers.IO) { player.stop(); store.deleteSession(id); if (openId == id) openId = null; _session.value = SessionUi() }
 
     fun play(fromMs: Long) {
         val name = _session.value.session?.takeIf { it.hasAudio }?.audioName ?: return

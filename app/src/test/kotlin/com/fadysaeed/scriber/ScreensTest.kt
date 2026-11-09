@@ -291,5 +291,11 @@ class ScreensTest {
     }
 
     @Test fun copySheetWithLine() = shot("37_copy_sheet_line.png") { SessionScreen(copyUi(noticeSeen = true), actions, SessionSheet.Copy) }
-}
 
+    // Opening a session: the page is up at once, then the words, then the medical check.
+    @Test fun sessionOpening() = shot("38_session_opening.png") { SessionScreen(SessionUi(sessionRows[2].session, preparing = true), actions) }
+
+    @Test fun sessionOpeningWords() = shot("39_session_opening_words.png") {
+        SessionScreen(SessionUi(sessionRows[2].session, listOf(conversationRun), selectedRunId = "r2", preparing = true), actions)
+    }
+}

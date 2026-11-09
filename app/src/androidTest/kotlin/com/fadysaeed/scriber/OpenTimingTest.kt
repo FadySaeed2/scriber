@@ -10,6 +10,7 @@ import com.fadysaeed.scriber.core.RunStatus
 import com.fadysaeed.scriber.core.Segment
 import com.fadysaeed.scriber.core.SessionMode
 import com.fadysaeed.scriber.core.TranscriptRun
+import com.fadysaeed.scriber.core.Words
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -34,6 +35,31 @@ class OpenTimingTest {
             if (alt && i % 7 == 0) t = t.lowercase().replace("olanzapine", "olanzapine").replace("palpitations", "pal patients").replace(",", "")
             Segment(i * 5_000L, i * 5_000L + 4_800, t)
         })
+
+    /** The spelling rules as they were, building each regex on every word, to time against. */
+    private fun oldKey(word: String): String {
+        val k = word.lowercase().filter { it.isLetterOrDigit() }
+        if (k.length < 3) return k
+        var x = k
+        if (x == "mum" || x == "mums") return x.replace("mum", "mom")
+        x = x.replace("ae", "e").replace("oe", "e")
+        x = x.replace(Regex("""isation(s?)$"""), "ization$1").replace(Regex("""is(e|ed|es|ing)$"""), "iz$1")
+        x = x.replace(Regex("""our(s?)$"""), "or$1").replace(Regex("""tre(s?)$"""), "ter$1")
+        x = x.replace(Regex("""ogue(s?)$"""), "og$1").replace(Regex("""lled$"""), "led").replace(Regex("""lling$"""), "ling")
+        return x
+    }
+
+    @Test fun keyingTheMedicalWordsBeforeAndAfter() {
+        val all = MedicalTerms::class.java.getResourceAsStream("/medical_terms.txt")!!.bufferedReader().readLines()
+            .filter { !it.startsWith("#") }.flatMap { it.trim().split(" ") }
+        val t0 = SystemClock.elapsedRealtime()
+        val before = all.map(::oldKey)
+        val t1 = SystemClock.elapsedRealtime()
+        val after = all.map { Words.key(it, SessionMode.CONVERSATION) }
+        val t2 = SystemClock.elapsedRealtime()
+        Log.i("ScriberTiming", "keying ${all.size} medical words: old way ${t1 - t0} ms, now ${t2 - t1} ms")
+        assertTrue(before.size == after.size)
+    }
 
     @Test fun openingAHalfHourConversation() {
         val words = MedicalTerms::class.java.getResourceAsStream("/medical_terms.txt")!!.bufferedReader().readLines().filter { !it.startsWith("#") }

@@ -63,15 +63,29 @@ object Words {
         return numbers[k] ?: spelling(k)
     }
 
+    // Built once: keying runs for every word of every transcript and every medical term. Each rule
+    // is tried only when its ending is in the word at all, which a regex cannot match without.
+    private val isation = Regex("""isation(s?)$""")
+    private val ise = Regex("""is(e|ed|es|ing)$""")
+    private val our = Regex("""our(s?)$""")
+    private val tre = Regex("""tre(s?)$""")
+    private val ogue = Regex("""ogue(s?)$""")
+    private val lled = Regex("""lled$""")
+    private val lling = Regex("""lling$""")
+
     /** British and American spellings of the same word get one key (mum and mom, oedema and edema). */
     private fun spelling(k: String): String {
         if (k.length < 3) return k
         var x = k
         if (x == "mum" || x == "mums") return x.replace("mum", "mom")
         x = x.replace("ae", "e").replace("oe", "e")
-        x = x.replace(Regex("""isation(s?)$"""), "ization$1").replace(Regex("""is(e|ed|es|ing)$"""), "iz$1")
-        x = x.replace(Regex("""our(s?)$"""), "or$1").replace(Regex("""tre(s?)$"""), "ter$1")
-        x = x.replace(Regex("""ogue(s?)$"""), "og$1").replace(Regex("""lled$"""), "led").replace(Regex("""lling$"""), "ling")
+        if ("isation" in x) x = x.replace(isation, "ization$1")
+        if ("is" in x) x = x.replace(ise, "iz$1")
+        if ("our" in x) x = x.replace(our, "or$1")
+        if ("tre" in x) x = x.replace(tre, "ter$1")
+        if ("ogue" in x) x = x.replace(ogue, "og$1")
+        if ("lled" in x) x = x.replace(lled, "led")
+        if ("lling" in x) x = x.replace(lling, "ling")
         return x
     }
 
@@ -133,6 +147,8 @@ object Words {
 }
 
 object Compare {
+    private val spaces = Regex("""\s+""")
+
     /**
      * Lines up two transcripts of the same audio word by word. Each base line is compared only with
      * the second engine's words spoken in the same stretch of time, so long sessions stay fast and a
@@ -253,7 +269,7 @@ object Compare {
 
     /** The second engine's markup ({period}, [PLAN]) is not offered as text to put in. */
     private fun cleanMarkup(text: String): String =
-        text.split(Regex("""\s+""")).filter { Words.key(it, SessionMode.CONVERSATION).isNotEmpty() }
+        text.split(spaces).filter { Words.key(it, SessionMode.CONVERSATION).isNotEmpty() }
             .joinToString(" ") { it.trim('[', ']') }
 
     /** Medicines in the base transcript, exact or misspelled, outside places already flagged as differences. */

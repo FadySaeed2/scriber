@@ -14,7 +14,7 @@ class MedicalTerms(words: Collection<String>, removed: Collection<String> = empt
 
     init {
         val gone = removed.map { key(it) }.toSet()
-        val keyed = words.map { w -> w.trim().split(Regex("""\s+""")).map(::key).filter { it.isNotEmpty() } }.filter { it.isNotEmpty() }
+        val keyed = words.map { w -> w.trim().split(spaces).map(::key).filter { it.isNotEmpty() } }.filter { it.isNotEmpty() }
         singles = keyed.filter { it.size == 1 }.map { it[0] }.filter { it !in gone }.toSet()
         phrases = keyed.filter { it.size in 2..4 }.map { it.joinToString(" ") }.filter { it !in gone }.toSet()
         size = singles.size + phrases.size
@@ -37,6 +37,7 @@ class MedicalTerms(words: Collection<String>, removed: Collection<String> = empt
     fun isTerm(word: String): Boolean = key(word) in singles
 
     companion object {
+        private val spaces = Regex("""\s+""")
         private fun key(w: String) = Words.key(w, SessionMode.CONVERSATION)
 
         private fun lines(file: String): List<String> =

@@ -211,7 +211,11 @@ fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet?
 
 @Composable
 private fun ColumnScope.TranscriptView(ui: SessionUi, a: SessionActions, s: com.fadysaeed.scriber.core.Session, find: TranscriptFind, onFull: () -> Unit, open: (SessionSheet) -> Unit) {
-    if (ui.runs.isNotEmpty()) {
+    if (ui.runs.isEmpty() && ui.preparing) {
+        Section("Transcripts")
+        Spacer(Modifier.height(12.dp))
+        Status("Opening the transcript", Ink.Dust)
+    } else if (ui.runs.isNotEmpty()) {
         Section("Transcripts")
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for (r in ui.runs) {
