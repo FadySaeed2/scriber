@@ -76,10 +76,10 @@ fun SessionsScreen(
     } else {
         Eyebrow("New")
         Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Choice("Dictation", mode == SessionMode.DICTATION, { onMode(SessionMode.DICTATION) }, Modifier.weight(1f))
-            Choice("Conversation", mode == SessionMode.CONVERSATION, { onMode(SessionMode.CONVERSATION) }, Modifier.weight(1f))
-            Choice("Meeting", mode == SessionMode.MEETING, { onMode(SessionMode.MEETING) }, Modifier.weight(1f))
+            Choice("Conversation", mode == SessionMode.CONVERSATION, { onMode(SessionMode.CONVERSATION) }, Modifier.weight(1.3f))
+            Choice("Meeting", mode == SessionMode.MEETING, { onMode(SessionMode.MEETING) }, Modifier.weight(0.9f))
         }
         Spacer(Modifier.height(8.dp))
         Text(
