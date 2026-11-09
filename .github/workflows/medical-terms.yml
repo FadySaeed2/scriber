@@ -1,0 +1,28 @@
+name: Medical terms
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the list from MeSH
+        run: |
+          pip install wordfreq==3.1.1
+          python3 tools/build_medical_terms.py
+          head -5 core/src/main/resources/medical_terms.txt
+          wc -l core/src/main/resources/medical_terms.txt
+      - name: Commit it to the medical-terms branch
+        run: |
+          git config user.name "scriber-bot"
+          git config user.email "scriber-bot@users.noreply.github.com"
+          git checkout -b medical-terms
+          git add core/src/main/resources/medical_terms.txt
+          git commit -m "Medical terms from MeSH"
+          git push -f origin medical-terms
