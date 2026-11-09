@@ -379,6 +379,21 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun deleteAudio(id: String) = viewModelScope.launch(Dispatchers.IO) { player.stop(); store.deleteAudio(id); say("Audio deleted. Transcripts kept.") }
+    /** Several sessions at once, from the library. Sessions still being worked on are left alone. */
+    fun deleteSessions(ids: List<String>) = viewModelScope.launch(Dispatchers.IO) {
+        player.stop()
+        val busy = ids.filter { Jobs.progress.value[it] != null }
+        (ids - busy.toSet()).forEach { store.deleteSession(it) }
+        say("Deleted ${ids.size - busy.size} " + (if (ids.size - busy.size == 1) "session" else "sessions") + if (busy.isNotEmpty()) "; ${busy.size} still being transcribed stayed." else ".")
+    }
+
+    fun deleteAudioOf(ids: List<String>) = viewModelScope.launch(Dispatchers.IO) {
+        player.stop()
+        val busy = ids.filter { Jobs.progress.value[it] != null }
+        (ids - busy.toSet()).forEach { store.deleteAudio(it) }
+        say("Deleted the audio of ${ids.size - busy.size} " + (if (ids.size - busy.size == 1) "session" else "sessions") + ". Transcripts kept.")
+    }
+
     fun deleteSession(id: String) = viewModelScope.launch(Dispatchers.IO) { player.stop(); store.deleteSession(id); _session.value = SessionUi() }
 
     fun play(fromMs: Long) {
@@ -456,7 +471,7 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
      * The open session's transcript, clean, with the prompt [promptId] above it when given. Remembers
      * the prompt for this kind of session. Call off the main thread.
      */
-    fun clipText(promptId: String?): String? {
+    fun clipText(promptId: String?, extra: String? = null): String? {
         val ui = _session.value
         val s = ui.session ?: return null
         val run = ui.run?.takeIf { it.status == RunStatus.DONE } ?: return null
@@ -468,7 +483,7 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
         val header = CleanTranscript.header(s.mode, s.createdAtMillis, s.durationMs, input.lines.mapNotNull { it.speakerName }.distinct())
         val prompt = promptId?.let { store.prompt(it)?.text }
         store.saveSettings(settings.copy(copyNoticeSeen = true, prompts = if (promptId != null) settings.prompts + (s.mode.name to promptId) else settings.prompts))
-        return CleanTranscript.compose(prompt, header, body)
+        return CleanTranscript.compose(prompt, header, body, extra.takeIf { prompt != null })
     }
 
     fun setCopyTimes(on: Boolean) = updateSettings { it.copy(copyTimes = on) }

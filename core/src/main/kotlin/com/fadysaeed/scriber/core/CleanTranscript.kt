@@ -141,7 +141,13 @@ object CleanTranscript {
         return "$kind recorded $date, $minutes min." + if (speakers.isNotEmpty()) " Speakers: ${speakers.joinToString(", ")}." else ""
     }
 
-    /** What is copied: the prompt (if any), then the header and the transcript. */
-    fun compose(prompt: String?, header: String, body: String): String =
-        if (prompt.isNullOrBlank()) "$header\n\n$body" else "${prompt.trim()}\n\nTRANSCRIPT\n\n$header\n\n$body"
+    /**
+     * What is copied: the prompt (if any), Fady's line for this one session (if any), then the
+     * header and the transcript.
+     */
+    fun compose(prompt: String?, header: String, body: String, extra: String? = null): String {
+        val note = extra?.trim()?.takeIf { it.isNotEmpty() }?.let { "NOTE FROM THE CLINICIAN\n$it" }
+        val top = listOfNotNull(prompt?.trim()?.takeIf { it.isNotEmpty() }, note).joinToString("\n\n")
+        return if (top.isEmpty()) "$header\n\n$body" else "$top\n\nTRANSCRIPT\n\n$header\n\n$body"
+    }
 }

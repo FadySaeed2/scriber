@@ -1,0 +1,6 @@
+<!-- Status bar: the same mark, white on transparent. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="60" android:viewportHeight="60">
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="4" android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M3,30 C6,30 7,16 10,16 C13,16 13,44 16,44 C19,44 19,21 22,21 C25,21 25,37 28,37 C31,37 31,27 34,27 C36,27 37,32 39,32 L55,32" />
+</vector>

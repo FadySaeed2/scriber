@@ -88,6 +88,8 @@ class CleanTranscriptTest {
         assertTrue(h, h.startsWith("Meeting recorded ") && h.endsWith(", 27 min. Speakers: Anna, Ben."))
         assertEquals("$h\n\nbody", CleanTranscript.compose(null, h, "body"))
         assertEquals("Do this.\n\nTRANSCRIPT\n\n$h\n\nbody", CleanTranscript.compose("  Do this.\n", h, "body"))
+        assertEquals("Do this.\n\nNOTE FROM THE CLINICIAN\nShe is on a Form 6.\n\nTRANSCRIPT\n\n$h\n\nbody", CleanTranscript.compose("Do this.", h, "body", " She is on a Form 6. "))
+        assertEquals("$h\n\nbody", CleanTranscript.compose(null, h, "body", "  "))
     }
 
     @Test fun builtInPromptsAreCompleteAndPlain() {
@@ -106,5 +108,10 @@ class CleanTranscriptTest {
         for (p in clinical) assertTrue(p.id, p.text.contains("Never record a medicine the clinician only explained"))
         assertTrue(all.first { it.id == "inpatient" }.text.contains("Never label risk as low, moderate or high"))
         assertTrue(Prompts.blank("x", "Mine").text.contains("Use only what is in the transcript"))
+        // Finished documents, not questionnaires: no placeholders to fill in, no questions back.
+        for (p in all) {
+            assertTrue(p.id, !p.text.contains("to complete"))
+            assertTrue(p.id, p.text.contains("do not ask questions", ignoreCase = true))
+        }
     }
 }

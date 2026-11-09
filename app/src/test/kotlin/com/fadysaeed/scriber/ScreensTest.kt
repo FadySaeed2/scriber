@@ -278,4 +278,18 @@ class ScreensTest {
     @Test fun settingsBackupRunning() = tabShot("34_settings_backup_running.png", Tab.Settings) {
         SettingsScreen(SettingsUi(locked = true, hosts = listOf("huggingface.co"), version = "0.0.41", backup = BackupProgress("Backing up", 0.42f)), {}, {}, {}, {})
     }
+
+    // Library ----------------------------------------------------------------------------------
+
+    @Test fun libraryFolderAndSelection() = tabShot("35_library_selecting.png", Tab.Sessions) {
+        SessionsScreen(SessionsUi(sessionRows, speechReady = true), SessionMode.CONVERSATION, {}, {}, {}, {}, {},
+            selectedOverride = setOf(sessionRows[0].session.id, sessionRows[2].session.id))
+    }
+
+    @Test fun libraryConversationsOnly() = tabShot("36_library_conversations.png", Tab.Sessions) {
+        SessionsScreen(SessionsUi(sessionRows, speechReady = true), SessionMode.CONVERSATION, {}, {}, {}, {}, {}, folderOverride = SessionMode.CONVERSATION)
+    }
+
+    @Test fun copySheetWithLine() = shot("37_copy_sheet_line.png") { SessionScreen(copyUi(noticeSeen = true), actions, SessionSheet.Copy) }
 }
+

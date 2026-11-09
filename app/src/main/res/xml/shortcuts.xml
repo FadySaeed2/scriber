@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press Scriber's icon to start recording straight away. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="conversation" android:enabled="true" android:icon="@drawable/ic_shortcut_conversation"
+        android:shortcutShortLabel="@string/shortcut_conversation" android:shortcutLongLabel="@string/shortcut_conversation_long">
+        <intent android:action="com.fadysaeed.scriber.action.RECORD" android:targetPackage="com.fadysaeed.scriber" android:targetClass="com.fadysaeed.scriber.MainActivity">
+            <extra android:name="mode" android:value="CONVERSATION" />
+        </intent>
+    </shortcut>
+    <shortcut android:shortcutId="dictation" android:enabled="true" android:icon="@drawable/ic_shortcut_dictation"
+        android:shortcutShortLabel="@string/shortcut_dictation" android:shortcutLongLabel="@string/shortcut_dictation_long">
+        <intent android:action="com.fadysaeed.scriber.action.RECORD" android:targetPackage="com.fadysaeed.scriber" android:targetClass="com.fadysaeed.scriber.MainActivity">
+            <extra android:name="mode" android:value="DICTATION" />
+        </intent>
+    </shortcut>
+    <shortcut android:shortcutId="meeting" android:enabled="true" android:icon="@drawable/ic_shortcut_meeting"
+        android:shortcutShortLabel="@string/shortcut_meeting" android:shortcutLongLabel="@string/shortcut_meeting_long">
+        <intent android:action="com.fadysaeed.scriber.action.RECORD" android:targetPackage="com.fadysaeed.scriber" android:targetClass="com.fadysaeed.scriber.MainActivity">
+            <extra android:name="mode" android:value="MEETING" />
+        </intent>
+    </shortcut>
+</shortcuts>

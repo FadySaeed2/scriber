@@ -1,3 +1,9 @@
 <resources>
     <string name="app_name">Scriber</string>
+    <string name="shortcut_conversation">Conversation</string>
+    <string name="shortcut_conversation_long">Record a conversation</string>
+    <string name="shortcut_dictation">Dictation</string>
+    <string name="shortcut_dictation_long">Record a dictation</string>
+    <string name="shortcut_meeting">Meeting</string>
+    <string name="shortcut_meeting_long">Record a meeting</string>
 </resources>

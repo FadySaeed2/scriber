@@ -253,6 +253,7 @@ class ProcessingService : Service() {
                 } ?: break
                 Jobs.run(this, job) { text -> notify(text) }
                 Jobs.finished(this, job)
+                if (Jobs.pending(this).none { it.sessionId == job.sessionId }) ready(job.sessionId)
             }
         } catch (t: Throwable) {
             synchronized(ProcessingService) { worker = null; busy = false }
@@ -265,6 +266,31 @@ class ProcessingService : Service() {
         }
     }
 
+    /**
+     * Tells Fady a session is ready when he is not looking at Scriber. It names no one and quotes
+     * nothing: the title could hold a patient's name.
+     */
+    private fun ready(sessionId: String) {
+        if (com.fadysaeed.scriber.AppVisible.now) return
+        val store = SessionStore.get(Vault.get(this))
+        if (store.runs(sessionId).none { it.status == RunStatus.DONE }) return
+        runCatching {
+            val nm = getSystemService(NotificationManager::class.java)
+            if (nm.getNotificationChannel(READY_CHANNEL) == null) nm.createNotificationChannel(NotificationChannel(READY_CHANNEL, "Sessions ready", NotificationManager.IMPORTANCE_DEFAULT))
+            val open = Intent(this, com.fadysaeed.scriber.MainActivity::class.java).setAction(com.fadysaeed.scriber.ACTION_OPEN).putExtra("session", sessionId)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            val pi = android.app.PendingIntent.getActivity(this, sessionId.hashCode(), open, android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
+            nm.notify(READY_BASE + (sessionId.hashCode() and 0xffff), NotificationCompat.Builder(this, READY_CHANNEL)
+                .setSmallIcon(com.fadysaeed.scriber.R.drawable.ic_notify)
+                .setContentTitle("Session ready to copy")
+                .setContentText("Transcribed and checked on this phone. Tap to open it.")
+                .setContentIntent(pi)
+                .setAutoCancel(true)
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                .build())
+        }
+    }
+
     private fun notify(text: String) = runCatching { getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(text)) }
 
     private fun notification(text: String): Notification {
@@ -274,7 +300,7 @@ class ProcessingService : Service() {
             android.app.PendingIntent.getActivity(this, 0, it, android.app.PendingIntent.FLAG_IMMUTABLE)
         }
         return NotificationCompat.Builder(this, CHANNEL)
-            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setSmallIcon(com.fadysaeed.scriber.R.drawable.ic_notify)
             .setContentTitle("Scriber")
             .setContentText(text)
             .setContentIntent(open)
@@ -286,6 +312,8 @@ class ProcessingService : Service() {
     companion object {
         private const val CHANNEL = "transcription"
         private const val NOTIFICATION_ID = 61
+        private const val READY_CHANNEL = "ready"
+        private const val READY_BASE = 0x5c000
         @Volatile private var worker: Thread? = null
         /** True while a job thread is alive in this process. */
         @Volatile var busy = false

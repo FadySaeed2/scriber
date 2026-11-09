@@ -38,5 +38,11 @@ Each phase ships as a signed APK, is tried on the phone, and only then does the 
   taking the most, and can delete audio older than 30 days while keeping transcripts. Backup and
   restore of everything in one file locked with a passphrase; a restore only adds what the phone
   does not have.
+- **Phase 5, everyday use (this build):** prompts that hand back a finished document (no questions,
+  few placeholders, headings as a framework), with an optional line for each copy; a new icon (a
+  voice settling into a written line); long-press shortcuts to record a conversation, dictation
+  or meeting; a "ready to copy" notification that names no one; the session list as a library
+  (a folder per kind, search through titles and words, date headings, several sessions deleted at
+  once, or only their audio).
 - **Still open, needing Fady's recordings:** Parakeet with the medicine list as hotwords (Lab trial
   on his corrected sessions); speakers in a real meeting over 40 minutes.

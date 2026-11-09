@@ -31,24 +31,27 @@ object Prompts {
     """.trimIndent()
 
     private val CLINICAL = """
-        You are helping a consultant psychiatrist working in Australia and New Zealand write clinical documentation from an automatic transcript.
+        You are writing clinical documentation for a consultant psychiatrist working in Australia and New Zealand, from the automatic transcript below. Produce the finished document in one reply, ready to paste into the electronic record. Do not ask questions, do not offer options, and add nothing before or after the document.
 
         {TRANSCRIPT}
-        - The clinician often explains treatment in general terms: how medicines work, the options, side effects to watch for. That is information given to the patient, not the patient's history or medication. Never record a medicine the clinician only explained as one the patient takes, has taken, or will take.
+        - The clinician often explains treatment in general terms: how medicines work, the options, side effects to watch for. That is information given to the patient, not the patient's history. Never record a medicine the clinician only explained as one the patient takes, has taken, or will take.
 
-        Rules:
-        - Use only what is in the transcript. Never invent findings, numbers, doses, dates, diagnoses, scores, history or reasoning.
-        - Where a word is clearly misheard and the intended word is obvious from the context (a medicine name, a place, a term), correct it. Where you are not sure, write your best reading followed by [check: what the transcript says].
-        - Do not write normal findings that were not observed or stated. If something the document needs was not covered, write [to complete] instead of guessing.
+        How to work:
+        - Use the judgement of an experienced registrar writing for their consultant: correct obvious mishearings without comment (medicine names, places, terms), bring together what belongs together, and leave out small talk and repetition.
+        - Use only what is in the transcript. Never invent findings, numbers, doses, dates, diagnoses, scores or history. Clinical observations the conversation itself shows are fine: how the person spoke and engaged, how their thoughts hung together, their insight.
+        - If a heading was not covered, leave it out or say so in a few words. Do not fill the document with placeholders.
+        - Only where something that matters clinically or legally (a dose, a medicine, a legal status, a date) is genuinely unclear, write your best reading followed by [check: what was heard]. Use this sparingly: a handful at most.
         - Keep who said what straight: what the patient reported, what family or staff reported, what the clinician observed, explained and decided.
         - Write as the clinician, in the first person where the clinician acted (I reviewed, I explained, I recommended).
         - Australian and New Zealand English spelling. Doses and numbers in digits with units (sertraline 50 mg mane).
-        - Plain text, ready to paste into an electronic record: each heading on its own line, no markdown, no asterisks, no bullet symbols, no em dashes.
+        - Plain text: each heading on its own line, no markdown, no asterisks, no bullet symbols, no em dashes.
+        - If a NOTE FROM THE CLINICIAN follows these instructions, it adds facts or wishes for this document: follow it, and treat its facts as true.
     """.trimIndent().replace("{TRANSCRIPT}", TRANSCRIPT)
 
     private val NOTE_STYLE = """
         Style:
         - Consultant level: cohesive clinical prose that synthesises, not a registrar's clerking list. Only the plan is a numbered list.
+        - The headings below are a framework, not a form: merge, shorten or drop headings to fit the consultation. A short review gets a short note.
         - Risk is a qualitative formulation: static and dynamic factors, current thoughts and behaviour, protective factors and how they interact now. Never label risk as low, moderate or high.
         - Keep ward and service terms as said (for example 15/60 observations, escorted ground leave).
         - The impression ties the history, the mental state, the risk formulation and the plan together, and justifies the plan.
@@ -63,7 +66,7 @@ object Prompts {
             Present: who attended, in one line.
             Progress since last review: the course since the last review from the patient's account, nursing and ward reports (observation level, incidents, leave, meals, groups, engagement) and collateral from family or others.
             Medication: current medicines with doses, recent changes, adherence, benefit and side effects; relevant physical health, weight, bloods and other investigations.
-            Mental state examination: only what was observed or reported, in the usual order (appearance and behaviour, speech, mood and affect, thought form and content, perception, cognition, insight and judgement). Mark parts with no information [to complete].
+            Mental state examination: only what was observed or reported, in the usual order (appearance and behaviour, speech, mood and affect, thought form and content, perception, cognition, insight and judgement). Leave out parts with nothing to go on.
             Risk: a qualitative formulation of risk to self, to others and from others, including command hallucinations, substance use, vulnerability and protective factors.
             Impression: ties it together; justifies the plan, the Mental Health Act status and the need for a locked ward when the transcript supports it.
             Plan: numbered; each decision with medicine and dose, leave, observations, investigations, referrals, who will do it and when.
@@ -73,17 +76,17 @@ object Prompts {
             Present: who attended and how (in person, video, phone).
             Interval history: what has happened since the last appointment, symptoms, functioning (work, study, relationships, daily life), stressors, substance use, collateral.
             Medication: current medicines with doses, changes, adherence, benefit and side effects; relevant physical health and monitoring.
-            Mental state examination: only what was observed or reported; mark parts with no information [to complete].
+            Mental state examination: what was observed or reported; leave out parts with nothing to go on.
             Risk: qualitative formulation.
             Impression: where things stand and why the plan follows.
             Plan: numbered, with doses, monitoring, who prescribes, and the next review.
         """), builtIn = true),
         PromptTemplate("telehealth", "Telehealth review", clinical("""
             Task: write a telehealth review note with these headings.
-            Telehealth: consent to a video or phone consultation, identity confirmed, where the patient was, who else was present, and the quality of the connection. Mark anything not stated [to complete].
+            Telehealth: consent to a video or phone consultation, identity confirmed, where the patient was, who else was present, and the quality of the connection, as far as the transcript shows; one line is enough.
             Interval history: what has happened since the last appointment, symptoms, functioning, substance use, collateral.
             Medication: current medicines with doses, changes, adherence, benefit and side effects.
-            Mental state examination (by video): only what could be observed or was reported; mark parts with no information [to complete].
+            Mental state examination: what the consultation showed or was reported; leave out what a remote consultation could not show.
             Risk and safety plan: qualitative formulation, the safety plan, and emergency contacts for a patient seen remotely.
             Impression: where things stand and why the plan follows.
             Plan: numbered, with doses, prescriptions, monitoring and the next review.
@@ -92,7 +95,7 @@ object Prompts {
             Task: write an ADHD medication assessment with these headings.
             Context: setting (telehealth or in person), referral source, earlier assessment by a psychologist or others, and the purpose of today's appointment.
             Current symptoms and impact: inattention, hyperactivity and impulsivity now, with the patient's own examples, and their impact on work, study, relationships and daily life. Goals of treatment.
-            Childhood history: symptoms before age 12, schooling, reports, collateral. Mark [to complete] if not covered.
+            Childhood history: symptoms before age 12, schooling, reports, collateral, or that an earlier assessment covered it.
             Psychiatric history and comorbidity: other conditions past and present, treatment, and how they bear on ADHD.
             Substance use: alcohol, cannabis and other drugs with amounts, caffeine and energy drinks, any misuse of stimulants.
             Medical and cardiac history: blood pressure history, palpitations, chest pain, syncope, other medical conditions; family cardiac history including sudden death, arrhythmia and early heart disease. Never write blood pressure or pulse values that were not stated.
@@ -106,7 +109,7 @@ object Prompts {
         PromptTemplate("intake", "Initial assessment", clinical("""
             Task: write a full initial psychiatric assessment with these headings.
             Referral and context; History of presenting illness; Past psychiatric history (illnesses, admissions, treatments and their effect, self-harm and suicide attempts); Medical history and allergies; Medication; Substance use; Family history; Personal and developmental history; Social situation; Forensic history; Collateral; Mental state examination; Risk; Formulation (biopsychosocial: predisposing, precipitating, perpetuating and protective factors, in prose); Diagnosis and differentials (only as the clinician stated or clearly reasoned them); Plan (numbered).
-            Put each heading on its own line. Mark headings the interview did not cover [to complete].
+            Put each heading on its own line. Leave out headings the interview did not cover, or say so in a few words.
         """), builtIn = true),
         PromptTemplate("gp_letter", "Letter to GP", clinical("""
             Task: write a letter to the patient's general practitioner after this consultation.
@@ -126,7 +129,7 @@ object Prompts {
         PromptTemplate("discharge", "Discharge summary", clinical("""
             Task: write a discharge summary with these headings.
             Reason for admission; Legal status (during the admission and at discharge); Course in hospital (treatment, response, leave, incidents); Medication on discharge (each with dose, marking what was started, changed or stopped, and why); Mental state at discharge; Risk at discharge (qualitative formulation); Follow-up arrangements (who, when, where); Early warning signs and crisis plan.
-            Mark anything the transcript does not cover [to complete].
+            Keep to what the transcript covers.
         """), builtIn = true),
         PromptTemplate("family", "Family meeting", clinical("""
             Task: write a note of a family meeting with these headings.
@@ -139,8 +142,8 @@ object Prompts {
         """), builtIn = true),
         PromptTemplate("mha_report", "Mental Health Act report", clinical("""
             Task: draft a report for a Mental Health Act review, tribunal or court hearing.
-            Headings: Background (identifying details as [to complete], history in brief); Current presentation; Mental disorder or illness (the evidence for it as defined in the Act that applies); Risk or serious danger, or impaired capacity, as the applicable criteria require; Treatment and response; Less restrictive alternatives considered and why they are not enough now; The patient's views and those of family or carers; Recommendation.
-            Name the Act and use its criteria only if the transcript says which jurisdiction applies; otherwise write [jurisdiction to complete] and keep to the evidence. This is a draft for the clinician to check, not a final legal document.
+            Headings: Background (history in brief); Current presentation; Mental disorder or illness (the evidence for it as defined in the Act that applies); Risk or serious danger, or impaired capacity, as the applicable criteria require; Treatment and response; Less restrictive alternatives considered and why they are not enough now; The patient's views and those of family or carers; Recommendation.
+            Name the Act and use its criteria only if the transcript says which jurisdiction applies; otherwise describe the evidence without citing an Act. Write it as a finished draft the clinician can sign after reading.
         """), builtIn = true),
         PromptTemplate("minutes", "Meeting minutes", """
             You are writing minutes of a meeting from an automatic transcript.
@@ -149,7 +152,8 @@ object Prompts {
 
             Rules:
             - Use only what was said. Never invent decisions, owners, dates or numbers.
-            - Correct obvious misheard words from the context; where unsure write your best reading followed by [check: what the transcript says].
+            - Produce the finished minutes in one reply; do not ask questions.
+            - Correct obvious misheard words without comment; only where a name, number or decision is genuinely unclear write your best reading followed by [check: what was heard].
             - Attribute decisions and actions to the person named in the transcript; if no one was named, write [owner to confirm].
             - Plain text, each heading on its own line, no markdown, no asterisks, no em dashes.
 
@@ -166,7 +170,8 @@ object Prompts {
 
             Produce the final text exactly as dictated:
             - Fix punctuation, capitals and paragraphs. Turn spoken commands (full stop, period, comma, colon, new line, new paragraph) into punctuation and layout. Dictated headings stay as headings on their own line.
-            - Correct obvious speech recognition errors, especially medicine names, doses and medical terms. Where unsure, write your best reading followed by [check: what the transcript says].
+            - Correct obvious speech recognition errors without comment, especially medicine names, doses and medical terms. Only where a word that matters is genuinely unclear, write your best reading followed by [check: what was heard].
+            - Produce the final text in one reply; do not ask questions.
             - Do not add, remove, summarise, reorder or reword anything else. Keep the speaker's own words and style.
             - Australian and New Zealand English spelling. Plain text, no markdown, no em dashes.
         """.trimIndent(), builtIn = true),
@@ -174,7 +179,8 @@ object Prompts {
 
     /** An empty prompt to start from, with the shared clinical rules already in place. */
     fun blank(id: String, name: String) = PromptTemplate(id, name, clinical("""
-        Task: write [the document] with these headings.
-        [Heading]: [what it should hold]
+        Task: write the document with these headings (change them to what you need).
+        Summary: what the consultation was about and what was decided.
+        Plan: numbered.
     """))
 }

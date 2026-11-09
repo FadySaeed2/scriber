@@ -77,8 +77,8 @@ class SessionActions(
 
 /** Taking the transcript out of Scriber for a cloud model. */
 class CopyActions(
-    /** Copy (or share, with [share]) the clean transcript, with the prompt [promptId] above it when given. */
-    val onCopy: (promptId: String?, share: Boolean) -> Unit = { _, _ -> },
+    /** Copy (or share, with [share]) the clean transcript, with the prompt [promptId] and Fady's [extra] line above it when given. */
+    val onCopy: (promptId: String?, share: Boolean, extra: String?) -> Unit = { _, _, _ -> },
     val onTimes: (Boolean) -> Unit = {},
     val onChoosePrompt: (String) -> Unit = {},
     val onPrompts: () -> Unit = {},

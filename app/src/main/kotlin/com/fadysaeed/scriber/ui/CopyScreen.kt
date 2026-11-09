@@ -41,6 +41,7 @@ import com.fadysaeed.scriber.core.SessionMode
 fun CopySheet(ui: SessionUi, a: CopyActions, close: () -> Unit) {
     val s = ui.session ?: return
     var choosing by remember { mutableStateOf(false) }
+    var extra by remember(s.id) { mutableStateOf("") }
     val prompt = ui.prompts.firstOrNull { it.id == ui.promptId } ?: ui.prompts.firstOrNull()
     Sheet(close) {
         Column(Modifier.heightIn(max = 600.dp).verticalScroll(rememberScrollState())) {
@@ -70,17 +71,22 @@ fun CopySheet(ui: SessionUi, a: CopyActions, close: () -> Unit) {
                     }
                     ActionRow(Glyph.RENAME, "Change the prompts", { close(); a.onPrompts() })
                 }
+                Box(Modifier.fillMaxWidth().background(Ink.Field, Corner).border(1.dp, Ink.Edge, Corner).padding(14.dp)) {
+                    if (extra.isEmpty()) Text("Add a line for this one (optional): female, on a Form 6, write it as a letter to her GP…", style = Type.body.copy(color = Ink.Ash))
+                    BasicTextField(extra, { extra = it }, textStyle = Type.body, cursorBrush = SolidColor(Ink.Amber), modifier = Modifier.fillMaxWidth())
+                }
+                Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    AmberButton("Copy with prompt", { close(); a.onCopy(prompt.id, false) }, Modifier.weight(1.4f))
-                    GhostButton("Share", { close(); a.onCopy(prompt.id, true) }, Modifier.weight(1f), minHeight = 52.dp)
+                    AmberButton("Copy with prompt", { close(); a.onCopy(prompt.id, false, extra) }, Modifier.weight(1.4f))
+                    GhostButton("Share", { close(); a.onCopy(prompt.id, true, extra) }, Modifier.weight(1f), minHeight = 52.dp)
                 }
                 Spacer(Modifier.height(18.dp))
             }
             Eyebrow("Transcript only")
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                GhostButton("Copy transcript", { close(); a.onCopy(null, false) }, Modifier.weight(1.4f), minHeight = 52.dp)
-                GhostButton("Share", { close(); a.onCopy(null, true) }, Modifier.weight(1f), minHeight = 52.dp)
+                GhostButton("Copy transcript", { close(); a.onCopy(null, false, null) }, Modifier.weight(1.4f), minHeight = 52.dp)
+                GhostButton("Share", { close(); a.onCopy(null, true, null) }, Modifier.weight(1f), minHeight = 52.dp)
             }
             Spacer(Modifier.height(8.dp))
             Toggle("Times", "The time at the start of each paragraph", ui.copyTimes, a.onTimes)

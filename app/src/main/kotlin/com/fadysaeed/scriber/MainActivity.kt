@@ -166,7 +166,8 @@ class MainActivity : FragmentActivity() {
             else -> Frame(tab, { tab = it; vm.refreshAsync() }) {
                 when (tab) {
                     Tab.Sessions -> SessionsScreen(vm.sessions.collectAsState().value, mode, { mode = it }, ::askRecord,
-                        { pickAudio.launch(arrayOf("audio/*", "video/*")) }, { showRecording = true }, ::open)
+                        { pickAudio.launch(arrayOf("audio/*", "video/*")) }, { showRecording = true }, ::open,
+                        onDeleteSessions = { vm.deleteSessions(it) }, onDeleteAudio = { vm.deleteAudioOf(it) })
                     Tab.Models -> ModelsScreen(vm.modelsUi.collectAsState().value, ::download, vm::cancelDownload, { vm.verifyAll() },
                         { vm.setWifiOnly(it) }, vm::dismissMessage)
                     Tab.Lab -> LabScreen(vm.lab.collectAsState().value, vm::runLab, { copy(it) }, { vm.tryHints() }, { vm.runSpeedCheck() })
@@ -217,14 +218,32 @@ class MainActivity : FragmentActivity() {
         if (unlocked) consumeShare()
     }
 
+    override fun onStart() { super.onStart(); AppVisible.now = true }
+    override fun onStop() { AppVisible.now = false; super.onStop() }
+
+    /** A shortcut asks to record, a notification to open a session; both wait until Scriber is unlocked. */
+    private var pendingRecord: SessionMode? = null
+    private var pendingOpen: String? = null
+
     /** Audio or video shared into Scriber from another app is imported once the app is unlocked. */
     private fun handleShare(intent: Intent?) {
-        if (intent?.action != Intent.ACTION_SEND) return
-        @Suppress("DEPRECATION")
-        pendingShare = if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java) else intent.getParcelableExtra(Intent.EXTRA_STREAM)
+        when (intent?.action) {
+            ACTION_RECORD -> pendingRecord = runCatching { SessionMode.valueOf(intent.getStringExtra("mode").orEmpty()) }.getOrDefault(SessionMode.CONVERSATION)
+            ACTION_OPEN -> pendingOpen = intent.getStringExtra("session")
+            Intent.ACTION_SEND -> {
+                @Suppress("DEPRECATION")
+                pendingShare = if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java) else intent.getParcelableExtra(Intent.EXTRA_STREAM)
+            }
+        }
     }
 
     private fun consumeShare() {
+        pendingOpen?.let { id -> pendingOpen = null; showPrompts = false; open(id) }
+        pendingRecord?.let { m ->
+            pendingRecord = null
+            mode = m
+            if (vm.sessions.value.speechReady && !vm.sessions.value.recording.active) askRecord() else if (vm.sessions.value.recording.active) showRecording = true
+        }
         val uri = pendingShare ?: return
         pendingShare = null
         vm.import(uri, mode) { open(it) }
@@ -283,9 +302,9 @@ class MainActivity : FragmentActivity() {
     }
 
     /** The clean transcript, with or without a prompt, to the clipboard or to another app. */
-    private fun copyOut(promptId: String?, share: Boolean) {
+    private fun copyOut(promptId: String?, share: Boolean, extra: String?) {
         lifecycleScope.launch {
-            val text = runCatching { withContext(Dispatchers.IO) { vm.clipText(promptId) } }.onFailure { vm.toastError(it) }.getOrNull() ?: return@launch
+            val text = runCatching { withContext(Dispatchers.IO) { vm.clipText(promptId, extra) } }.onFailure { vm.toastError(it) }.getOrNull() ?: return@launch
             if (share) {
                 runCatching { startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "Send the transcript to")) }
                     .onFailure { vm.toastError(it) }
@@ -313,3 +332,10 @@ class MainActivity : FragmentActivity() {
 
     private companion object { const val RELOCK_AFTER_MS = 120_000L }
 }
+
+const val ACTION_RECORD = "com.fadysaeed.scriber.action.RECORD"
+const val ACTION_OPEN = "com.fadysaeed.scriber.action.OPEN"
+
+/** Whether a Scriber screen is showing, so a "ready" notification is only sent when it would help. */
+object AppVisible { @Volatile var now = false }
+
