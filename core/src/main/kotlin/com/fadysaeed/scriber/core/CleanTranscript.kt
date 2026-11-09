@@ -163,12 +163,21 @@ object CleanTranscript {
     }
 
     /**
-     * What is copied: the prompt (if any), Fady's line for this one session (if any), then the
-     * header and the transcript.
+     * What is copied: the prompt (if any), Fady's line for this one session (if any), the header and
+     * the transcript, then the prompt's reminder (what it holds after [Prompts.AFTER]), so a model
+     * that has read a long transcript still has the rules fresh.
      */
     fun compose(prompt: String?, header: String, body: String, extra: String? = null): String {
+        val (before, after) = prompt?.let(Prompts::split) ?: ("" to "")
         val note = extra?.trim()?.takeIf { it.isNotEmpty() }?.let { "NOTE FROM THE CLINICIAN\n$it" }
-        val top = listOfNotNull(prompt?.trim()?.takeIf { it.isNotEmpty() }, note).joinToString("\n\n")
-        return if (top.isEmpty()) "$header\n\n$body" else "$top\n\nTRANSCRIPT\n\n$header\n\n$body"
+        val top = listOfNotNull(before.takeIf { it.isNotEmpty() }, note).joinToString("\n\n")
+        val transcript = if (top.isEmpty()) "$header\n\n$body" else "$top\n\nTRANSCRIPT\n\n$header\n\n$body"
+        return if (after.isEmpty()) transcript else "$transcript\n\nEND OF TRANSCRIPT\n\n$after"
     }
+
+    /**
+     * Long numbers said aloud (a phone number, a Medicare or hospital number: seven digits or more,
+     * perhaps in groups) become [number]. Doses, dates, times and counts are shorter and stay.
+     */
+    fun maskNumbers(text: String): String = Regex("""(?<![\w/:.])\d(?:[ -]?\d){6,}(?![\w/:])""").replace(text, "[number]")
 }

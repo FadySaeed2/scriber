@@ -479,7 +479,7 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
         val sp = ui.speakers
         val input = CleanTranscript.medicineLines(run, reading, ui.edits, ui.speakerOf, name = { sp?.name(it) ?: "Speaker ${it + 1}" })
         val settings = store.settings()
-        val body = CleanTranscript.render(CleanTranscript.paragraphs(input.lines, s.mode), settings.copyTimes)
+        val body = CleanTranscript.maskNumbers(CleanTranscript.render(CleanTranscript.paragraphs(input.lines, s.mode), settings.copyTimes))
         val header = CleanTranscript.header(s.mode, s.createdAtMillis, s.durationMs, input.lines.mapNotNull { it.speakerName }.distinct())
         val prompt = promptId?.let { store.prompt(it)?.text }
         store.saveSettings(settings.copy(copyNoticeSeen = true, prompts = if (promptId != null) settings.prompts + (s.mode.name to promptId) else settings.prompts))

@@ -60,4 +60,12 @@ class TextOnDeviceTest {
         assertEquals("Mental state: calm and settled.\n\nPlan: continue olanzapine.", c.render(c.paragraphs(dictation, SessionMode.DICTATION), times = false))
         assertEquals(12, com.fadysaeed.scriber.core.Prompts.builtIns().size)
     }
+
+    @Test fun longNumbersAreHiddenOnAndroid() {
+        assertEquals("Call me on [number] tomorrow.", com.fadysaeed.scriber.core.CleanTranscript.maskNumbers("Call me on 0412 345 678 tomorrow."))
+        val keep = "300 tablets at 06:30 until 22/11/2026, 15/60 observations."
+        assertEquals(keep, com.fadysaeed.scriber.core.CleanTranscript.maskNumbers(keep))
+        val all = com.fadysaeed.scriber.core.Prompts.builtIns().first { it.id == "adhd" }
+        assertEquals(true, com.fadysaeed.scriber.core.Prompts.split(all.text).second.startsWith("Before you write"))
+    }
 }

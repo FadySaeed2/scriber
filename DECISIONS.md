@@ -155,3 +155,13 @@ of Medicine; tools/build_medical_terms.py, run by the "Medical terms" workflow),
 English removed by word frequency (wordfreq), plus a hand-made list of psychiatric and ward
 language. The clean copy puts in a term only when MedASR heard it and Parakeet wrote something that
 is not a word at all, a few words long; every other medical difference waits for Fady's review.
+
+**2026-11-09. Prompts that hold up with weak models.** Comparing two cloud models on the same
+session, the weaker one wrote denials nobody asked about (alcohol, chest pain, allergies, family
+cardiac history), graded risk as low, and kept an impossible date. The prompts now name those
+traps: a question is not an answer; "denies" only after a clear no; a clear yes counts even with
+unclear details; dates are checked against the recording date; risk is never graded; topics not
+covered go in one closing "Not covered today" line. The key rules are repeated after the transcript
+(text after "=== AFTER THE TRANSCRIPT ===" in a prompt), since a long transcript pushes the
+opening instructions out of a small model's attention. Long numbers (phone, Medicare) are replaced
+by [number] in every copy.

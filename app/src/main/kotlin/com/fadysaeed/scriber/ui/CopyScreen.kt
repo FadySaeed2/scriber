@@ -47,7 +47,7 @@ fun CopySheet(ui: SessionUi, a: CopyActions, close: () -> Unit) {
         Column(Modifier.heightIn(max = 600.dp).verticalScroll(rememberScrollState())) {
             Eyebrow("Copy for AI")
             Spacer(Modifier.height(8.dp))
-            Text("The transcript cleaned: medicine names from the second opinion, no ums or repeated words, one paragraph per speaker.", style = Type.small)
+            Text("The transcript cleaned: medical terms from the second opinion, no ums or repeated words, long numbers hidden, one paragraph per speaker.", style = Type.small)
             if (!ui.copyNoticeSeen) {
                 Spacer(Modifier.height(10.dp))
                 Text("Once copied, the text is outside Scriber's encryption, and any names said in the session stay in it. Pasting it into a cloud model is subject to your workplace's privacy rules.",
@@ -157,7 +157,7 @@ private fun PromptEditor(saved: PromptTemplate, defaults: Map<SessionMode, Strin
             Eyebrow("The prompt")
             Spacer(Modifier.height(8.dp))
             Field(draft.text, { draft = draft.copy(text = it) }, minHeight = 360)
-            Text("The transcript goes below it, after a line that says TRANSCRIPT.", style = Type.small, modifier = Modifier.padding(top = 6.dp))
+            Text("The transcript goes below it. Anything after the line ${Prompts.AFTER} is copied after the transcript, as a reminder for the model.", style = Type.small, modifier = Modifier.padding(top = 6.dp))
             Section("This prompt")
             ActionRow(Glyph.COPY, "Duplicate", { keep(); onOpen(a.onNew(draft)) }, "A copy of yours to change")
             if (original != null) ActionRow(Glyph.REDO, "Back to how it came", { a.onRemove(saved.id); draft = original }, enabled = draft != original || saved != original)

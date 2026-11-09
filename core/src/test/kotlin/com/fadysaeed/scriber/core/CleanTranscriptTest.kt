@@ -90,6 +90,13 @@ class CleanTranscriptTest {
         assertEquals("Do this.\n\nTRANSCRIPT\n\n$h\n\nbody", CleanTranscript.compose("  Do this.\n", h, "body"))
         assertEquals("Do this.\n\nNOTE FROM THE CLINICIAN\nShe is on a Form 6.\n\nTRANSCRIPT\n\n$h\n\nbody", CleanTranscript.compose("Do this.", h, "body", " She is on a Form 6. "))
         assertEquals("$h\n\nbody", CleanTranscript.compose(null, h, "body", "  "))
+        // The reminder in a prompt goes after the transcript.
+        val p = "Write the note.\n${Prompts.AFTER}\nRemember the rules."
+        assertEquals("Write the note.\n\nTRANSCRIPT\n\n$h\n\nbody\n\nEND OF TRANSCRIPT\n\nRemember the rules.", CleanTranscript.compose(p, h, "body"))
+        for (b in Prompts.builtIns()) {
+            val c = CleanTranscript.compose(b.text, h, "THE WORDS")
+            assertTrue(b.id, c.indexOf("THE WORDS") < c.indexOf("Now write") && !c.contains(Prompts.AFTER))
+        }
     }
 
     @Test fun builtInPromptsAreCompleteAndPlain() {
@@ -106,12 +113,26 @@ class CleanTranscriptTest {
         for (id in Prompts.DEFAULTS.values) assertTrue(all.any { it.id == id })
         val clinical = all.filter { it.id !in setOf("minutes", "dictation") }
         for (p in clinical) assertTrue(p.id, p.text.contains("Never record a medicine the clinician only explained"))
-        assertTrue(all.first { it.id == "inpatient" }.text.contains("Never label risk as low, moderate or high"))
+        assertTrue(all.first { it.id == "inpatient" }.text.contains("Never grade risk"))
         assertTrue(Prompts.blank("x", "Mine").text.contains("Use only what is in the transcript"))
+        for (p in all) assertTrue(p.id, p.text.lines().any { it.trim() == Prompts.AFTER })
+        for (p in clinical) {
+            assertTrue(p.id, p.text.contains("A question is not an answer"))
+            assertTrue(p.id, p.text.contains("Not covered today"))
+            assertTrue(p.id, p.text.contains("only when the patient or family was asked and clearly said no"))
+        }
         // Finished documents, not questionnaires: no placeholders to fill in, no questions back.
         for (p in all) {
             assertTrue(p.id, !p.text.contains("to complete"))
             assertTrue(p.id, p.text.contains("do not ask questions", ignoreCase = true))
         }
+    }
+
+    @Test fun longNumbersAreHiddenAndEverythingElseStays() {
+        assertEquals("It is all for all. [number]. Is it?", CleanTranscript.maskNumbers("It is all for all. 1853947. Is it?"))
+        assertEquals("Call me on [number] tomorrow.", CleanTranscript.maskNumbers("Call me on 0412 345 678 tomorrow."))
+        assertEquals("Medicare [number] please.", CleanTranscript.maskNumbers("Medicare 2123-45670-1 please."))
+        val keep = "Dexamphetamine 5 mg, 300 tablets every 30 days, at 06:30 and 16:30, until 22/11/2026, 15/60 observations, in 2026."
+        assertEquals(keep, CleanTranscript.maskNumbers(keep))
     }
 }

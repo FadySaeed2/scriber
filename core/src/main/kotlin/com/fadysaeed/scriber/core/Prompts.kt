@@ -24,41 +24,80 @@ object Prompts {
         SessionMode.DICTATION to "dictation",
     )
 
+    /** A line on its own in a prompt: what follows it is copied after the transcript, as a reminder. */
+    const val AFTER = "=== AFTER THE TRANSCRIPT ==="
+
     private val TRANSCRIPT = """
-        About the transcript below:
-        - Speech recognition on a phone made it. Expect misheard words, broken sentences, and now and then words given to the wrong speaker. A second, medical speech engine checked the medicine names, but mistakes are still possible.
-        - The speaker names are the ones the clinician gave. If a label looks wrong, go by what is said.
+        About the transcript:
+        - Speech recognition on a phone made it. Expect misheard words, broken sentences, and words given to the wrong speaker. A second, medical speech engine checked medical terms, but mistakes remain.
+        - Speaker names, if there are any, are the ones the clinician gave; if a label looks wrong, go by what is said. If there are no names, work out from what is said who is the clinician, the patient and anyone else.
+        - The line just above the transcript gives the date and length of the recording. Use it to check every date mentioned.
     """.trimIndent()
 
     private val CLINICAL = """
-        You are writing clinical documentation for a consultant psychiatrist working in Australia and New Zealand, from the automatic transcript below. Produce the finished document in one reply, ready to paste into the electronic record. Do not ask questions, do not offer options, and add nothing before or after the document.
+        You are writing clinical documentation for a consultant psychiatrist working in Australia and New Zealand, from the automatic transcript of a consultation below. Write the finished document in one reply, ready to paste into the electronic record. Do not ask questions, do not offer options, and write nothing before or after the document.
 
         {TRANSCRIPT}
-        - The clinician often explains treatment in general terms: how medicines work, the options, side effects to watch for. That is information given to the patient, not the patient's history. Never record a medicine the clinician only explained as one the patient takes, has taken, or will take.
+        - The clinician often explains treatment in general terms: how medicines work, the options, side effects to watch for. That is information given, not the patient's history. Never record a medicine the clinician only explained as one the patient takes, has taken or will take.
 
-        How to work:
-        - Use the judgement of an experienced registrar writing for their consultant: correct obvious mishearings without comment (medicine names, places, terms), bring together what belongs together, and leave out small talk and repetition.
-        - Use only what is in the transcript. Never invent findings, numbers, doses, dates, diagnoses, scores or history. Clinical observations the conversation itself shows are fine: how the person spoke and engaged, how their thoughts hung together, their insight.
-        - If a heading was not covered, leave it out or say so in a few words. Do not fill the document with placeholders.
-        - Only where something that matters clinically or legally (a dose, a medicine, a legal status, a date) is genuinely unclear, write your best reading followed by [check: what was heard]. Use this sparingly: a handful at most.
-        - Keep who said what straight: what the patient reported, what family or staff reported, what the clinician observed, explained and decided.
-        - Write as the clinician, in the first person where the clinician acted (I reviewed, I explained, I recommended).
-        - Australian and New Zealand English spelling. Doses and numbers in digits with units (sertraline 50 mg mane).
-        - Plain text: each heading on its own line, no markdown, no asterisks, no bullet symbols, no em dashes.
-        - If a NOTE FROM THE CLINICIAN follows these instructions, it adds facts or wishes for this document: follow it, and treat its facts as true.
+        Hard rules:
+        1. Use only what is in the transcript. Never invent findings, numbers, doses, dates, diagnoses, scores, history or reasoning.
+        2. A question is not an answer. If a question got no clear answer ("okay", "perfect", silence, or unclear words), that topic was not covered.
+        3. Write "denies", "no history of", "no known" or "nil" only when the patient or family was asked and clearly said no. The topics most often wrongly written as negative are: allergies; alcohol and drugs; chest pain, palpitations, shortness of breath and fainting; family history of heart disease or sudden death; weight change; current suicidal thoughts; whether diagnostic criteria are met.
+        4. A clear yes or no counts even when the details are unclear: record the answer and say the details were unclear (for example "reported past self-harm; details unclear").
+        5. Correct obvious mishearings without comment (medicine names, places, terms). Only where something that matters (a dose, a medicine, a legal status, a date) is genuinely unclear or impossible, write your best reading followed by [check: what was heard]. A handful at most.
+        6. Do not state a dose or strength as certain when only the clinician assumed it and it was not confirmed.
+        7. Never grade risk: do not put low, moderate, high, minimal or significant in front of "risk". Describe it instead.
+        8. Gather the important topics that were not covered into one final line: "Not covered today: ...". Leave the line out if everything important was covered. Do not scatter "not assessed" or "not established" through the document.
+        9. Write as the clinician, in the first person where the clinician acted (I reviewed, I explained, I recommended). Australian and New Zealand English spelling. Doses in digits with units (sertraline 50 mg mane).
+        10. Plain text only: each heading on its own line, the plan numbered 1. 2. 3., no markdown, no asterisks, no hash signs, no bold, no em dashes.
+        11. If a NOTE FROM THE CLINICIAN follows these instructions, follow it and treat its facts as true.
     """.trimIndent().replace("{TRANSCRIPT}", TRANSCRIPT)
 
     private val NOTE_STYLE = """
         Style:
         - Consultant level: cohesive clinical prose that synthesises, not a registrar's clerking list. Only the plan is a numbered list.
         - The headings below are a framework, not a form: merge, shorten or drop headings to fit the consultation. A short review gets a short note.
-        - Risk is a qualitative formulation: static and dynamic factors, current thoughts and behaviour, protective factors and how they interact now. Never label risk as low, moderate or high.
+        - Risk is a qualitative formulation: static and dynamic factors, current thoughts and behaviour, protective factors and how they interact now.
         - Keep ward and service terms as said (for example 15/60 observations, escorted ground leave).
         - The impression ties the history, the mental state, the risk formulation and the plan together, and justifies the plan.
-        - At most about 1000 words. Leave out what adds nothing.
+        - Usually 500 to 900 words; never more than 1000. Leave out what adds nothing.
     """.trimIndent()
 
-    private fun clinical(task: String) = "$CLINICAL\n\n$NOTE_STYLE\n\n${task.trimIndent()}"
+    private val SHAPE = """
+        The document looks like this, with the headings from the task:
+
+        Heading
+        A paragraph of prose.
+
+        Plan
+        1. First decision.
+        2. Second decision.
+
+        Not covered today: allergies, alcohol and drug use.
+    """.trimIndent()
+
+    private val CLINICAL_AFTER = """
+        $AFTER
+        Before you write, remember:
+        - Only what the transcript says. A question without a clear answer means the topic was not covered.
+        - No "denies", "no history of", "no known" or "nil" unless the question was asked and clearly answered no.
+        - Medicines the clinician only explained are not the patient's.
+        - Check every date against the recording date. Use [check: ...] only for what matters and is unclear.
+        - Never grade risk as low, moderate or high.
+        - Plain text, numbered plan, no asterisks or markdown. End with "Not covered today: ..." if anything important was not covered.
+        Now write the document.
+    """.trimIndent()
+
+    private fun clinical(task: String) = "$CLINICAL\n\n$NOTE_STYLE\n\n${task.trimIndent()}\n\n$SHAPE\n\n$CLINICAL_AFTER"
+
+    /** The prompt that goes above the transcript, and the reminder that goes after it. */
+    fun split(text: String): Pair<String, String> {
+        val i = text.lines().indexOfFirst { it.trim() == AFTER }
+        if (i < 0) return text.trim() to ""
+        val lines = text.lines()
+        return lines.take(i).joinToString("\n").trim() to lines.drop(i + 1).joinToString("\n").trim()
+    }
 
     fun builtIns(): List<PromptTemplate> = listOf(
         PromptTemplate("inpatient", "Inpatient review", clinical("""
@@ -104,6 +143,7 @@ object Prompts {
             Discussion: the options the clinician explained and why one was preferred for this patient.
             Risk: qualitative formulation, including misuse or diversion of stimulants.
             Impression: whether the clinician concluded the criteria are met, in the clinician's terms. Do not name a diagnostic manual, differentials or comorbidity unless they were discussed.
+            For a stimulant, the cardiac screen, alcohol and drug use, and allergies matter most: if any of them was not asked, it goes first in the "Not covered today" line.
             Plan: numbered; medicine, formulation, starting dose, titration and maximum; prescribing authority or permit and who will prescribe; monitoring of blood pressure, pulse and weight; advice given; follow-up and how to contact the clinician.
         """), builtIn = true),
         PromptTemplate("intake", "Initial assessment", clinical("""
@@ -156,6 +196,7 @@ object Prompts {
             - Correct obvious misheard words without comment; only where a name, number or decision is genuinely unclear write your best reading followed by [check: what was heard].
             - Attribute decisions and actions to the person named in the transcript; if no one was named, write [owner to confirm].
             - Plain text, each heading on its own line, no markdown, no asterisks, no em dashes.
+            - A question is not an answer; what was not settled goes under Open questions.
 
             Headings:
             Meeting: date (from the transcript header) and purpose.
@@ -164,6 +205,9 @@ object Prompts {
             Decisions: numbered.
             Actions: numbered, each as "Owner: action, by when".
             Open questions: what was left unresolved.
+
+            $AFTER
+            Before you write, remember: only what was said; decisions and actions with the owner named in the transcript, or [owner to confirm]; plain text, numbered decisions and actions, no asterisks or markdown. Now write the minutes.
         """.trimIndent().replace("{TRANSCRIPT}", TRANSCRIPT), builtIn = true),
         PromptTemplate("dictation", "Dictation tidy", """
             Below is a dictation by a consultant psychiatrist, transcribed automatically by speech recognition on a phone. A second, medical speech engine checked the medicine names, but mistakes are still possible.
@@ -174,6 +218,9 @@ object Prompts {
             - Produce the final text in one reply; do not ask questions.
             - Do not add, remove, summarise, reorder or reword anything else. Keep the speaker's own words and style.
             - Australian and New Zealand English spelling. Plain text, no markdown, no em dashes.
+
+            $AFTER
+            Before you write, remember: keep every dictated word; fix only punctuation, layout and clear mishearings; add nothing, summarise nothing; plain text. Now write the final text.
         """.trimIndent(), builtIn = true),
     )
 
