@@ -78,6 +78,9 @@ class SessionStore(private val vault: Vault) {
 
     private fun touched() { _changes.value = _changes.value + 1 }
 
+    /** Something outside the store wrote into the vault (a restore): screens reload. */
+    fun changedOutside() = touched()
+
     fun sessions(problems: MutableList<String>? = null): List<Session> =
         records.all("sessions", Session.serializer(), problems).sortedByDescending { it.createdAtMillis }
 

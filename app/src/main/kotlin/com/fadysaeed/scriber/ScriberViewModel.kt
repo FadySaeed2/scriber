@@ -149,7 +149,9 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
                 reading = reading, compareRun = compare, edits = edits, missingSecond = missing,
                 speakers = speakers, speakerOf = speakerOf, canFindSpeakers = s.mode != SessionMode.DICTATION && SpeakerFinder.ready(getApplication()),
                 allDifferences = settings.showAllDifferences,
-                prompts = store.prompts(), promptId = settings.promptFor(s.mode), copyTimes = settings.copyTimes, copyNoticeSeen = settings.copyNoticeSeen)
+                prompts = store.prompts(), promptId = settings.promptFor(s.mode), copyTimes = settings.copyTimes, copyNoticeSeen = settings.copyNoticeSeen,
+                secondPending = missing != null && (store.runs(id).any { it.engine == missing && it.status == RunStatus.RUNNING } ||
+                    Jobs.pending(getApplication()).any { it.kind == Jobs.TRANSCRIBE && it.sessionId == id && it.engine == missing }))
         }
     }
 
@@ -164,6 +166,7 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
                 neededBytes = DevicePlan.bytesNeeded(selected) { f -> selected.firstOrNull { f in it.files }?.let { p -> models.bytesOnPhone(p, f) } ?: 0 })
         }
         _settings.update { it.copy(locked = locked, settings = store.settings(), storageBytes = vault.root.walkTopDown().filter { f -> f.isFile }.sumOf { f -> f.length() }) }
+        runCatching { storage() }
         _lab.update { it.copy(modelsReady = _models.value.allReady) }
         _settings.update { it.copy(medicines = runCatching { medicines().size }.getOrDefault(0), personalWords = store.personalWords().let { p -> p.words.size + p.heardAs.size },
             prompts = runCatching { store.prompts() }.getOrDefault(emptyList())) }
@@ -496,6 +499,76 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
         val p = from?.copy(id = id, name = from.name + " (copy)", builtIn = false) ?: com.fadysaeed.scriber.core.Prompts.blank(id, "New prompt")
         store.savePrompt(p.copy(updatedAtMillis = System.currentTimeMillis())); reloadPrompts()
         return id
+    }
+
+    // Storage and backup ----------------------------------------------------------------------
+
+    /** How much room the audio takes, and which sessions take the most. */
+    private fun storage() {
+        val sessions = store.sessions()
+        val sized = sessions.map { s ->
+            val dir = vault.file("sessions/${s.id}")
+            StoredSession(s.id, s.title, dir.walkTopDown().filter { it.isFile }.sumOf { it.length() }, s.createdAtMillis, s.hasAudio)
+        }
+        val audio = sessions.filter { it.hasAudio }.sumOf { s ->
+            listOfNotNull(s.audioName, s.workAudioName, s.original?.vaultName).distinct().sumOf { runCatching { vault.file(it).length() }.getOrDefault(0L) } +
+                vault.list(store.chunkDir(s.id)).sumOf { vault.file(it).length() }
+        }
+        _settings.update { it.copy(audioBytes = audio, audioSessions = sessions.count { s -> s.hasAudio }, largest = sized.filter { s -> s.hasAudio }.sortedByDescending { s -> s.bytes }.take(5)) }
+    }
+
+    /** Deletes the audio of sessions older than [days] days; their transcripts and corrections stay. */
+    fun deleteOldAudio(days: Int) = viewModelScope.launch(Dispatchers.IO) {
+        val cutoff = System.currentTimeMillis() - days * 86_400_000L
+        val old = store.sessions().filter { it.hasAudio && it.createdAtMillis < cutoff && Jobs.progress.value[it.id] == null }
+        val before = _settings.value.audioBytes
+        old.forEach { store.deleteAudio(it.id) }
+        refresh()
+        say(if (old.isEmpty()) "No audio older than $days days." else "Deleted the audio of ${old.size} sessions, about ${com.fadysaeed.scriber.core.Units.bytes((before - _settings.value.audioBytes).coerceAtLeast(0))}. Transcripts kept.")
+    }
+
+    private fun size(uri: android.net.Uri): Long = runCatching {
+        getApplication<Application>().contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.SIZE), null, null, null)?.use { c -> if (c.moveToFirst()) c.getLong(0) else -1L } ?: -1L
+    }.getOrDefault(-1L)
+
+    /** Writes everything into the file Fady chose, locked with [passphrase] (cleared afterwards). */
+    fun backup(uri: android.net.Uri, passphrase: CharArray) = viewModelScope.launch(Dispatchers.IO) {
+        val app = getApplication<Application>()
+        _settings.update { it.copy(backup = BackupProgress("Backing up", 0f)) }
+        val r = runCatching {
+            app.contentResolver.openOutputStream(uri, "wt")!!.use { out ->
+                com.fadysaeed.scriber.data.Backups(vault).backup(java.io.BufferedOutputStream(out, 1 shl 16), passphrase) { f -> _settings.update { it.copy(backup = BackupProgress("Backing up", f)) } }
+            }
+        }
+        passphrase.fill('\u0000')
+        _settings.update { it.copy(backup = null) }
+        r.onSuccess { say("Backed up ${it.files} files (${com.fadysaeed.scriber.core.Units.bytes(size(uri).coerceAtLeast(0))}). Keep the passphrase: without it the backup cannot be opened.") }
+            .onFailure { e ->
+                runCatching { android.provider.DocumentsContract.deleteDocument(app.contentResolver, uri) }
+                say("The backup failed and was removed: ${e.message ?: e.javaClass.simpleName}")
+            }
+    }
+
+    /** Adds what a backup holds and this phone does not; nothing here is overwritten. */
+    fun restore(uri: android.net.Uri, passphrase: CharArray) = viewModelScope.launch(Dispatchers.IO) {
+        val app = getApplication<Application>()
+        _settings.update { it.copy(backup = BackupProgress("Restoring", 0f)) }
+        val total = size(uri)
+        val r = runCatching {
+            app.contentResolver.openInputStream(uri)!!.use { input ->
+                com.fadysaeed.scriber.data.Backups(vault).restore(java.io.BufferedInputStream(input, 1 shl 16), total, passphrase) { f -> _settings.update { it.copy(backup = BackupProgress("Restoring", f)) } }
+            }
+        }
+        passphrase.fill('\u0000')
+        _settings.update { it.copy(backup = null) }
+        store.changedOutside()
+        refresh()
+        r.onSuccess { say("Restored ${it.files} files" + if (it.skipped > 0) "; ${it.skipped} were already here and stayed as they are." else ".") }
+            .onFailure { e -> say(when (e) {
+                is com.fadysaeed.scriber.core.Backup.WrongPassphrase -> "Wrong passphrase, or not a Scriber backup. Nothing was restored."
+                is com.fadysaeed.scriber.core.Backup.Damaged -> "${e.message}. What came before the damage was restored."
+                else -> "The restore stopped: ${e.message ?: e.javaClass.simpleName}"
+            }) }
     }
 
     /**

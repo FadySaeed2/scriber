@@ -45,6 +45,7 @@ import com.fadysaeed.scriber.ui.SessionsScreen
 import com.fadysaeed.scriber.ui.SettingsScreen
 import com.fadysaeed.scriber.ui.Tab
 import com.fadysaeed.scriber.ui.CopyActions
+import com.fadysaeed.scriber.ui.DataActions
 import com.fadysaeed.scriber.ui.PromptActions
 import com.fadysaeed.scriber.ui.PromptsScreen
 import com.fadysaeed.scriber.ui.Toast
@@ -75,6 +76,16 @@ class MainActivity : FragmentActivity() {
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { vm.startDownload() }
     private val pickAudio = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { importUri(it) } }
     private val createDoc = registerForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri -> uri?.let { finishExport(it) } }
+    /** The passphrase waits here while Fady picks where the backup goes, or which one to restore. */
+    private var pendingPass: CharArray? = null
+    private val createBackup = registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        val p = pendingPass; pendingPass = null
+        if (uri != null && p != null) vm.backup(uri, p) else p?.fill('\u0000')
+    }
+    private val openBackup = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val p = pendingPass; pendingPass = null
+        if (uri != null && p != null) vm.restore(uri, p) else p?.fill('\u0000')
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -161,7 +172,13 @@ class MainActivity : FragmentActivity() {
                     Tab.Lab -> LabScreen(vm.lab.collectAsState().value, vm::runLab, { copy(it) }, { vm.tryHints() }, { vm.runSpeedCheck() })
                     Tab.Settings -> SettingsScreen(vm.settings.collectAsState().value, { vm.updateSettings(it) },
                         { authenticate("Allow model downloads") { vm.unlockDownloads() } }, { vm.lockDownloads() }, { vm.checkVault() },
-                        { vm.settings.value.crash?.let { copy(it) } }, { vm.clearCrash() }) { showPrompts = true }
+                        { vm.settings.value.crash?.let { copy(it) } }, { vm.clearCrash() }, { showPrompts = true },
+                        DataActions(
+                            onOpenSession = ::open,
+                            onDeleteOldAudio = { vm.deleteOldAudio(it) },
+                            onBackup = { p -> pendingPass = p; createBackup.launch("Scriber backup ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ENGLISH).format(java.util.Date())}.scriberbackup") },
+                            onRestore = { p -> pendingPass = p; openBackup.launch(arrayOf("*/*")) },
+                        ))
                 }
             }
         }

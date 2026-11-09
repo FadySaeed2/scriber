@@ -5,6 +5,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -52,7 +57,10 @@ fun SecondOpinion(ui: SessionUi, a: SessionActions, onReview: () -> Unit) {
     val meds = ui.openMedicines
     val medSuggestions = diffs.count { it.medicine != null } + meds.size
     Spacer(Modifier.height(14.dp))
+    // While MedASR is still to come, one check waits for it rather than two arriving one after the other.
+    val waiting = compare == null && ui.secondPending
     when {
+        waiting -> Status("Medicine check after ${engineName(ui.missingSecond)}", Ink.Dust)
         compare != null && (diffs.isNotEmpty() || meds.isNotEmpty()) -> {
             Text(if (ui.allDifferences) listOfNotNull(
                 "${engineName(compare.engine)} heard ${diffs.size} ${if (diffs.size == 1) "place" else "places"} differently",
@@ -176,14 +184,29 @@ private fun annotated(list: List<Piece>, readable: Boolean, onTap: (Piece) -> Un
 }
 
 /** The transcript, line by line: time on the left (tap to hear), words on the right (tap to correct). */
+/** Which lines start a new speaker's turn (the speaker's name goes above them). */
+private fun speakerStarts(lines: List<com.fadysaeed.scriber.core.Line>): BooleanArray {
+    var last: Int? = null
+    return BooleanArray(lines.size) { i -> val sp = lines[i].speaker; (sp != null && sp != last).also { if (sp != null) last = sp } }
+}
+
+/** Finding words in a long transcript: what is looked for, and which match is shown. */
+class TranscriptFind {
+    var query by mutableStateOf("")
+    var current by mutableIntStateOf(0)
+    val list = androidx.compose.foundation.lazy.LazyListState()
+}
+
+/** Short transcripts sit in the page; longer ones get their own window. */
+const val SHORT_TRANSCRIPT = 14
+
 @Composable
-fun Transcript(ui: SessionUi, a: SessionActions, readable: Boolean, open: (SessionSheet) -> Unit) {
+private fun TranscriptLine(ui: SessionUi, a: SessionActions, readable: Boolean, line: com.fadysaeed.scriber.core.Line, showSpeaker: Boolean, found: Boolean, open: (SessionSheet) -> Unit) {
     val s = ui.session ?: return
     val reading = ui.reading
-    var lastSpeaker: Int? = null
-    for (line in ui.lines) {
-        val sp = line.speaker
-        if (sp != null && sp != lastSpeaker) {
+    val sp = line.speaker
+    Column(if (found) Modifier.fillMaxWidth().background(Ink.Field, Corner) else Modifier.fillMaxWidth()) {
+        if (sp != null && showSpeaker) {
             Row(Modifier.fillMaxWidth().clickable(enabled = line.from >= 0, role = Role.Button) { open(SessionSheet.Speaker(line.from, line.to, sp, line.text)) }.padding(top = 12.dp, bottom = 2.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Spacer(Modifier.width(48.dp))
@@ -191,7 +214,6 @@ fun Transcript(ui: SessionUi, a: SessionActions, readable: Boolean, open: (Sessi
                 Eyebrow(line.speakerName ?: "Speaker ${sp + 1}", color = speakerColor(sp))
             }
         }
-        lastSpeaker = sp ?: lastSpeaker
         val playingHere = ui.player.playing && ui.player.positionMs in line.startMs until line.endMs
         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
             Text(clock(line.startMs), style = Type.tiny.copy(color = if (playingHere) Ink.Amber else Ink.Ash),
@@ -221,6 +243,75 @@ fun Transcript(ui: SessionUi, a: SessionActions, readable: Boolean, open: (Sessi
                     }
                 }, style = Type.reading.copy(color = color), modifier = Modifier.weight(1f))
             }
+        }
+    }
+}
+
+/** Every line, in the page (for short transcripts and pictures of the screen). */
+@Composable
+fun Transcript(ui: SessionUi, a: SessionActions, readable: Boolean, open: (SessionSheet) -> Unit) {
+    val starts = remember(ui.lines) { speakerStarts(ui.lines) }
+    ui.lines.forEachIndexed { i, line -> TranscriptLine(ui, a, readable, line, starts[i], false, open) }
+}
+
+/** The line numbers holding [query] (at least two letters), in order. */
+private fun matches(lines: List<com.fadysaeed.scriber.core.Line>, query: String): List<Int> {
+    val q = query.trim()
+    return if (q.length < 2) emptyList() else lines.indices.filter { lines[it].text.contains(q, ignoreCase = true) }
+}
+
+/** The search row: what to find, which match of how many, and the way through them. */
+@Composable
+fun FindRow(ui: SessionUi, find: TranscriptFind, onFull: (() -> Unit)?) {
+    val found = remember(ui.lines, find.query) { matches(ui.lines, find.query) }
+    LaunchedEffect(found, find.current) {
+        found.getOrNull(find.current.coerceIn(0, (found.size - 1).coerceAtLeast(0)))?.let { find.list.animateScrollToItem(it) }
+    }
+    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.weight(1f).background(Ink.Field, Corner).border(1.dp, Ink.Edge, Corner).padding(horizontal = 12.dp, vertical = 10.dp)) {
+            if (find.query.isEmpty()) Text("Find in the transcript", style = Type.body.copy(color = Ink.Ash))
+            BasicTextField(find.query, { find.query = it; find.current = 0 }, singleLine = true, textStyle = Type.body, cursorBrush = SolidColor(Ink.Amber), modifier = Modifier.fillMaxWidth())
+        }
+        if (found.isNotEmpty()) {
+            Spacer(Modifier.width(8.dp))
+            Text("${find.current + 1}/${found.size}", style = Type.figure)
+            IconButton(Glyph.UP, "Previous", { find.current = (find.current - 1 + found.size) % found.size }, size = 40.dp)
+            IconButton(Glyph.DOWN, "Next", { find.current = (find.current + 1) % found.size }, size = 40.dp)
+        } else if (find.query.trim().length >= 2) {
+            Spacer(Modifier.width(8.dp)); Text("None", style = Type.small)
+        }
+        if (onFull != null) IconButton(Glyph.EXPAND, "Whole screen", onFull, color = Ink.Amber, size = 40.dp)
+    }
+}
+
+/** A long transcript in its own scrolling window, so the rest of the page is a flick away. */
+@Composable
+fun TranscriptWindow(ui: SessionUi, a: SessionActions, readable: Boolean, find: TranscriptFind, onFull: () -> Unit, open: (SessionSheet) -> Unit) {
+    val starts = remember(ui.lines) { speakerStarts(ui.lines) }
+    val found = remember(ui.lines, find.query) { matches(ui.lines, find.query) }
+    val height = (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp * 0.62f).dp
+    FindRow(ui, find, onFull)
+    Box(Modifier.fillMaxWidth().height(height).border(1.dp, Ink.Hairline, Corner).padding(horizontal = 6.dp)) {
+        androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxSize(), state = find.list) {
+            items(ui.lines.size) { i -> TranscriptLine(ui, a, readable, ui.lines[i], starts[i], found.getOrNull(find.current) == i, open) }
+        }
+    }
+}
+
+/** The transcript on the whole screen, with the same search; sheets still open over it. */
+@Composable
+fun TranscriptFull(ui: SessionUi, a: SessionActions, readable: Boolean, find: TranscriptFind, close: () -> Unit, open: (SessionSheet) -> Unit) {
+    androidx.activity.compose.BackHandler(onBack = close)
+    val starts = remember(ui.lines) { speakerStarts(ui.lines) }
+    val found = remember(ui.lines, find.query) { matches(ui.lines, find.query) }
+    Column(Modifier.fillMaxSize().background(Ink.Black).statusBarsPadding().navigationBarsPadding().padding(horizontal = 16.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(ui.session?.title.orEmpty(), style = Type.title, modifier = Modifier.weight(1f), maxLines = 1)
+            IconButton(Glyph.CLOSE, "Back to the page", close)
+        }
+        FindRow(ui, find, null)
+        androidx.compose.foundation.lazy.LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = find.list) {
+            items(ui.lines.size) { i -> TranscriptLine(ui, a, readable, ui.lines[i], starts[i], found.getOrNull(find.current) == i, open) }
         }
     }
 }

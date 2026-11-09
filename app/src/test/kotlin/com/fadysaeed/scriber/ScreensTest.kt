@@ -258,4 +258,24 @@ class ScreensTest {
             speakerOf = com.fadysaeed.scriber.core.Speakers.assign(reading.words, reading.segments, three, "b1"))
         SessionScreen(ui, actions)
     }
+
+    // Long transcripts, storage and backup ---------------------------------------------------
+
+    private val longRun = Seal.sealed(TranscriptRun("L1", "s9", "parakeet", "Parakeet TDT 0.6B v2", "a".repeat(64), emptyMap(), "b".repeat(64), now, now, RunStatus.DONE,
+        List(40) { i -> Segment(i * 6_000L, i * 6_000L + 5_500, if (i % 2 == 0) "Question $i about sleep, appetite and the olanzapine dose since the last review?" else "Answer $i: sleeping better, eating more, no thoughts of harming myself.") }))
+    private fun longUi() = SessionUi(session("s9", "Long ward review", SessionMode.CONVERSATION, 0).copy(durationMs = 240_000), listOf(longRun), selectedRunId = "L1",
+        reading = com.fadysaeed.scriber.core.Compare.reading(longRun, null, SessionMode.CONVERSATION, com.fadysaeed.scriber.core.Medicines.bundled()))
+
+    @Test fun longTranscriptWindow() = shot("31_transcript_window.png") { SessionScreen(longUi(), actions) }
+
+    @Test fun longTranscriptFull() = shot("32_transcript_full.png") { SessionScreen(longUi(), actions, fullOverride = true) }
+
+    @Test fun settingsStorageAndBackup() = tabShot("33_settings_storage.png", Tab.Settings) {
+        SettingsScreen(SettingsUi(locked = true, hosts = listOf("huggingface.co"), version = "0.0.41", storageBytes = 2_400_000_000, audioBytes = 2_100_000_000, audioSessions = 23,
+            largest = listOf(StoredSession("a", "Team meeting", 820_000_000, now, true), StoredSession("b", "Rowan", 190_000_000, now, true)), prompts = prompts), {}, {}, {}, {})
+    }
+
+    @Test fun settingsBackupRunning() = tabShot("34_settings_backup_running.png", Tab.Settings) {
+        SettingsScreen(SettingsUi(locked = true, hosts = listOf("huggingface.co"), version = "0.0.41", backup = BackupProgress("Backing up", 0.42f)), {}, {}, {}, {})
+    }
 }

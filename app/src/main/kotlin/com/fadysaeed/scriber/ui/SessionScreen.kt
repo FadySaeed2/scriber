@@ -107,11 +107,15 @@ class ReviewActions(
 private fun stamp(ms: Long) = SimpleDateFormat("d MMM yyyy, HH:mm", Locale.ENGLISH).format(Date(ms))
 
 @Composable
-fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet? = null) {
+fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet? = null, fullOverride: Boolean = false) {
     val s = ui.session ?: return
     var sheet by remember { mutableStateOf(sheetOverride) }
+    val find = remember(s.id) { TranscriptFind() }
+    var full by remember(s.id) { mutableStateOf(fullOverride) }
+    val readable = ui.readable && s.mode == SessionMode.DICTATION
     Box {
-        Page(s.title, a.onBack, actions = { IconButton(Glyph.RENAME, "Rename", { sheet = SessionSheet.Rename }) }, footer = {
+        if (full) TranscriptFull(ui, a, readable, find, { full = false }) { sheet = it }
+        else Page(s.title, a.onBack, actions = { IconButton(Glyph.RENAME, "Rename", { sheet = SessionSheet.Rename }) }, footer = {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 val p = ui.player
                 if (p.playing) GhostButton("Stop  ${clock(p.positionMs)}", a.onStopPlaying, Modifier.weight(1f), minHeight = 52.dp)
@@ -134,7 +138,7 @@ fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet?
             s.problem?.let { Spacer(Modifier.height(12.dp)); Text(it, style = Type.body.copy(color = Ink.Ember)) }
             if (s.recovered) { Spacer(Modifier.height(12.dp)); Text("This recording stopped unexpectedly and was rescued up to its last saved moment.", style = Type.note.copy(color = Ink.Amber)) }
 
-            TranscriptView(ui, a, s) { sheet = it }
+            TranscriptView(ui, a, s, find, { full = true }) { sheet = it }
             run {
                 Section("This session")
                 Fact("Source", if (s.source == SessionSource.IMPORTED) s.original?.let { "Imported: ${it.displayName}" } ?: "Imported" else "Recorded here")
@@ -206,7 +210,7 @@ fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet?
 }
 
 @Composable
-private fun ColumnScope.TranscriptView(ui: SessionUi, a: SessionActions, s: com.fadysaeed.scriber.core.Session, open: (SessionSheet) -> Unit) {
+private fun ColumnScope.TranscriptView(ui: SessionUi, a: SessionActions, s: com.fadysaeed.scriber.core.Session, find: TranscriptFind, onFull: () -> Unit, open: (SessionSheet) -> Unit) {
     if (ui.runs.isNotEmpty()) {
         Section("Transcripts")
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -238,7 +242,8 @@ private fun ColumnScope.TranscriptView(ui: SessionUi, a: SessionActions, s: com.
                     SpeakersSummary(ui, { open(SessionSheet.Speakers) }) { a.review.onFindSpeakers(ui.speakers?.requested ?: 2) }
                     Spacer(Modifier.height(10.dp))
                     if (run.segments.isEmpty()) Text("No speech was found in this audio.", style = Type.note)
-                    Transcript(ui, a, readable = ui.readable && s.mode == SessionMode.DICTATION, open)
+                    val readable = ui.readable && s.mode == SessionMode.DICTATION
+                    if (ui.lines.size > SHORT_TRANSCRIPT) TranscriptWindow(ui, a, readable, find, onFull, open) else Transcript(ui, a, readable, open)
                 }
             }
         }

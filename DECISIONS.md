@@ -139,3 +139,10 @@ one piece at a time; the voice prints of all pieces are grouped together, so a v
 across the meeting. Grouping was rewritten to keep group likeness up to date as groups join, which
 gives the same groups as before in a fraction of the time on a thousand or more pieces.
 
+**2026-11-09. Backups locked with a passphrase, restores that never overwrite.** The vault's keys
+are tied to the phone and cannot move, so a backup decrypts each file and seals it again with a key
+made from Fady's passphrase (PBKDF2-SHA256, 310,000 rounds; AES-256-GCM in 1 MiB pieces, each
+numbered and the last one marked, so a cut, reordered or changed file is caught). The passphrase is
+never stored. A restore adds only what is missing, so restoring onto a phone in use cannot undo
+work done since; the job queue and crash notes are left out.
+

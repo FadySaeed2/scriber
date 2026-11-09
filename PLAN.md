@@ -31,7 +31,12 @@ Each phase ships as a signed APK, is tried on the phone, and only then does the 
   medication review, discharge summary, family meeting, Mental Health Act report, meeting minutes,
   dictation tidy), all editable, plus Fady's own. A meeting mode finds how many people speak, up
   to two hours.
-- **Phase 4, checking:** every drug name, dose and number in a note checked against the
-  transcript, tap a sentence to hear that moment.
-- **Phase 5, polish:** live captions, storage management, encrypted vault backup/restore with a
-  passphrase, more note templates.
+- **Phase 4, finishing (this build):** MedASR runs straight after Parakeet, before speakers, and the
+  medicine check shows once, when it is complete. Long transcripts sit in their own scrolling
+  window (only the lines on screen are drawn, so two-hour meetings stay smooth), with find, next and
+  previous, and a whole-screen view. Settings show how much room the audio takes, the sessions
+  taking the most, and can delete audio older than 30 days while keeping transcripts. Backup and
+  restore of everything in one file locked with a passphrase; a restore only adds what the phone
+  does not have.
+- **Still open, needing Fady's recordings:** Parakeet with the medicine list as hotwords (Lab trial
+  on his corrected sessions); speakers in a real meeting over 40 minutes.

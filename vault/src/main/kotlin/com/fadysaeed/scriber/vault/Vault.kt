@@ -98,6 +98,10 @@ class Vault private constructor(
 
     fun deleteRecord(name: String): Boolean = file("records/$name").delete()
 
+    /** Every file in the vault (not temporaries), as names relative to its root, sorted. */
+    fun all(): List<String> =
+        root.walkTopDown().filter { it.isFile && !it.name.endsWith(".tmp") }.map { it.relativeTo(root).invariantSeparatorsPath }.sorted().toList()
+
     private fun ad(kind: String, name: String) = "scriber:$kind:$name".toByteArray()
 
     private fun checkName(name: String): String {

@@ -191,17 +191,17 @@ object Jobs {
                     val pct = (f * 100).toInt()
                     if (pct != last) { last = pct; report(JobProgress(id, label, f)); notify("$label, $pct%") }
                 }
-                // A new conversation or meeting: speakers next (a meeting's speaker count is always found), so they arrive soon after the transcript, then
-                // the second opinion. The transcript can be read while both run.
+                // The medicine check (the second opinion) comes straight after the main transcript, so
+                // a session is cleaned quickly; speakers, when they are on, come after it.
+                job.then?.let { enqueueBehind(context, TRANSCRIBE, id, it, null) }
                 val settings = store.settings()
                 val s = store.session(id)
                 if (settings.findSpeakers && s != null && s.mode != com.fadysaeed.scriber.core.SessionMode.DICTATION && store.speakers(id) == null && SpeakerFinder.ready(context)) {
                     synchronized(lock) {
                         val jobs = queue(context)
-                        if (jobs.none { it.kind == SPEAKERS && it.sessionId == id }) save(context, jobs + Job(Ids.new(), SPEAKERS, id, "", count = if (s.mode == com.fadysaeed.scriber.core.SessionMode.MEETING) 0 else store.settings().speakers))
+                        if (jobs.none { it.kind == SPEAKERS && it.sessionId == id }) save(context, jobs + Job(Ids.new(), SPEAKERS, id, "", count = if (s.mode == com.fadysaeed.scriber.core.SessionMode.MEETING) 0 else settings.speakers))
                     }
                 }
-                job.then?.let { enqueueBehind(context, TRANSCRIBE, id, it, null) }
             } catch (_: Throwable) {
                 // The failed run is saved with its reason and shows on the session.
             }

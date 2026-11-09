@@ -78,6 +78,8 @@ data class SessionUi(
     val showEdited: Boolean = true,
     /** Engine name for the second opinion that is missing, if the session has none yet. */
     val missingSecond: String? = null,
+    /** The second opinion is queued or running: the medicine check waits for it. */
+    val secondPending: Boolean = false,
     /** Who spoke when, for a conversation. */
     val speakers: SpeakerLayer? = null,
     /** The speaker of each base word of the selected run. */
@@ -132,4 +134,15 @@ data class SettingsUi(
     val medicines: Int = 0,
     val personalWords: Int = 0,
     val prompts: List<com.fadysaeed.scriber.core.PromptTemplate> = emptyList(),
+    /** Recordings' audio, and how many sessions still have it. */
+    val audioBytes: Long = 0,
+    val audioSessions: Int = 0,
+    /** Sessions taking the most room, biggest first. */
+    val largest: List<StoredSession> = emptyList(),
+    /** A backup or restore under way. */
+    val backup: BackupProgress? = null,
 )
+
+data class StoredSession(val id: String, val title: String, val bytes: Long, val createdAtMillis: Long, val hasAudio: Boolean)
+
+data class BackupProgress(val label: String, val fraction: Float)
