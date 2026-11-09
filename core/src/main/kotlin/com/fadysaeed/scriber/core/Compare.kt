@@ -19,7 +19,11 @@ data class Difference(
     val medicine: String? = null,
     /** What to put in if Fady accepts the suggestion: the second engine's words, medicine spelled properly. */
     val suggestion: String = altText,
+    /** A medical word or phrase either engine heard here (a condition, test, procedure...), when it is not a medicine. */
+    val term: String? = null,
 ) {
+    /** About medical language at all: a medicine or another medical term. */
+    val medical: Boolean get() = medicine != null || term != null
     val id: String get() = "$from-$to"
 }
 
@@ -135,7 +139,7 @@ object Compare {
      * difference in one place cannot shift the rest. Differences that are only spelling of the same
      * thing ("15" and "fifteen", "follow-up" and "follow up") are not shown.
      */
-    fun reading(base: TranscriptRun, alt: TranscriptRun?, mode: SessionMode, medicines: Medicines): Reading {
+    fun reading(base: TranscriptRun, alt: TranscriptRun?, mode: SessionMode, medicines: Medicines, terms: MedicalTerms = MedicalTerms.bundled()): Reading {
         val (words, ranges) = Words.of(base, mode)
         val diffs = ArrayList<Difference>()
         if (alt != null) {
@@ -147,7 +151,7 @@ object Compare {
                 if (si >= 0) buckets[si] += w
             }
             ranges.forEachIndexed { si, range ->
-                diffs += alignSegment(words, range, buckets[si], si, medicines)
+                diffs += alignSegment(words, range, buckets[si], si, medicines, terms)
             }
         }
         val hits = findMedicines(words, ranges, medicines, diffs)
@@ -163,7 +167,7 @@ object Compare {
         return if (bestGap <= 1500) best else -1
     }
 
-    private fun alignSegment(words: List<Word>, range: IntRange, alt: List<Word>, si: Int, medicines: Medicines): List<Difference> {
+    private fun alignSegment(words: List<Word>, range: IntRange, alt: List<Word>, si: Int, medicines: Medicines, terms: MedicalTerms): List<Difference> {
         // Only words with a key take part; markup is invisible to the comparison.
         val b = range.filter { words[it].key.isNotEmpty() }
         val a = alt.filter { it.key.isNotEmpty() }
@@ -182,7 +186,7 @@ object Compare {
         fun flush(insertAt: Int) {
             if (spanB.isEmpty() && spanA.isEmpty()) return
             spanB.reverse(); spanA.reverse()
-            makeDifference(words, spanB, spanA, insertAt, si, medicines)?.let { out += it }
+            makeDifference(words, spanB, spanA, insertAt, si, medicines, terms)?.let { out += it }
             spanB = ArrayList(); spanA = ArrayList()
         }
         while (i > 0 || j > 0) {
@@ -200,7 +204,7 @@ object Compare {
         return out.reversed()
     }
 
-    private fun makeDifference(words: List<Word>, spanB: List<Int>, spanA: List<Word>, insertAt: Int, si: Int, medicines: Medicines): Difference? {
+    private fun makeDifference(words: List<Word>, spanB: List<Int>, spanA: List<Word>, insertAt: Int, si: Int, medicines: Medicines, terms: MedicalTerms): Difference? {
         val baseKeys = spanB.joinToString("") { words[it].key }
         val altKeys = spanA.joinToString("") { it.key }
         if (baseKeys == altKeys) return null
@@ -210,16 +214,28 @@ object Compare {
         val altMedicine = medicines.find(spanA.map { it.text })
         val baseMedicine = medicines.find(spanB.map { words[it].text })
         val medicine = altMedicine?.takeIf { baseMedicine == null || baseMedicine.canonical != it.canonical || !baseMedicine.exact }?.canonical
+        // A medical word either engine heard here, with two base words either side so phrases
+        // like "heart failure" are found when only one of their words differs.
+        val term = if (medicine != null || spanA.isEmpty()) null else {
+            val at = spanB.firstOrNull() ?: insertAt
+            val end = (spanB.lastOrNull() ?: (insertAt - 1)) + 1
+            val before = (maxOf(0, at - 2) until at).map { words[it].key }
+            val after = (end until minOf(words.size, end + 2)).map { words[it].key }
+            val altKeys = before + spanA.map { it.key } + after
+            val baseKeys = before + spanB.map { words[it].key } + after
+            terms.termIn(altKeys, before.size until before.size + spanA.size)
+                ?: if (spanB.isEmpty()) null else terms.termIn(baseKeys, before.size until before.size + spanB.size)
+        }
         // Words only the base heard are not worth a question; words only the second engine heard
-        // are shown only when they name a medicine.
+        // are shown only when they are medical.
         if (spanA.isEmpty()) return null
-        if (spanB.isEmpty() && medicine == null) return null
+        if (spanB.isEmpty() && medicine == null && term == null) return null
         val from = if (spanB.isEmpty()) insertAt else spanB.first()
         val to = if (spanB.isEmpty()) insertAt else spanB.last() + 1
         val start = minOf(spanA.first().startMs, spanB.firstOrNull()?.let { words[it].startMs } ?: Long.MAX_VALUE)
         val end = maxOf(spanA.last().endMs, spanB.lastOrNull()?.let { words[it].endMs } ?: 0L)
         val suggestion = if (altMedicine != null && medicine != null) medicines.respell(spanA.map { it.text }, altMedicine) else altText
-        return Difference(from, to, si, baseText, altText, start, end, medicine, dressLike(baseText, cleanMarkup(suggestion)))
+        return Difference(from, to, si, baseText, altText, start, end, medicine, dressLike(baseText, cleanMarkup(suggestion)), term)
     }
 
     /**

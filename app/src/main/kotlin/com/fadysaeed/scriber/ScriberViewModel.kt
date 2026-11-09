@@ -248,7 +248,7 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
 
     fun acceptDifference(d: Difference) = editLayer { layer ->
         if (d.medicine != null && d.baseText.isNotBlank()) learn(d.baseText, d.medicine!!)
-        layer.with(WordEdit(d.from, d.to, d.segment, d.suggestion, if (d.medicine != null) "medicine" else "second", System.currentTimeMillis()))
+        layer.with(WordEdit(d.from, d.to, d.segment, d.suggestion, if (d.medicine != null) "medicine" else if (d.term != null) "term" else "second", System.currentTimeMillis()))
     }
 
     fun keepDifference(id: String) = editLayer { it.keep(id, System.currentTimeMillis()) }
@@ -263,9 +263,9 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
         val ui = _session.value
         var layer = start
         var t = System.currentTimeMillis()
-        for (d in ui.openDifferences.filter { it.medicine != null }) {
-            if (d.baseText.isNotBlank()) learn(d.baseText, d.medicine!!)
-            layer = layer.with(WordEdit(d.from, d.to, d.segment, d.suggestion, "medicine", t++))
+        for (d in ui.openDifferences.filter { it.medical }) {
+            if (d.medicine != null && d.baseText.isNotBlank()) learn(d.baseText, d.medicine)
+            layer = layer.with(WordEdit(d.from, d.to, d.segment, d.suggestion, if (d.medicine != null) "medicine" else "term", t++))
         }
         for (m in ui.openMedicines) {
             learn(m.heard, m.canonical)

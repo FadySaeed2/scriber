@@ -1,0 +1,240 @@
+# Added by hand for Scriber: psychiatric and ward language, Australian and New Zealand terms, and
+# abbreviations clinicians say aloud. Lines starting "-" remove a word the MeSH list has but that
+# is everyday speech on a ward.
+-nurse
+-nurses
+-machinery
+-decay
+-bulbs
+-absenteeism
+-crying
+suicide
+suicidal
+suicidality
+self-harm
+self harm
+self-harming
+overdose
+overdosed
+ligature
+seclusion
+restraint
+sectioned
+involuntary
+compulsory treatment order
+community treatment order
+mental health act
+form six
+tribunal
+observations
+escorted leave
+ground leave
+unescorted
+absconded
+absconding
+psychotic
+psychosis
+schizoaffective
+bipolar
+mania
+manic
+hypomania
+hypomanic
+euthymic
+dysthymic
+dysthymia
+anhedonia
+avolition
+alogia
+amotivation
+labile
+lability
+incongruent
+blunted
+flattened affect
+restricted affect
+reactive affect
+psychomotor retardation
+psychomotor agitation
+thought disorder
+formal thought disorder
+derailment
+tangential
+tangentiality
+circumstantial
+circumstantiality
+flight of ideas
+loosening of associations
+thought block
+thought blocking
+thought insertion
+thought withdrawal
+thought broadcasting
+perseveration
+confabulation
+depersonalisation
+derealisation
+pseudohallucination
+pseudohallucinations
+hallucination
+hallucinations
+command hallucinations
+auditory hallucinations
+visual hallucinations
+delusion
+delusions
+delusional
+persecutory
+grandiose
+grandiosity
+nihilistic
+erotomanic
+ideas of reference
+passivity
+catatonic
+catatonia
+akathisia
+dystonia
+tardive dyskinesia
+parkinsonism
+neuroleptic malignant syndrome
+serotonin syndrome
+metabolic syndrome
+extrapyramidal
+clozapine
+depot
+long acting injectable
+paliperidone
+aripiprazole
+olanzapine
+lithium level
+clozapine level
+borderline personality
+emotionally unstable personality
+antisocial personality
+narcissistic
+autism
+autistic
+asperger
+neurodivergent
+adhd
+ptsd
+complex ptsd
+cptsd
+ocd
+gad
+bpad
+eupd
+bpd
+asd
+fasd
+mdd
+ect
+rtms
+tms
+mse
+cto
+mha
+prn
+stat
+qtc
+ecg
+eeg
+mri
+fbc
+lft
+lfts
+uec
+tft
+tfts
+hba1c
+bmi
+ssri
+ssris
+snri
+snris
+tca
+tcas
+maoi
+nms
+epse
+panss
+honos
+moca
+mmse
+acer
+phq
+phq9
+gad7
+asrs
+dass
+ciwa
+stemi
+nstemi
+svt
+copd
+ckd
+uti
+dvt
+gord
+tia
+cva
+ibs
+tachycardic
+bradycardic
+hypotensive
+hypertensive
+palpitations
+syncope
+presyncope
+orthostatic
+arrhythmia
+pacemaker
+cardiomyopathy
+myocarditis
+anaphylaxis
+urticaria
+hay fever
+asthma
+eczema
+epilepsy
+seizure
+seizures
+migraine
+diabetes
+diabetic
+hypothyroid
+hyperthyroid
+hypothyroidism
+hyperthyroidism
+anaemia
+anaemic
+haemoglobin
+oesophagus
+oedema
+paediatric
+gynaecology
+orthopaedic
+haemorrhage
+diarrhoea
+tumour
+leukaemia
+orthorexia
+anorexia
+bulimia
+binge eating
+avoidant restrictive
+arfid
+cannabis
+methamphetamine
+amphetamines
+benzodiazepines
+benzos
+opioids
+withdrawal
+detox
+intoxicated
+intoxication
+delirium
+dementia
+cognitive impairment

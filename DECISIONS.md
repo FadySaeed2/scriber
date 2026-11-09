@@ -146,3 +146,12 @@ numbered and the last one marked, so a cut, reordered or changed file is caught)
 never stored. A restore adds only what is missing, so restoring onto a phone in use cannot undo
 work done since; the job queue and crash notes are left out.
 
+
+**2026-11-09. The second opinion covers medical language, not only medicines.** A difference
+between Parakeet and MedASR is shown when either engine heard a medicine or a medical term there
+(a condition, syndrome, symptom, test, procedure, part of the body, or a clinical abbreviation);
+everyday words stay as Parakeet heard them. The terms come from MeSH 2025 (U.S. National Library
+of Medicine; tools/build_medical_terms.py, run by the "Medical terms" workflow), with everyday
+English removed by word frequency (wordfreq), plus a hand-made list of psychiatric and ward
+language. The clean copy puts in a term only when MedASR heard it and Parakeet wrote something that
+is not a word at all, a few words long; every other medical difference waits for Fady's review.

@@ -112,7 +112,7 @@ data class SessionUi(
 
     /** Differences Fady has not dealt with yet. */
     val openDifferences: List<Difference> get() = reading?.differences.orEmpty()
-        .filter { d -> (allDifferences || d.medicine != null) && d.id !in edits?.kept.orEmpty() && !touched(d.from, d.to) }
+        .filter { d -> (allDifferences || d.medical) && d.id !in edits?.kept.orEmpty() && !touched(d.from, d.to) }
 
     /** Medicines in the transcript that look misspelled and have not been dealt with. */
     val openMedicines: List<MedicineHit> get() = reading?.medicines.orEmpty().filter { m -> !m.exact && m.id !in edits?.kept.orEmpty() && !touched(m.from, m.to) }

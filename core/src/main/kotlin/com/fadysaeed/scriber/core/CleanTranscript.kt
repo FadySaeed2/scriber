@@ -18,16 +18,19 @@ object CleanTranscript {
      * opinion heard where the first engine did not, and dictionary spellings of misheard names.
      * Fady's own corrections, and differences he kept as they were, win.
      */
-    fun medicineLines(run: TranscriptRun, reading: Reading, layer: EditLayer?, speakers: List<Int>? = null, name: (Int) -> String = { "Speaker ${it + 1}" }): Result {
+    fun medicineLines(
+        run: TranscriptRun, reading: Reading, layer: EditLayer?, speakers: List<Int>? = null, name: (Int) -> String = { "Speaker ${it + 1}" },
+        terms: MedicalTerms = MedicalTerms.bundled(), common: Set<String> = Medicines.commonWords(),
+    ): Result {
         val mine = layer?.edits.orEmpty()
         fun free(from: Int, to: Int, segment: Int) = mine.none { e ->
             if (from == to || e.from == e.to) e.from == from && e.segment == segment else e.from < to && from < e.to
         }
         val added = ArrayList<Pair<WordEdit, String>>()
         for (d in reading.differences) {
-            val med = d.medicine ?: continue
             if (layer?.kept?.contains(d.id) == true || !free(d.from, d.to, d.segment)) continue
-            added += WordEdit(d.from, d.to, d.segment, d.suggestion, "medicine", 0) to med
+            val med = d.medicine ?: clearTerm(d, terms, common) ?: continue
+            added += WordEdit(d.from, d.to, d.segment, d.suggestion, if (d.medicine != null) "medicine" else "term", 0) to med
         }
         for (m in reading.medicines) {
             if (m.exact || !free(m.from, m.to, m.segment) || added.any { (e, _) -> e.from < m.to && m.from < e.to }) continue
@@ -42,6 +45,24 @@ object CleanTranscript {
             if (i >= 0) cleaned.getOrPut(i) { HashSet() } += med
         }
         return Result(lines, cleaned)
+    }
+
+    /**
+     * A medical term the second opinion heard where the first engine wrote something that is not a
+     * word at all ("LAD stimmy" for "LAD STEMI"): short, and safe to put in without asking. Other
+     * differences about medical language wait for Fady's review.
+     */
+    fun clearTerm(d: Difference, terms: MedicalTerms, common: Set<String>): String? {
+        if (d.term == null) return null
+        val base = d.baseText.split(Regex("""\s+""")).filter { it.isNotBlank() }
+        val alt = d.suggestion.split(Regex("""\s+""")).filter { it.isNotBlank() }
+        if (base.isEmpty() || base.size > 3 || alt.isEmpty() || alt.size > 3) return null
+        val altKeys = alt.map { Words.key(it, SessionMode.CONVERSATION) }
+        val heard = terms.termIn(altKeys, altKeys.indices) ?: return null
+        val baseKeys = base.map { Words.key(it, SessionMode.CONVERSATION) }
+        if (terms.termIn(baseKeys, baseKeys.indices) != null) return null
+        val broken = base.any { w -> val k = w.lowercase().filter(Char::isLetter); k.length >= 5 && k !in common && !terms.isTerm(k) }
+        return if (broken) heard else null
     }
 
     private val FILLERS = setOf("um", "umm", "uh", "uhh", "uhm", "erm", "er", "ah", "hmm", "hm")

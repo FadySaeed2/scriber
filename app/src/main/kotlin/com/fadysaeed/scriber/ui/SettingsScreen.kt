@@ -80,7 +80,7 @@ fun SettingsScreen(
     Toggle("Second opinion on every session", "${if (st.secondEngine == "medasr") "MedASR" else "Parakeet"} transcribes it too, and the places where the two disagree are marked for you to check", st.secondOpinion) { on ->
         onChange { it.copy(secondOpinion = on) }
     }
-    Toggle("Show every difference", "Off: the second opinion shows only medicines. On: every place the two engines heard differently.", st.showAllDifferences) { on ->
+    Toggle("Show every difference", "Off: the second opinion shows medical language only: medicines, conditions, tests, procedures. On: every place the two engines heard differently.", st.showAllDifferences) { on ->
         onChange { it.copy(showAllDifferences = on) }
     }
     Toggle("Find who is speaking", "In every new conversation and meeting, while it is transcribed. Off: you can still do it for one session from its screen.", st.findSpeakers) { on ->

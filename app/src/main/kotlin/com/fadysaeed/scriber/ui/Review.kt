@@ -56,27 +56,27 @@ fun SecondOpinion(ui: SessionUi, a: SessionActions, onReview: () -> Unit) {
     val compare = ui.compareRun
     val diffs = ui.openDifferences
     val meds = ui.openMedicines
-    val medSuggestions = diffs.count { it.medicine != null } + meds.size
+    val medSuggestions = diffs.count { it.medical } + meds.size
     Spacer(Modifier.height(14.dp))
     // While MedASR is still to come, one check waits for it rather than two arriving one after the other.
     val waiting = compare == null && ui.secondPending
     when {
-        waiting -> Status("Medicine check after ${engineName(ui.missingSecond)}", Ink.Dust)
+        waiting -> Status("Medical check after ${engineName(ui.missingSecond)}", Ink.Dust)
         compare != null && (diffs.isNotEmpty() || meds.isNotEmpty()) -> {
             Text(if (ui.allDifferences) listOfNotNull(
                 "${engineName(compare.engine)} heard ${diffs.size} ${if (diffs.size == 1) "place" else "places"} differently",
-                if (medSuggestions > 0) "$medSuggestions about medicines" else null,
+                if (medSuggestions > 0) "$medSuggestions in medical language" else null,
             ).joinToString(", ") + "."
-            else "${medSuggestions} ${if (medSuggestions == 1) "medicine" else "medicines"} to check: " +
+            else "${medSuggestions} medical ${if (medSuggestions == 1) "term" else "terms"} to check: " +
                 listOfNotNull(diffs.size.takeIf { it > 0 }?.let { "$it heard by ${engineName(compare.engine)}" }, meds.size.takeIf { it > 0 }?.let { "$it misspelled" }).joinToString(", ") + ".",
                 style = Type.body)
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 AmberButton("Review ${diffs.size + meds.size}", onReview, Modifier.weight(1f))
-                if (medSuggestions > 0) GhostButton(if (medSuggestions == 1) "Take the medicine" else "Take all $medSuggestions medicines", r.onAcceptAllMedicines, Modifier.weight(1f), color = Ink.Teal, minHeight = 52.dp)
+                if (medSuggestions > 0) GhostButton(if (medSuggestions == 1) "Take it" else "Take all $medSuggestions", r.onAcceptAllMedicines, Modifier.weight(1f), color = Ink.Teal, minHeight = 52.dp)
             }
         }
-        compare != null -> Status(if (ui.allDifferences) "Checked against ${engineName(compare.engine)}: nothing left to look at" else "Medicines checked against ${engineName(compare.engine)}", Ink.Teal)
+        compare != null -> Status(if (ui.allDifferences) "Checked against ${engineName(compare.engine)}: nothing left to look at" else "Medical terms checked against ${engineName(compare.engine)}", Ink.Teal)
         meds.isNotEmpty() -> {
             Text("${meds.size} medicine ${if (meds.size == 1) "name looks" else "names look"} misspelled.", style = Type.body)
             Spacer(Modifier.height(10.dp))
@@ -174,7 +174,7 @@ private fun annotated(list: List<Piece>, readable: Boolean, onTap: (Piece) -> Un
             is Piece.Plain -> SpanStyle()
             is Piece.Medicine -> SpanStyle(color = Ink.Teal)
             is Piece.Misspelled -> SpanStyle(color = Ink.Teal, textDecoration = TextDecoration.Underline)
-            is Piece.Different -> SpanStyle(color = if (p.diff.medicine != null) Ink.Teal else Ink.Amber, textDecoration = TextDecoration.Underline)
+            is Piece.Different -> SpanStyle(color = if (p.diff.medical) Ink.Teal else Ink.Amber, textDecoration = TextDecoration.Underline)
             is Piece.Missing -> SpanStyle(color = Ink.Amber)
             is Piece.Corrected -> SpanStyle(color = Ink.Bone)
         }
@@ -366,7 +366,7 @@ fun ReviewSheet(ui: SessionUi, a: SessionActions, onClose: () -> Unit, open: (Se
         }
         when (item) {
             is Difference -> {
-                Option("$second heard", item.suggestion.ifBlank { "(nothing)" }, item.medicine != null) { r.onAccept(item) }
+                Option("$second heard", item.suggestion.ifBlank { "(nothing)" }, item.medical) { r.onAccept(item) }
                 Spacer(Modifier.height(8.dp))
                 Option("$main heard", item.baseText.ifBlank { "(nothing here)" }, false) { r.onKeep(item.id) }
             }
