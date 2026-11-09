@@ -44,9 +44,9 @@ import com.fadysaeed.scriber.ui.SessionScreen
 import com.fadysaeed.scriber.ui.SessionsScreen
 import com.fadysaeed.scriber.ui.SettingsScreen
 import com.fadysaeed.scriber.ui.Tab
-import com.fadysaeed.scriber.ui.NoteActions
-import com.fadysaeed.scriber.ui.TemplateActions
-import com.fadysaeed.scriber.ui.TemplatesScreen
+import com.fadysaeed.scriber.ui.CopyActions
+import com.fadysaeed.scriber.ui.PromptActions
+import com.fadysaeed.scriber.ui.PromptsScreen
 import com.fadysaeed.scriber.ui.Toast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -67,7 +67,7 @@ class MainActivity : FragmentActivity() {
     private var mode by mutableStateOf(SessionMode.CONVERSATION)
     private var openSession by mutableStateOf<String?>(null)
     private var showRecording by mutableStateOf(false)
-    private var showTemplates by mutableStateOf(false)
+    private var showPrompts by mutableStateOf(false)
     private var pendingShare: Uri? = null
     private var pendingExport: Pair<String, ExportKind>? = null
 
@@ -105,16 +105,14 @@ class MainActivity : FragmentActivity() {
                 BackHandler { showRecording = false }
                 RecordingScreen(rec, { showRecording = false }, vm::pauseRecording, vm::resumeRecording, vm::stopRecording)
             }
-            showTemplates -> {
+            showPrompts -> {
                 val st = vm.settings.collectAsState().value
-                TemplatesScreen(st.templates, st.settings.noteTemplate, TemplateActions(
-                    onBack = { showTemplates = false },
-                    onSave = { vm.saveTemplate(it) },
-                    onRemove = { vm.removeTemplate(it) },
-                    onNew = { vm.newTemplate(it) },
-                    onDefault = { id -> vm.updateSettings { it.copy(noteTemplate = id) } },
-                    onCopyText = { copy(vm.templateText(it), sensitive = false) },
-                    onPaste = ::pasteTemplate,
+                PromptsScreen(st.prompts, SessionMode.entries.associateWith { st.settings.promptFor(it) }, PromptActions(
+                    onBack = { showPrompts = false },
+                    onSave = { vm.savePrompt(it) },
+                    onRemove = { vm.removePrompt(it) },
+                    onNew = { vm.newPrompt(it) },
+                    onDefault = { m, id -> vm.choosePrompt(m, id) },
                 ))
             }
             sessionId != null -> {
@@ -146,13 +144,11 @@ class MainActivity : FragmentActivity() {
                         onMoveSpeaker = { from, to, sp -> vm.moveToSpeaker(from, to, sp) },
                         onHideSpeakers = { vm.hideSpeakers(sessionId) },
                     ),
-                    note = NoteActions(
-                        onWrite = { template, rewrite -> vm.writeNote(sessionId, template, rewrite) },
-                        onSaveText = { vm.saveNoteText(it) },
-                        onCopy = { copy(it, sensitive = true) },
-                        onSetRemoved = { id, removed -> vm.setFactRemoved(id, removed) },
-                        onEditFact = { id, text -> vm.editFact(id, text) },
-                        onTemplates = { showTemplates = true },
+                    copy = CopyActions(
+                        onCopy = ::copyOut,
+                        onTimes = { vm.setCopyTimes(it) },
+                        onChoosePrompt = { id -> vm.session.value.session?.mode?.let { m -> vm.choosePrompt(m, id) } },
+                        onPrompts = { showPrompts = true },
                     ),
                 ))
             }
@@ -161,11 +157,11 @@ class MainActivity : FragmentActivity() {
                     Tab.Sessions -> SessionsScreen(vm.sessions.collectAsState().value, mode, { mode = it }, ::askRecord,
                         { pickAudio.launch(arrayOf("audio/*", "video/*")) }, { showRecording = true }, ::open)
                     Tab.Models -> ModelsScreen(vm.modelsUi.collectAsState().value, ::download, vm::cancelDownload, { vm.verifyAll() },
-                        { vm.chooseLlm(it) }, { vm.setWifiOnly(it) }, vm::dismissMessage)
-                    Tab.Lab -> LabScreen(vm.lab.collectAsState().value, vm::runLab, { copy(it) }, { vm.tryHints() }, { vm.runSpeedCheck() }) { vm.runNoteCheck() }
+                        { vm.setWifiOnly(it) }, vm::dismissMessage)
+                    Tab.Lab -> LabScreen(vm.lab.collectAsState().value, vm::runLab, { copy(it) }, { vm.tryHints() }, { vm.runSpeedCheck() })
                     Tab.Settings -> SettingsScreen(vm.settings.collectAsState().value, { vm.updateSettings(it) },
                         { authenticate("Allow model downloads") { vm.unlockDownloads() } }, { vm.lockDownloads() }, { vm.checkVault() },
-                        { vm.settings.value.crash?.let { copy(it) } }, { vm.clearCrash() }) { showTemplates = true }
+                        { vm.settings.value.crash?.let { copy(it) } }, { vm.clearCrash() }) { showPrompts = true }
                 }
             }
         }
@@ -269,9 +265,15 @@ class MainActivity : FragmentActivity() {
         vm.toastCopied()
     }
 
-    private fun pasteTemplate() {
-        val text = getSystemService(ClipboardManager::class.java).primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString()
-        vm.importTemplate(text.orEmpty())
+    /** The clean transcript, with or without a prompt, to the clipboard or to another app. */
+    private fun copyOut(promptId: String?, share: Boolean) {
+        lifecycleScope.launch {
+            val text = runCatching { withContext(Dispatchers.IO) { vm.clipText(promptId) } }.onFailure { vm.toastError(it) }.getOrNull() ?: return@launch
+            if (share) {
+                runCatching { startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "Send the transcript to")) }
+                    .onFailure { vm.toastError(it) }
+            } else copy(text, sensitive = true)
+        }
     }
 
     private fun authenticate(title: String, onSuccess: () -> Unit) {

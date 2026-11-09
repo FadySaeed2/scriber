@@ -44,53 +44,20 @@ class TextOnDeviceTest {
         assertEquals("Ward-review-bed-4", Ids.fileStem("Ward review, bed 4"))
     }
 
-    /** The note pipeline's text checks, on Android's regex engine, with a fake writer. */
-    @Test fun notePipelineRunsOnAndroid() {
+    /** The clean copy for cloud models uses regular expressions too: run them on Android's engine. */
+    @Test fun cleanCopyRunsOnAndroid() {
+        val c = com.fadysaeed.scriber.core.CleanTranscript
+        assertEquals("I have limited availability.", c.tidy("Uh I have lim limited availability."))
+        assertEquals("I was tired. Then I slept.", c.tidy("I was tired, um. then I slept."))
         val lines = listOf(
-            com.fadysaeed.scriber.core.Line(0, 0, 4000, "How have you been since we increased the olanzapine?", false, 0, "Speaker 1"),
-            com.fadysaeed.scriber.core.Line(1, 4200, 9000, "Better. I take fifteen milligrams at night now and I sleep about six hours.", false, 1, "Speaker 2"),
-            com.fadysaeed.scriber.core.Line(2, 12200, 15000, "No, none at all, I want to go home to my daughter.", false, 1, "Speaker 2"),
-            com.fadysaeed.scriber.core.Line(3, 15500, 19000, "We'll continue fifteen milligrams and stay on 15/60 observations.", false, 0, "Speaker 1"),
+            com.fadysaeed.scriber.core.Line(0, 0, 3000, "So without repeating the assessment,", false, 0, "Dr Fady"),
+            com.fadysaeed.scriber.core.Line(1, 3100, 6000, "have you ever tried stimulants before?", false, 0, "Dr Fady"),
+            com.fadysaeed.scriber.core.Line(2, 6500, 9000, "Yeah, uh, I've tried my partner's.", false, 1, "Rowan"),
         )
-        val p = com.fadysaeed.scriber.core.NotePipeline(Medicines.bundled()) { prompt ->
-            when {
-                prompt.startsWith("You take facts") -> "- MEDICATIONS | L2 | Takes 15 mg at night | \"I take fifteen milligrams at night\"\n" +
-                    "**RISK_SELF** | L3 | Denies thoughts of self-harm | “No, none at all”\n" +
-                    "PLAN | L4 | Continue 15 mg and 15/60 observations | \"continue fifteen milligrams and stay on 15/60 observations\"\n" +
-                    "SYMPTOMS | L2 | Sleeps 8 hours | \"I sleep about six hours\""
-                prompt.contains("Section: Plan") -> "1. Continue 15 mg [F3]\n2) Remain on 15/60 observations [F3]\n- Review in a week"
-                prompt.contains("Section: Risk") -> "She denied thoughts of self-harm [F2]. She has a plan [F2]. Mood is low [F9]."
-                else -> "She takes 15 mg at night [F1, F3]. Sleep is fine."
-            }
-        }
-        val (facts, rejected) = p.facts(p.lines(lines))
-        assertEquals(listOf("F1", "F2", "F3"), facts.map { it.id })
-        assertEquals(1, rejected.size)
-        val note = p.note(com.fadysaeed.scriber.core.Templates.builtIns().first { it.id == "inpatient" }, facts)
-        val plan = note.first { it.sectionId == "plan" }.sentences
-        assertEquals(listOf("Continue 15 mg", "Remain on 15/60 observations", "Review in a week"), plan.map { it.text })
-        assertEquals("No fact behind this sentence", plan[2].warning)
-        val risk = note.first { it.sectionId == "risk" }.sentences
-        assertEquals(listOf("She denied thoughts of self-harm.", "She has a plan.", "Mood is low."), risk.map { it.text })
-        assertEquals(listOf(listOf("F2"), listOf("F2"), emptyList()), risk.map { it.factIds })
-        assertEquals("Not assessed.", note.first { it.sectionId == "mse" }.sentences.single().text)
-        assertEquals(null, p.groundedIn("Takes 15 mg", "I take 15 mg"))
-        assertEquals(5, com.fadysaeed.scriber.core.NoteText.words("Plan\n1. Continue 15 mg"))
-    }
-
-    /** The Lab's checklists are regular expressions: they must compile and match on Android's engine. */
-    @Test fun labRolePlaysScoreOnAndroid() {
-        for (f in com.fadysaeed.scriber.core.RolePlay.FILES) {
-            val r = com.fadysaeed.scriber.core.RolePlay.bundled(f)
-            r.score("nothing")
-        }
-        val adhd = com.fadysaeed.scriber.core.RolePlay.bundled("roleplay_adhd.txt")
-        val s = adhd.score("He takes sertraline 100 mg. He is currently taking atomoxetine 40 mg. BP 120/80.")
-        assertEquals(listOf("atomoxetine as his medicine", "blood pressure or pulse figures nobody said"), s.wrong)
-        val p = com.fadysaeed.scriber.core.NotePipeline(Medicines.bundled()) { "" }
-        assertEquals(true, p.unsupportedShare("He is well groomed, cooperative, with linear and goal directed thought.", "Feels better") > 0.6)
-        val out = p.applyVerdicts("S1 | CONTRADICTED | denies it\n- S2 | PARTLY | x", listOf(
-            com.fadysaeed.scriber.core.NoteSentence("a", listOf("F1")), com.fadysaeed.scriber.core.NoteSentence("b", listOf("F1"))))
-        assertEquals(true, out[0].severe); assertEquals("Only partly in its facts: x", out[1].warning)
+        assertEquals("[00:00] Dr Fady: So without repeating the assessment, have you ever tried stimulants before?\n\n[00:06] Rowan: Yeah, I've tried my partner's.",
+            c.render(c.paragraphs(lines, SessionMode.CONVERSATION), times = true))
+        val dictation = listOf(com.fadysaeed.scriber.core.Line(0, 0, 4000, "mental state colon calm and settled period new paragraph plan colon uh continue olanzapine period", false))
+        assertEquals("Mental state: calm and settled.\n\nPlan: continue olanzapine.", c.render(c.paragraphs(dictation, SessionMode.DICTATION), times = false))
+        assertEquals(12, com.fadysaeed.scriber.core.Prompts.builtIns().size)
     }
 }

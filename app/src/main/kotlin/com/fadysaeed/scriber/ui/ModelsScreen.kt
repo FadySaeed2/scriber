@@ -29,7 +29,6 @@ fun ModelsScreen(
     onDownload: () -> Unit,
     onCancel: () -> Unit,
     onVerify: () -> Unit,
-    onChooseLlm: (String) -> Unit,
     onWifiOnly: (Boolean) -> Unit,
     onDismissMessage: () -> Unit,
 ) {
@@ -49,24 +48,6 @@ fun ModelsScreen(
         Fact("Memory", Units.bytes(d.totalRamBytes))
         Fact("Free space", Units.bytes(ui.freeBytes), if (ui.enoughSpace) Ink.Bone else Ink.Ember)
         Fact("Still to download", Units.bytes((ui.neededBytes - DevicePlan.SAFETY_MARGIN_BYTES).coerceAtLeast(0)))
-    }
-
-    Section("Note writer")
-    for (row in ui.rows.filter { it.pack.role == PackRole.LLM }) {
-        val variant = row.pack.variant ?: continue
-        val on = ui.chosenLlm == variant
-        Column {
-            Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable(enabled = !ui.locked, role = Role.RadioButton) { onChooseLlm(variant) }.padding(vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Dot(if (on) Ink.Amber else Ink.Rule, 10.dp)
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(row.pack.title + if (variant == ui.recommendedLlm) "  ·  recommended" else "", style = Type.title.copy(color = if (on) Ink.Bone else Ink.Sand))
-                    Text("${row.pack.subtitle}. ${Units.bytes(row.pack.totalBytes)}", style = Type.small)
-                }
-            }
-            Hairline()
-        }
     }
 
     Section("What gets downloaded")

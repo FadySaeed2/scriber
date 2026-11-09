@@ -11,6 +11,7 @@ import com.fadysaeed.scriber.core.AllowedHosts
 import com.fadysaeed.scriber.core.DevicePlan
 import com.fadysaeed.scriber.core.ModelCatalog
 import com.fadysaeed.scriber.core.PackRole
+import com.fadysaeed.scriber.core.CleanTranscript
 import com.fadysaeed.scriber.core.Compare
 import com.fadysaeed.scriber.core.Difference
 import com.fadysaeed.scriber.core.Document
@@ -72,15 +73,15 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
     val toast: StateFlow<String?> = _toast
 
     @Serializable
-    private data class Prefs(val chosenLlm: String? = null, val wifiOnly: Boolean = true)
+    private data class Prefs(val wifiOnly: Boolean = true)
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
             val device = DeviceInfo.snapshot(app)
-            val recommended = DevicePlan.languageModelFor(catalog, device.totalRamBytes).variant
             val prefs = Records(vault).get("prefs", Prefs.serializer()) ?: Prefs()
             val report = runCatching { Records(vault).get("lab_report", LabReport.serializer()) }.getOrNull()
-            _models.update { it.copy(device = device, recommendedLlm = recommended, chosenLlm = prefs.chosenLlm ?: recommended, wifiOnly = prefs.wifiOnly) }
+            _models.update { it.copy(device = device, wifiOnly = prefs.wifiOnly) }
+            removeNoteWriter()
             _lab.update { it.copy(report = report, speed = store.threadPlan().takeIf { p -> p.measuredAtMillis > 0 }) }
             Exporter.clean(app)
             runCatching { store.applyRetention() }
@@ -141,15 +142,14 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
         } else null
         val edits = run?.let { store.edits(id, it.id) }
         val missing = if (done.isNotEmpty() && done.none { it.engine == settings.secondEngine } && engines.any { it.first == settings.secondEngine }) settings.secondEngine else null
-        val speakers = if (s.mode == SessionMode.CONVERSATION) store.speakers(id) else null
+        val speakers = if (s.mode != SessionMode.DICTATION) store.speakers(id) else null
         val speakerOf = if (speakers != null && reading != null && run != null) Speakers.assign(reading.words, reading.segments, speakers, run.id) else null
         _session.update {
             it.copy(session = s, runs = runs, selectedRunId = selected, job = Jobs.progress.value[id], engines = engines,
                 reading = reading, compareRun = compare, edits = edits, missingSecond = missing,
-                speakers = speakers, speakerOf = speakerOf, canFindSpeakers = s.mode == SessionMode.CONVERSATION && SpeakerFinder.ready(getApplication()),
+                speakers = speakers, speakerOf = speakerOf, canFindSpeakers = s.mode != SessionMode.DICTATION && SpeakerFinder.ready(getApplication()),
                 allDifferences = settings.showAllDifferences,
-                facts = store.facts(id), note = store.note(id), templates = store.templates(),
-                canWriteNotes = s.mode == SessionMode.CONVERSATION && com.fadysaeed.scriber.work.NoteWriter.model(getApplication()) != null)
+                prompts = store.prompts(), promptId = settings.promptFor(s.mode), copyTimes = settings.copyTimes, copyNoticeSeen = settings.copyNoticeSeen)
         }
     }
 
@@ -159,14 +159,14 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
         val rows = catalog.packs.map { PackRow(it, models.state(it), models.bytesOnPhone(it)) }
         val locked = FetchLock.isLocked(vault)
         _models.update { ui ->
-            val selected = catalog.packs.filter { it.required || it.variant == ui.chosenLlm }
+            val selected = catalog.packs.filter { it.required }
             ui.copy(rows = rows, locked = locked, freeBytes = DeviceInfo.freeStorage(app),
                 neededBytes = DevicePlan.bytesNeeded(selected) { f -> selected.firstOrNull { f in it.files }?.let { p -> models.bytesOnPhone(p, f) } ?: 0 })
         }
         _settings.update { it.copy(locked = locked, settings = store.settings(), storageBytes = vault.root.walkTopDown().filter { f -> f.isFile }.sumOf { f -> f.length() }) }
         _lab.update { it.copy(modelsReady = _models.value.allReady) }
         _settings.update { it.copy(medicines = runCatching { medicines().size }.getOrDefault(0), personalWords = store.personalWords().let { p -> p.words.size + p.heardAs.size },
-            templates = runCatching { store.templates() }.getOrDefault(emptyList())) }
+            prompts = runCatching { store.prompts() }.getOrDefault(emptyList())) }
         runCatching { loadOwnScores() }
         loadSessions()
     }
@@ -176,7 +176,7 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
     fun toastMicDenied() = say("Scriber needs the microphone to record. Allow it in Android settings, or import audio instead.")
     fun toastError(t: Throwable) = say("Could not export: ${t.message ?: t.javaClass.simpleName}")
     fun toastSaved() = say("Saved")
-    fun toastCopied() = say("Report copied")
+    fun toastCopied() = say("Copied")
     private fun say(text: String) {
         _toast.value = text
         viewModelScope.launch { kotlinx.coroutines.delay(3500); if (_toast.value == text) _toast.value = null }
@@ -403,9 +403,8 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
 
     // Models --------------------------------------------------------------------------------
 
-    fun chooseLlm(variant: String) = viewModelScope.launch(Dispatchers.IO) { _models.update { it.copy(chosenLlm = variant) }; savePrefs(); refresh() }
     fun setWifiOnly(on: Boolean) = viewModelScope.launch(Dispatchers.IO) { _models.update { it.copy(wifiOnly = on) }; savePrefs() }
-    private fun savePrefs() { val ui = _models.value; Records(vault).put("prefs", Prefs.serializer(), Prefs(ui.chosenLlm, ui.wifiOnly)) }
+    private fun savePrefs() { val ui = _models.value; Records(vault).put("prefs", Prefs.serializer(), Prefs(ui.wifiOnly)) }
 
     fun startDownload() = viewModelScope.launch(Dispatchers.IO) {
         val ui = _models.value
@@ -448,80 +447,67 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    // Notes ------------------------------------------------------------------------------
+    // Copying out --------------------------------------------------------------------------
 
-    fun writeNote(id: String, templateId: String?, rewriteOnly: Boolean) {
-        Jobs.note(getApplication(), id, templateId, rewriteOnly)
-        say(if (rewriteOnly) "Writing the note again from the facts." else "Writing the note. You can keep working.")
+    /**
+     * The open session's transcript, clean, with the prompt [promptId] above it when given. Remembers
+     * the prompt for this kind of session. Call off the main thread.
+     */
+    fun clipText(promptId: String?): String? {
+        val ui = _session.value
+        val s = ui.session ?: return null
+        val run = ui.run?.takeIf { it.status == RunStatus.DONE } ?: return null
+        val reading = ui.reading ?: return null
+        val sp = ui.speakers
+        val input = CleanTranscript.medicineLines(run, reading, ui.edits, ui.speakerOf) { sp?.name(it) ?: "Speaker ${it + 1}" }
+        val settings = store.settings()
+        val body = CleanTranscript.render(CleanTranscript.paragraphs(input.lines, s.mode), settings.copyTimes)
+        val header = CleanTranscript.header(s.mode, s.createdAtMillis, s.durationMs, input.lines.mapNotNull { it.speakerName }.distinct())
+        val prompt = promptId?.let { store.prompt(it)?.text }
+        store.saveSettings(settings.copy(copyNoticeSeen = true, prompts = if (promptId != null) settings.prompts + (s.mode.name to promptId) else settings.prompts))
+        return CleanTranscript.compose(prompt, header, body)
     }
 
-    /** Fady's own version of the note text; the model's version stays sealed beside it. */
-    fun saveNoteText(text: String?) = viewModelScope.launch(Dispatchers.IO) {
-        val s = _session.value.session ?: return@launch
-        val n = store.note(s.id) ?: return@launch
-        store.saveNote(n.copy(editedText = text?.takeIf { it.isNotBlank() && it != com.fadysaeed.scriber.core.NoteText.render(n.sections) }, editedAtMillis = System.currentTimeMillis()))
-        loadSession(s.id)
+    fun setCopyTimes(on: Boolean) = updateSettings { it.copy(copyTimes = on) }
+
+    /** The prompt [mode] sessions copy with from now on. */
+    fun choosePrompt(mode: SessionMode, id: String) = updateSettings { it.copy(prompts = it.prompts + (mode.name to id)) }
+
+    private fun reloadPrompts() {
+        val p = store.prompts()
+        _settings.update { it.copy(prompts = p, settings = store.settings()) }
+        _session.update { it.copy(prompts = p) }
     }
 
-    private fun changeFacts(change: (com.fadysaeed.scriber.core.FactSet) -> com.fadysaeed.scriber.core.FactSet) = viewModelScope.launch(Dispatchers.IO) {
-        val s = _session.value.session ?: return@launch
-        val f = store.facts(s.id) ?: return@launch
-        store.saveFacts(change(f).copy(changedAtMillis = System.currentTimeMillis()))
-        loadSession(s.id)
+    fun savePrompt(p: com.fadysaeed.scriber.core.PromptTemplate) = viewModelScope.launch(Dispatchers.IO) {
+        store.savePrompt(p.copy(updatedAtMillis = System.currentTimeMillis())); reloadPrompts()
     }
 
-    fun setFactRemoved(factId: String, removed: Boolean) = changeFacts { f -> f.copy(facts = f.facts.map { if (it.id == factId) it.copy(removed = removed) else it }) }
-    fun editFact(factId: String, text: String) = changeFacts { f -> f.copy(facts = f.facts.map { if (it.id == factId) it.copy(text = text.trim(), edited = true) else it }) }
-
-    // Templates ----------------------------------------------------------------------------
-
-    private fun reloadTemplates() {
-        val t = store.templates()
-        _settings.update { it.copy(templates = t) }
-        _session.update { it.copy(templates = t) }
+    /** A built-in prompt goes back to how it came; one of Fady's is deleted (and stops being anyone's first choice). */
+    fun removePrompt(id: String) = viewModelScope.launch(Dispatchers.IO) {
+        store.removePrompt(id)
+        if (store.prompt(id) == null) { val st = store.settings(); store.saveSettings(st.copy(prompts = st.prompts.filterValues { it != id })) }
+        reloadPrompts(); _session.value.session?.id?.let { loadSession(it) }
     }
 
-    fun saveTemplate(t: com.fadysaeed.scriber.core.NoteTemplate) = viewModelScope.launch(Dispatchers.IO) {
-        store.saveTemplate(t.copy(updatedAtMillis = System.currentTimeMillis())); reloadTemplates()
-    }
-
-    /** A built-in template goes back to how it came; one of Fady's is deleted. */
-    fun removeTemplate(id: String) = viewModelScope.launch(Dispatchers.IO) {
-        store.removeTemplate(id)
-        if (store.settings().noteTemplate == id && store.template(id) == null) store.saveSettings(store.settings().copy(noteTemplate = "inpatient"))
-        reloadTemplates(); refresh()
-    }
-
-    /** A new template, empty or as a copy of [from]; returns its id. */
-    fun newTemplate(from: com.fadysaeed.scriber.core.NoteTemplate?): String {
-        val id = "t" + com.fadysaeed.scriber.core.Ids.new()
-        val t = from?.copy(id = id, name = from.name + " (copy)", builtIn = false) ?: com.fadysaeed.scriber.core.Templates.blank(id, "New template")
-        store.saveTemplate(t); reloadTemplates()
+    /** A new prompt, empty or a copy of [from]; returns its id. */
+    fun newPrompt(from: com.fadysaeed.scriber.core.PromptTemplate?): String {
+        val id = "p" + com.fadysaeed.scriber.core.Ids.new()
+        val p = from?.copy(id = id, name = from.name + " (copy)", builtIn = false) ?: com.fadysaeed.scriber.core.Prompts.blank(id, "New prompt")
+        store.savePrompt(p.copy(updatedAtMillis = System.currentTimeMillis())); reloadPrompts()
         return id
     }
 
-    private val templateJson = kotlinx.serialization.json.Json { prettyPrint = true; ignoreUnknownKeys = true; encodeDefaults = true }
-    fun templateText(t: com.fadysaeed.scriber.core.NoteTemplate): String = templateJson.encodeToString(com.fadysaeed.scriber.core.NoteTemplate.serializer(), t)
-
-    /** A template pasted as text (from another phone); saved as a new one of Fady's. */
-    fun importTemplate(text: String) {
-        val ok = runCatching {
-            val t = templateJson.decodeFromString(com.fadysaeed.scriber.core.NoteTemplate.serializer(), text.trim())
-            require(t.sections.isNotEmpty() && t.name.isNotBlank())
-            store.saveTemplate(t.copy(id = "t" + com.fadysaeed.scriber.core.Ids.new(), builtIn = false, updatedAtMillis = System.currentTimeMillis())); reloadTemplates()
-            t.name
-        }
-        say(ok.fold({ "Added the template $it." }, { "The clipboard does not hold a Scriber template." }))
-    }
-
-    fun runNoteCheck() {
-        if (_lab.value.step != null) return
-        viewModelScope.launch {
-            _lab.update { it.copy(step = "Starting") }
-            val r = runCatching { LabRunner(getApplication(), catalog, models).noteCheck { step -> _lab.update { it.copy(step = step) } } }
-            r.onFailure { say("Note check stopped: ${it.message}") }
-            _lab.update { it.copy(step = null, noteCheck = r.getOrNull() ?: it.noteCheck) }
-        }
+    /**
+     * Scriber no longer writes notes on the phone: the language model files, its cache, and the
+     * notes, facts and templates kept from before are deleted once.
+     */
+    private fun removeNoteWriter() {
+        val app = getApplication<Application>()
+        val freed = runCatching { models.removeUnknown(catalog) }.getOrDefault(0L)
+        for (d in listOf("litertlm", "llm")) runCatching { java.io.File(app.cacheDir, d).deleteRecursively() }
+        val notes = runCatching { store.removeNoteRecords() }.getOrDefault(false)
+        if (freed > 0 || notes) say("Removed the note writer" + if (freed > 0) " and freed ${com.fadysaeed.scriber.core.Units.bytes(freed)}" else "")
     }
 
     fun runSpeedCheck() {

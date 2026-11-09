@@ -44,7 +44,6 @@ class CatalogTest {
         assertEquals(1, catalog.byRole(PackRole.VAD).size)
         assertEquals(1, catalog.byRole(PackRole.SEGMENTATION).size)
         assertEquals(1, catalog.byRole(PackRole.SPEAKER_EMBEDDING).size)
-        assertTrue(catalog.byRole(PackRole.LLM).none { it.required })
         val bench = catalog.byRole(PackRole.BENCHMARK_AUDIO).single()
         assertTrue(bench.files.any { it.path == "transcript.txt" })
     }

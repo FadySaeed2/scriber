@@ -63,11 +63,15 @@ fun SessionsScreen(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Choice("Dictation", mode == SessionMode.DICTATION, { onMode(SessionMode.DICTATION) }, Modifier.weight(1f))
             Choice("Conversation", mode == SessionMode.CONVERSATION, { onMode(SessionMode.CONVERSATION) }, Modifier.weight(1f))
+            Choice("Meeting", mode == SessionMode.MEETING, { onMode(SessionMode.MEETING) }, Modifier.weight(1f))
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            if (mode == SessionMode.DICTATION) "Your voice only. Say \"period\", \"comma\", \"new paragraph\"; MedASR by default."
-            else "A consultation between people. Parakeet by default; speaker turns come in the next update.",
+            when (mode) {
+                SessionMode.DICTATION -> "Your voice only. Say \"period\", \"comma\", \"new paragraph\"."
+                SessionMode.CONVERSATION -> "A consultation: speakers found, medicine names checked by MedASR."
+                SessionMode.MEETING -> "Several people, up to two hours: Scriber finds how many are speaking."
+            },
             style = Type.small,
         )
         Spacer(Modifier.height(14.dp))
@@ -93,7 +97,7 @@ private fun SessionLine(row: SessionRow, onClick: () -> Unit) {
                 Spacer(Modifier.height(3.dp))
                 Text(
                     listOfNotNull(day(s.createdAtMillis), if (s.durationMs > 0) clock(s.durationMs) else null,
-                        if (s.mode == SessionMode.DICTATION) "dictation" else "conversation",
+                        modeName(s.mode).lowercase(),
                         if (s.source == SessionSource.IMPORTED) "imported" else null).joinToString(" · "),
                     style = Type.small,
                 )

@@ -123,3 +123,19 @@ words not in the facts) and the model (each sentence against its facts). A numbe
 contradiction, is red, and copying a note with red sentences asks first. The Lab scores notes from
 two invented consultations against lists of what must and must not appear. Real sessions stay out
 of the repository.
+
+**2026-11-09. No language model on the phone.** After two rounds, Gemma 4 E4B still could not write
+a usable note from a 27-minute consultation: too much of the history missing, the clinician's
+general explanations taken for the patient's own medicines, and a quarter of an hour of a hot
+phone. Fady will paste a clean transcript into a large cloud model instead, which is faster and far
+better. So Scriber does transcription only: Parakeet for the words, MedASR for medicine names,
+speakers, and a clean copy with prompts. The language model files, its runtime library, and the
+notes, facts and templates kept so far are deleted on the first run of this version. Copying is
+Fady's choice and leaves Scriber's encryption; the copy sheet says so once.
+
+**2026-11-09. Meetings up to two hours.** Meetings find their own number of speakers. Past 40
+minutes the speaker model hears the audio in half-hour pieces cut between lines, so the phone holds
+one piece at a time; the voice prints of all pieces are grouped together, so a voice keeps its name
+across the meeting. Grouping was rewritten to keep group likeness up to date as groups join, which
+gives the same groups as before in a fraction of the time on a thousand or more pieces.
+

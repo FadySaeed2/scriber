@@ -128,24 +128,48 @@ object Voices {
         return if (na == 0.0 || nb == 0.0) 0f else (dot / Math.sqrt(na * nb)).toFloat()
     }
 
+    /**
+     * Average-link clustering. Group-to-group likeness is kept up to date as groups join (the
+     * average of the two rows, weighted by size), and each group remembers its most alike
+     * partner, so a two-hour meeting with a thousand or more pieces takes seconds, not minutes.
+     * Same result as comparing every member of every pair of groups each round.
+     */
     fun cluster(prints: List<FloatArray>, k: Int, joinAbove: Float = 0.45f, sameVoiceAbove: Float = 0.7f): IntArray {
         val n = prints.size
         if (n == 0) return IntArray(0)
-        val sim = Array(n) { i -> FloatArray(n) { j -> if (i == j) 1f else cosine(prints[i], prints[j]) } }
-        val groups = (0 until n).map { mutableListOf(it) }.toMutableList()
-        fun link(a: List<Int>, b: List<Int>): Float { var s = 0f; for (x in a) for (y in b) s += sim[x][y]; return s / (a.size * b.size) }
-        while (groups.size > 1) {
-            var bi = -1; var bj = -1; var best = -2f
-            for (i in groups.indices) for (j in i + 1 until groups.size) {
-                val l = link(groups[i], groups[j]); if (l > best) { best = l; bi = i; bj = j }
-            }
-            val enough = if (k > 0) groups.size <= k && best < sameVoiceAbove else best < joinAbove
+        val sim = Array(n) { FloatArray(n) }
+        for (i in 0 until n) { sim[i][i] = 1f; for (j in i + 1 until n) { val c = cosine(prints[i], prints[j]); sim[i][j] = c; sim[j][i] = c } }
+        val alive = BooleanArray(n) { true }
+        val size = IntArray(n) { 1 }
+        val members = Array(n) { mutableListOf(it) }
+        val best = IntArray(n) { -1 }
+        fun findBest(i: Int) {
+            var bj = -1; var bv = -2f
+            for (j in 0 until n) if (j != i && alive[j] && sim[i][j] > bv) { bv = sim[i][j]; bj = j }
+            best[i] = bj
+        }
+        for (i in 0 until n) findBest(i)
+        var groups = n
+        while (groups > 1) {
+            var bi = -1; var bv = -2f
+            for (i in 0 until n) if (alive[i] && best[i] >= 0 && sim[i][best[i]] > bv) { bv = sim[i][best[i]]; bi = i }
+            if (bi < 0) break
+            val bj = best[bi]
+            val enough = if (k > 0) groups <= k && bv < sameVoiceAbove else bv < joinAbove
             if (enough) break
-            groups[bi].addAll(groups[bj]); groups.removeAt(bj)
+            // Join the later group into the earlier one, so labels follow first appearance.
+            val (keep, gone) = if (bi < bj) bi to bj else bj to bi
+            for (x in 0 until n) if (alive[x] && x != keep && x != gone) {
+                val v = (size[keep] * sim[keep][x] + size[gone] * sim[gone][x]) / (size[keep] + size[gone])
+                sim[keep][x] = v; sim[x][keep] = v
+            }
+            size[keep] += size[gone]; members[keep].addAll(members[gone]); alive[gone] = false; groups--
+            findBest(keep)
+            for (x in 0 until n) if (alive[x] && x != keep && (best[x] == keep || best[x] == gone)) findBest(x)
         }
         // Number voices in order of first speaking.
         val out = IntArray(n)
-        groups.sortedBy { it.min() }.forEachIndexed { label, g -> for (x in g) out[x] = label }
+        (0 until n).filter { alive[it] }.map { members[it] }.sortedBy { it.min() }.forEachIndexed { label, g -> for (x in g) out[x] = label }
         return out
     }
 }

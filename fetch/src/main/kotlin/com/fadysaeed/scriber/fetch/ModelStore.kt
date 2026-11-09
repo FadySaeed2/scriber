@@ -1,6 +1,7 @@
 package com.fadysaeed.scriber.fetch
 
 import android.content.Context
+import com.fadysaeed.scriber.core.ModelCatalog
 import com.fadysaeed.scriber.core.ModelFile
 import com.fadysaeed.scriber.core.ModelPack
 import java.io.File
@@ -60,5 +61,20 @@ class ModelStore(context: Context) {
 
     fun delete(pack: ModelPack) {
         dir(pack).deleteRecursively()
+    }
+
+    /**
+     * Deletes the folders of packs that are no longer in [catalog] (the language models Scriber
+     * used to carry, for example). Returns the bytes freed.
+     */
+    fun removeUnknown(catalog: ModelCatalog): Long {
+        val known = catalog.packs.map { it.id }.toSet()
+        var freed = 0L
+        for (d in root.listFiles().orEmpty()) {
+            if (!d.isDirectory || d.name in known) continue
+            freed += d.walkBottomUp().filter { it.isFile }.sumOf { it.length() }
+            d.deleteRecursively()
+        }
+        return freed
     }
 }

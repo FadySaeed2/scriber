@@ -21,16 +21,16 @@ Each phase ships as a signed APK, is tried on the phone, and only then does the 
   named later), short turns merged, words assigned to speakers by time, lines moved between
   speakers; Lab trial of Parakeet with the medicine list as hotwords (modified beam search),
   kept only if it measurably helps on Fady's recordings.
-- **Phase 3a, notes (this build):** Gemma 4 E4B takes facts out of the corrected transcript, each
-  with the exact words it came from; code throws out any whose words, numbers or medicines are not
-  in that line. The note is written section by section from those facts only, every sentence
-  citing its facts; code marks sentences with no fact, or a number or medicine none of its facts
-  has. Five built-in templates (inpatient review, follow-up, telehealth, ADHD, initial assessment),
-  all editable, plus Fady's own (template editor and creator, copy and paste between phones). The
-  note is written automatically after each conversation; the facts screen is there to check, edit
-  or leave facts out, then write again. Fady's edited text sits beside the note as written.
-- **Phase 3b, dictation and style:** dictation tidied without additions; style samples from Fady's
-  own de-identified notes.
+- **Phase 3a, notes on the phone (0.0.35 to 0.0.38, then removed):** Gemma 4 E4B wrote notes
+  from facts checked against the transcript. On a real 27-minute session it missed most of the
+  history and mixed the clinician's explanations with the patient's medicines; dropped.
+- **Phase 3, transcription only (this build):** no language model on the phone. Copy gives a clean
+  transcript (medicine names from MedASR, no fillers or stutters, one paragraph per speaker,
+  optional times) on its own or under a prompt for a cloud model; twelve built-in prompts
+  (inpatient review, follow-up, telehealth, ADHD assessment, initial assessment, letter to GP,
+  medication review, discharge summary, family meeting, Mental Health Act report, meeting minutes,
+  dictation tidy), all editable, plus Fady's own. A meeting mode finds how many people speak, up
+  to two hours.
 - **Phase 4, checking:** every drug name, dose and number in a note checked against the
   transcript, tap a sentence to hear that moment.
 - **Phase 5, polish:** live captions, storage management, encrypted vault backup/restore with a

@@ -1,8 +1,10 @@
 # Scriber
 
-A private, fully offline clinical scribe for Android (built for a Galaxy S23 Ultra).
-It records or imports a consultation, transcribes it on the phone, separates the speakers and drafts
-a note in the clinician's own style. No audio, transcript or note ever leaves the phone.
+A private, fully offline transcription app for Android (built for a Galaxy S23 Ultra).
+It records or imports a dictation, a consultation or a meeting, transcribes it on the phone,
+checks medicine names with a second, medical speech engine and separates the speakers. Nothing
+leaves the phone unless the clinician copies or exports it: the Copy button gives a clean
+transcript, with a prompt above it, for a cloud model to write the note from.
 
 Status: **Phase 0** (foundation): encrypted vault, identity lock, one-time model download with
 checksums and a self-locking downloader, and a Lab screen that measures every model on the phone.

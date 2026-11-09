@@ -24,8 +24,6 @@ data class PackRow(val pack: ModelPack, val state: PackState, val bytesOnPhone: 
 
 data class ModelsUi(
     val device: DeviceSnapshot? = null,
-    val recommendedLlm: String? = null,
-    val chosenLlm: String? = null,
     val rows: List<PackRow> = emptyList(),
     val fetch: Fetcher.Status = Fetcher.Status.Idle,
     val locked: Boolean = false,
@@ -35,7 +33,7 @@ data class ModelsUi(
     val verifying: String? = null,
     val message: String? = null,
 ) {
-    val selected: List<PackRow> get() = rows.filter { it.pack.required || it.pack.variant == chosenLlm }
+    val selected: List<PackRow> get() = rows.filter { it.pack.required }
     val allReady: Boolean get() = selected.isNotEmpty() && selected.all { it.state is PackState.Verified }
     val enoughSpace: Boolean get() = freeBytes >= neededBytes
     val speechReady: Boolean get() = rows.any { it.pack.role == com.fadysaeed.scriber.core.PackRole.ASR && it.state is PackState.Verified } &&
@@ -51,7 +49,6 @@ data class LabUi(
     val modelsReady: Boolean = false,
     val own: List<OwnScore> = emptyList(),
     val speed: com.fadysaeed.scriber.data.ThreadPlan? = null,
-    val noteCheck: com.fadysaeed.scriber.lab.LabRunner.NoteCheck? = null,
 )
 
 data class SessionRow(val session: Session, val latest: TranscriptRun?, val job: JobProgress?)
@@ -89,11 +86,11 @@ data class SessionUi(
     val canFindSpeakers: Boolean = false,
     /** Show every difference, not only those about medicines (a setting, off by default). */
     val allDifferences: Boolean = false,
-    /** Facts taken from the transcript for the note, and the latest note. */
-    val facts: com.fadysaeed.scriber.core.FactSet? = null,
-    val note: com.fadysaeed.scriber.core.Note? = null,
-    val templates: List<com.fadysaeed.scriber.core.NoteTemplate> = emptyList(),
-    val canWriteNotes: Boolean = false,
+    /** Prompts to copy with, and the one this kind of session copies with now. */
+    val prompts: List<com.fadysaeed.scriber.core.PromptTemplate> = emptyList(),
+    val promptId: String = "",
+    val copyTimes: Boolean = false,
+    val copyNoticeSeen: Boolean = false,
 ) {
     val run: TranscriptRun? get() = runs.firstOrNull { it.id == selectedRunId } ?: runs.lastOrNull()
 
@@ -134,5 +131,5 @@ data class SettingsUi(
     val crash: String? = null,
     val medicines: Int = 0,
     val personalWords: Int = 0,
-    val templates: List<com.fadysaeed.scriber.core.NoteTemplate> = emptyList(),
+    val prompts: List<com.fadysaeed.scriber.core.PromptTemplate> = emptyList(),
 )

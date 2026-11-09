@@ -5,7 +5,7 @@ import kotlinx.serialization.json.Json
 
 /** What a model pack is for. The app decides how to use a pack from its role, never from its name. */
 @Serializable
-enum class PackRole { ASR, VAD, SEGMENTATION, SPEAKER_EMBEDDING, LLM, BENCHMARK_AUDIO }
+enum class PackRole { ASR, VAD, SEGMENTATION, SPEAKER_EMBEDDING, BENCHMARK_AUDIO }
 
 /**
  * One file of a model pack.
@@ -34,12 +34,8 @@ data class ModelPack(
     val role: PackRole,
     /** For ASR packs: which recogniser wiring to use ("parakeet", "medasr"). */
     val engine: String? = null,
-    /** For LLM packs: the size variant ("E4B", "E2B"). */
-    val variant: String? = null,
-    /** Downloaded by default on every phone. Language models are chosen separately by memory. */
+    /** Downloaded by default on every phone. */
     val required: Boolean = false,
-    /** Smallest phone memory, in GB, that this pack is meant for. */
-    val minRamGb: Int = 0,
     val license: String,
     val source: String,
     val files: List<ModelFile>,

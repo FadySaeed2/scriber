@@ -47,18 +47,6 @@ data class VadRun(val audioSeconds: Double, val ms: Long, val speechSegments: In
 data class DiarizationRun(val audioSeconds: Double, val loadMs: Long, val processMs: Long, val speakersFound: Int, val speakersExpected: Int, val turns: Int, val rawChanges: Int = -1)
 
 @Serializable
-data class LlmRun(
-    val model: String,
-    val backend: String,
-    val loadMs: Long,
-    val firstWordMs: Long,
-    val pieces: Int,
-    val piecesPerSecond: Double,
-    val output: String,
-    val note: String = "",
-)
-
-@Serializable
 data class VaultRun(val ok: Boolean, val megabytes: Int, val writeMBps: Double, val readMBps: Double, val detail: String)
 
 @Serializable
@@ -71,7 +59,6 @@ data class LabReport(
     val asr: List<AsrRun> = emptyList(),
     val vad: VadRun? = null,
     val diarization: DiarizationRun? = null,
-    val llm: LlmRun? = null,
     val problems: List<String> = emptyList(),
 ) {
     /** Plain text Fady can paste into a chat. It holds test recordings only, never patient data. */
@@ -88,10 +75,6 @@ data class LabReport(
         }
         vad?.let { appendLine("Voice activity: ${it.speechSegments} speech segments in ${f(it.audioSeconds)} s of audio, ${it.ms} ms") }
         diarization?.let { appendLine("Speaker turns: found ${it.speakersFound} of ${it.speakersExpected} voices, ${it.turns} speaker changes${if (it.rawChanges >= 0) " after cleaning (${it.rawChanges} before)" else ""}, ${f(it.audioSeconds)} s audio in ${it.processMs} ms (load ${it.loadMs} ms)") }
-        llm?.let {
-            appendLine("Language model ${it.model} on ${it.backend}: load ${it.loadMs} ms, first words after ${it.firstWordMs} ms, ${f(it.piecesPerSecond)} pieces/s over ${it.pieces} pieces. ${it.note}")
-            appendLine("Output:"); appendLine(it.output)
-        }
         for (p in problems) appendLine("Problem: $p")
     }
 }

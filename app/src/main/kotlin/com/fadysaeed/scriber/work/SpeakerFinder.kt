@@ -60,6 +60,13 @@ class SpeakerFinder(private val context: Context) {
         check(session.hasAudio) { "The audio of this session was deleted" }
         val audio = session.workAudioName ?: error("This session has no audio")
         check(session.durationMs <= MAX_MS) { "Sessions longer than ${MAX_MS / 60_000} minutes are not split into speakers yet" }
+        val run = store.runs(sessionId).filter { it.status == RunStatus.DONE }.let { done ->
+            done.lastOrNull { it.engine == store.settings().baseEngine } ?: done.lastOrNull()
+        }
+        if (session.durationMs > ONE_PIECE_MS) {
+            return inPieces(audio, run?.segments?.map { it.startMs..it.endMs }, count, session.durationMs, progress)
+                .copy(sessionId = sessionId, runId = run?.id.orEmpty()).also { store.savePrints(it) }
+        }
         val samples = vault.read(audio).use { input ->
             val info = Wav.readHeader(input)
             check(info.sampleRate == Speech.SAMPLE_RATE && info.channels == 1) { "Working audio must be 16 kHz mono" }
@@ -68,9 +75,6 @@ class SpeakerFinder(private val context: Context) {
             for (block in Wav.blocks(input, 16_000)) { block.copyInto(out, at, 0, minOf(block.size, out.size - at)); at += block.size; if (at >= out.size) break }
             if (at < out.size) out.copyOf(at) else out
         }
-        val run = store.runs(sessionId).filter { it.status == RunStatus.DONE }.let { done ->
-            done.lastOrNull { it.engine == store.settings().baseEngine } ?: done.lastOrNull()
-        }
         val lines = run?.segments?.map { it.startMs..it.endMs } ?: speechStretches(samples)
         val prints = printsFor(context, samples, lines, count, session.durationMs, progress)
         return prints.copy(sessionId = sessionId, runId = run?.id.orEmpty()).also { store.savePrints(it) }
@@ -78,8 +82,56 @@ class SpeakerFinder(private val context: Context) {
 
     private fun speechStretches(samples: FloatArray): List<LongRange> = stretches(context, samples)
 
+    /**
+     * A long recording (a meeting) in pieces of about half an hour, cut between lines, so the
+     * phone never holds more than one piece of audio at a time. Each piece gets the speaker model
+     * and its prints as usual; the prints of all pieces are then grouped together, so the same
+     * voice keeps the same name across the whole meeting. The speaker model's own labels are
+     * kept apart per piece (piece 2's "speaker 0" is not piece 1's).
+     */
+    private fun inPieces(audio: String, lines: List<LongRange>?, count: Int, durationMs: Long, progress: (Float) -> Unit): VoicePrints {
+        val gaps = lines?.zipWithNext()?.map { (a, b) -> (a.last + b.first) / 2 }.orEmpty()
+        val bounds = arrayListOf(0L)
+        while (durationMs - bounds.last() > PIECE_MS + PIECE_MS / 3) {
+            val target = bounds.last() + PIECE_MS
+            val cut = gaps.filter { it > bounds.last() + PIECE_MS / 2 && it < target + PIECE_MS / 2 }.minByOrNull { kotlin.math.abs(it - target) } ?: target
+            bounds += cut
+        }
+        bounds += durationMs
+        val pieces = ArrayList<VoicePiece>(); val turns = ArrayList<Turn>()
+        var model = ""; var linesBefore = 0
+        vault.read(audio).use { input ->
+            val info = Wav.readHeader(input)
+            check(info.sampleRate == Speech.SAMPLE_RATE && info.channels == 1) { "Working audio must be 16 kHz mono" }
+            val blocks = Wav.blocks(input, 16_000).iterator()
+            var carry = FloatArray(0); var carryAt = 0
+            val parts = bounds.size - 1
+            for (c in 0 until parts) {
+                val from = bounds[c]; val to = bounds[c + 1]
+                val buf = FloatArray(((to - from) * (Speech.SAMPLE_RATE / 1000)).toInt())
+                var at = 0
+                while (at < buf.size) {
+                    if (carryAt >= carry.size) { if (!blocks.hasNext()) break; carry = blocks.next(); carryAt = 0 }
+                    val k = minOf(carry.size - carryAt, buf.size - at)
+                    carry.copyInto(buf, at, carryAt, carryAt + k); at += k; carryAt += k
+                }
+                val samples = if (at < buf.size) buf.copyOf(at) else buf
+                val mine = lines?.filter { it.first >= from && it.first < to }?.map { (it.first - from)..(minOf(it.last, to) - from) } ?: stretches(context, samples)
+                val p = printsFor(context, samples, mine, count, to - from) { f -> progress((c + f) / parts) }
+                pieces += p.pieces.map { it.copy(startMs = it.startMs + from, endMs = it.endMs + from, segment = it.segment + linesBefore) }
+                turns += p.modelTurns.map { Turn(it.startMs + from, it.endMs + from, it.speaker + c * 100) }
+                model = p.model; linesBefore += mine.size
+            }
+        }
+        return VoicePrints("", "", model, pieces, System.currentTimeMillis(), turns)
+    }
+
     companion object {
-        const val MAX_MS = 80 * 60_000L
+        /** Meetings run up to two hours; a little room for the end of one. */
+        const val MAX_MS = 125 * 60_000L
+        /** Up to this long, the whole recording goes through the speaker model at once, as it always has. */
+        const val ONE_PIECE_MS = 40 * 60_000L
+        const val PIECE_MS = 30 * 60_000L
 
         /**
          * The speaker model over [samples], then a voice print for each line piece. Shared with the

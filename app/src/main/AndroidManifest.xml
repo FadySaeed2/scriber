@@ -27,10 +27,6 @@
         android:largeHeap="true"
         android:theme="@style/Theme.Scriber">
 
-        <!-- The language model's GPU path needs these vendor libraries when the phone has them. -->
-        <uses-native-library android:name="libOpenCL.so" android:required="false" />
-        <uses-native-library android:name="libvndksupport.so" android:required="false" />
-
         <activity
             android:name=".MainActivity"
             android:exported="true"

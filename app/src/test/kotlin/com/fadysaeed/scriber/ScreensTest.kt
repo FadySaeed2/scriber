@@ -23,7 +23,6 @@ import com.fadysaeed.scriber.lab.AsrSample
 import com.fadysaeed.scriber.lab.DeviceSnapshot
 import com.fadysaeed.scriber.lab.DiarizationRun
 import com.fadysaeed.scriber.lab.LabReport
-import com.fadysaeed.scriber.lab.LlmRun
 import com.fadysaeed.scriber.lab.VadRun
 import com.fadysaeed.scriber.lab.VaultRun
 import com.fadysaeed.scriber.ui.Frame
@@ -38,9 +37,8 @@ import com.fadysaeed.scriber.ui.SessionSheet
 import com.fadysaeed.scriber.ui.SessionsScreen
 import com.fadysaeed.scriber.ui.SettingsScreen
 import com.fadysaeed.scriber.ui.Tab
-import com.fadysaeed.scriber.ui.SessionView
-import com.fadysaeed.scriber.ui.TemplateActions
-import com.fadysaeed.scriber.ui.TemplatesScreen
+import com.fadysaeed.scriber.ui.PromptActions
+import com.fadysaeed.scriber.ui.PromptsScreen
 import com.fadysaeed.scriber.work.JobProgress
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
@@ -143,14 +141,14 @@ class ScreensTest {
     }
 
     @Test fun modelsLocked() = tabShot("10_models_locked.png", Tab.Models) {
-        ModelsScreen(ModelsUi(device, "E4B", "E4B", rows { if (it == "llm-gemma4-e2b") PackState.Missing else PackState.Verified }, locked = true, freeBytes = 720 * gb, neededBytes = gb), {}, {}, {}, {}, {}, {})
+        ModelsScreen(ModelsUi(device, rows { PackState.Verified }, locked = true, freeBytes = 720 * gb, neededBytes = gb), {}, {}, {}, {}, {})
     }
 
     @Test fun modelsDownloading() {
-        val llm = catalog.byRole(PackRole.LLM).first { it.variant == "E4B" }
+        val asr = catalog.byRole(PackRole.ASR).first()
         tabShot("11_models_downloading.png", Tab.Models) {
-            ModelsScreen(ModelsUi(device, "E4B", "E4B", rows { if (it == llm.id) PackState.Partial(1_200_000_000) else if (it.startsWith("llm")) PackState.Missing else PackState.Verified },
-                fetch = Fetcher.Status.Running(llm.id, "gemma-4-E4B-it.litertlm", 2_050_000_000, 4_510_000_000, false), freeBytes = 720 * gb, neededBytes = 3 * gb), {}, {}, {}, {}, {}, {})
+            ModelsScreen(ModelsUi(device, rows { if (it == asr.id) PackState.Partial(300_000_000) else if (it.startsWith("diarize")) PackState.Missing else PackState.Verified },
+                fetch = Fetcher.Status.Running(asr.id, asr.files.first().path, 300_000_000, asr.totalBytes, false), freeBytes = 720 * gb, neededBytes = gb), {}, {}, {}, {}, {})
         }
     }
 
@@ -160,8 +158,7 @@ class ScreensTest {
             AsrRun("parakeet", "Parakeet TDT 0.6B v2", 4, 2191, 127.2, 7945, 262, 9, listOf(AsrSample("0.wav", 43.8, 2909, 0.015, "Exam type CT chest PE protocol period", ""))),
             AsrRun("medasr", "Google MedASR", 4, 759, 127.2, 3854, 262, 12, listOf(AsrSample("0.wav", 43.8, 1560, 0.0, "[EXAM TYPE] CT chest PE protocol {period}", ""))),
         ),
-        vad = VadRun(127.2, 607, 15), diarization = DiarizationRun(51.2, 388, 9234, 2, 2, 8),
-        llm = LlmRun("Gemma 4 E4B", "GPU", 14484, 1515, 158, 14.1, "History since last review: ..."))
+        vad = VadRun(127.2, 607, 15), diarization = DiarizationRun(51.2, 388, 9234, 2, 2, 8))
 
     @Test fun lab() = tabShot("12_lab.png", Tab.Lab) { LabScreen(LabUi(report = report, modelsReady = true), {}, {}) }
 
@@ -234,53 +231,31 @@ class ScreensTest {
         SessionScreen(speakersUi(), actions, SessionSheet.Speaker(11, 25, 1, "Better. Sleeping more. I still take the quetiapin at night and the sertraline in the morning."))
     }
 
-    // Notes ---------------------------------------------------------------------------------
+    // Copying for AI ------------------------------------------------------------------------
 
-    private val facts = com.fadysaeed.scriber.core.FactSet("s5", "b1", "x", "Gemma 4 E4B", listOf(
-        com.fadysaeed.scriber.core.Fact("F1", com.fadysaeed.scriber.core.FactKind.SYMPTOMS, "Feels better and is sleeping more", "Better. Sleeping more.", 2, 4_400, 9_800),
-        com.fadysaeed.scriber.core.Fact("F2", com.fadysaeed.scriber.core.FactKind.MEDICATIONS, "Takes quetiapine at night and sertraline in the morning", "take the quetiapine at night and the sertraline in the morning", 2, 4_400, 9_800),
-        com.fadysaeed.scriber.core.Fact("F3", com.fadysaeed.scriber.core.FactKind.MEDICATIONS, "Reports increased appetite since olanzapine", "A bit hungry", 4, 14_300, 19_000, doubt = "medicine olanzapine not heard there: listen to the line before trusting it"),
-        com.fadysaeed.scriber.core.Fact("F4", com.fadysaeed.scriber.core.FactKind.COLLATERAL, "Mother reports he eats more", "My mum says I eat more", 4, 14_300, 19_000, edited = true),
-        com.fadysaeed.scriber.core.Fact("F5", com.fadysaeed.scriber.core.FactKind.SOCIAL, "Lives with his mother", "my mum", 4, 14_300, 19_000, removed = true),
-    ), listOf(com.fadysaeed.scriber.core.RejectedFact("SYMPTOMS | L3 | Gained 5 kg | \"weight gain\"", "number 5 not said there")), now, 41_000)
-    private fun s(text: String, vararg ids: String, warning: String? = null) = com.fadysaeed.scriber.core.NoteSentence(text, ids.toList(), warning)
-    private val note = com.fadysaeed.scriber.core.Note("n1", "s5", "inpatient", "Inpatient review", now, listOf(
-        com.fadysaeed.scriber.core.NoteSectionText("interval", "Progress since last review", com.fadysaeed.scriber.core.SectionForm.PROSE, listOf(
-            s("He reports feeling better and sleeping more since the change to olanzapine.", "F1"),
-            s("His appetite has increased, which his mother has also noticed.", "F3", "F4"),
-            com.fadysaeed.scriber.core.NoteSentence("He has gained 5 kg.", emptyList(), "No fact behind this sentence", severe = true),
-            s("He is hungry most of the day and eats at night.", "F3", warning = "Only partly in its facts: eating at night not stated"))),
-        com.fadysaeed.scriber.core.NoteSectionText("meds", "Medication", com.fadysaeed.scriber.core.SectionForm.PROSE, listOf(
-            s("He takes quetiapine at night and sertraline in the morning.", "F2"))),
-        com.fadysaeed.scriber.core.NoteSectionText("mse", "Mental state examination", com.fadysaeed.scriber.core.SectionForm.PROSE, listOf(s("Not assessed."))),
-        com.fadysaeed.scriber.core.NoteSectionText("plan", "Plan", com.fadysaeed.scriber.core.SectionForm.NUMBERED, listOf(
-            s("Monitor weight and appetite.", "F3"), s("Continue current medication.", "F2"))),
-    ), "Gemma 4 E4B (GPU)", now, 96_000)
-    private fun noteUi() = speakersUi().copy(facts = facts, note = note, templates = com.fadysaeed.scriber.core.Templates.builtIns(), canWriteNotes = true)
+    private val prompts = com.fadysaeed.scriber.core.Prompts.builtIns() + com.fadysaeed.scriber.core.Prompts.blank("p1", "Tribunal letter")
+    private fun copyUi(noticeSeen: Boolean = false) = speakersUi().copy(prompts = prompts, promptId = "inpatient", copyNoticeSeen = noticeSeen)
 
-    @Test fun sessionNote() = shot("25_session_note.png") { SessionScreen(noteUi(), actions, viewOverride = SessionView.NOTE) }
+    @Test fun copySheet() = shot("25_copy_sheet.png") { SessionScreen(copyUi(), actions, SessionSheet.Copy) }
 
-    @Test fun noteSources() = shot("26_note_sources.png") { SessionScreen(noteUi(), actions, SessionSheet.Sources(0, 1), SessionView.NOTE) }
+    @Test fun copySheetAfterFirstTime() = shot("26_copy_sheet_seen.png") { SessionScreen(copyUi(noticeSeen = true).copy(copyTimes = true), actions, SessionSheet.Copy) }
 
-    @Test fun sessionFacts() = shot("27_session_facts.png") { SessionScreen(noteUi(), actions, viewOverride = SessionView.FACTS) }
+    private val defaults = com.fadysaeed.scriber.core.Prompts.DEFAULTS
 
-    @Test fun factSheet() = shot("28_fact_sheet.png") { SessionScreen(noteUi(), actions, SessionSheet.FactSheet("F4"), SessionView.FACTS) }
+    @Test fun promptsList() = shot("27_prompts.png") { PromptsScreen(prompts, defaults, PromptActions()) }
 
-    @Test fun chooseTemplate() = shot("29_choose_template.png") { SessionScreen(noteUi(), actions, SessionSheet.ChooseTemplate(true), SessionView.NOTE) }
+    @Test fun promptEditor() = shot("28_prompt_editor.png") { PromptsScreen(prompts, defaults, PromptActions(), openOverride = "adhd") }
 
-    @Test fun noNoteYet() = shot("30_note_none.png") { SessionScreen(speakersUi().copy(canWriteNotes = true, templates = com.fadysaeed.scriber.core.Templates.builtIns()), actions, viewOverride = SessionView.NOTE) }
-
-    private val templates = com.fadysaeed.scriber.core.Templates.builtIns() + com.fadysaeed.scriber.core.Templates.blank("t1", "Tribunal report")
-
-    @Test fun templatesList() = shot("31_templates.png") { TemplatesScreen(templates, "inpatient", TemplateActions()) }
-
-    @Test fun templateEditor() = shot("32_template_editor.png") { TemplatesScreen(templates, "inpatient", TemplateActions(), openOverride = "inpatient") }
-
-    @Test fun sectionEditor() = shot("33_section_editor.png") { TemplatesScreen(templates, "inpatient", TemplateActions(), openOverride = "inpatient", sectionOverride = 1) }
-
-    @Test fun settingsNotes() = tabShot("34_settings_notes.png", Tab.Settings) {
-        SettingsScreen(SettingsUi(locked = true, hosts = listOf("huggingface.co"), version = "0.0.34", templates = templates), {}, {}, {}, {})
+    @Test fun settingsCopying() = tabShot("29_settings_copying.png", Tab.Settings) {
+        SettingsScreen(SettingsUi(locked = true, hosts = listOf("huggingface.co"), version = "0.0.39", prompts = prompts), {}, {}, {}, {})
     }
 
-    @Test fun copyRedSheet() = shot("35_copy_red.png") { SessionScreen(noteUi(), actions, SessionSheet.CopyRed, SessionView.NOTE) }
+    @Test fun meetingSession() = shot("30_session_meeting.png") {
+        val three = com.fadysaeed.scriber.core.SpeakerLayer("s5", "a", 0, listOf(
+            com.fadysaeed.scriber.core.Turn(0, 4_000, 0), com.fadysaeed.scriber.core.Turn(4_400, 9_800, 1),
+            com.fadysaeed.scriber.core.Turn(10_200, 14_000, 2), com.fadysaeed.scriber.core.Turn(14_300, 19_000, 1)), names = mapOf(0 to "Anna", 1 to "Ben", 2 to "Chris"))
+        val ui = reviewUi().copy(session = reviewSession.copy(mode = SessionMode.MEETING, title = "Team meeting"), speakers = three,
+            speakerOf = com.fadysaeed.scriber.core.Speakers.assign(reading.words, reading.segments, three, "b1"))
+        SessionScreen(ui, actions)
+    }
 }

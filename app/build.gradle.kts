@@ -95,8 +95,6 @@ dependencies {
     // Speech: sherpa-onnx (Parakeet, MedASR, Silero VAD, speaker turns). Fetched and checked by
     // tools/fetch-deps.sh from the official release.
     implementation(files("libs/sherpa-onnx-2.0.1.aar"))
-    // Language model runtime from Google AI Edge (Gemma 4 on the phone's GPU or CPU).
-    implementation("com.google.ai.edge.litertlm:litertlm-android:0.19.1")
 
     val composeBom = platform("androidx.compose:compose-bom:2026.06.01")
     implementation(composeBom)

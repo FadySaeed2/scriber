@@ -10,7 +10,6 @@ import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.fadysaeed.scriber.core.ModelCatalog
-import com.fadysaeed.scriber.core.PackRole
 import com.fadysaeed.scriber.vault.Vault
 import kotlinx.coroutines.CancellationException
 
@@ -77,8 +76,7 @@ class FetchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
     }
 
     private fun allNeededVerified(catalog: ModelCatalog, store: ModelStore): Boolean =
-        catalog.packs.filter { it.required }.all { store.state(it) is PackState.Verified } &&
-            catalog.byRole(PackRole.LLM).any { store.state(it) is PackState.Verified }
+        catalog.packs.filter { it.required }.all { store.state(it) is PackState.Verified }
 
     override suspend fun getForegroundInfo(): ForegroundInfo = foregroundInfo("Preparing", 0, 100)
 

@@ -208,4 +208,45 @@ class Phase2CoreTest {
         val pieces = listOf(VoicePiece(0, 6000, 0, false, a), VoicePiece(6000, 12000, 0, false, b), VoicePiece(12500, 13000, 1, false, null), VoicePiece(13200, 19000, 2, false, a))
         assertEquals(listOf(0, 1, 0, 0), Pieces.labelWithModel(pieces, model, 2).map { it.speaker })
     }
+
+    /** The old way: every member of every pair of groups compared each round. */
+    private fun slowCluster(prints: List<FloatArray>, k: Int, joinAbove: Float = 0.45f, sameVoiceAbove: Float = 0.7f): IntArray {
+        val n = prints.size
+        val sim = Array(n) { i -> FloatArray(n) { j -> if (i == j) 1f else Voices.cosine(prints[i], prints[j]) } }
+        val groups = (0 until n).map { mutableListOf(it) }.toMutableList()
+        fun link(a: List<Int>, b: List<Int>): Float { var s = 0f; for (x in a) for (y in b) s += sim[x][y]; return s / (a.size * b.size) }
+        while (groups.size > 1) {
+            var bi = -1; var bj = -1; var best = -2f
+            for (i in groups.indices) for (j in i + 1 until groups.size) { val l = link(groups[i], groups[j]); if (l > best) { best = l; bi = i; bj = j } }
+            val enough = if (k > 0) groups.size <= k && best < sameVoiceAbove else best < joinAbove
+            if (enough) break
+            groups[bi].addAll(groups[bj]); groups.removeAt(bj)
+        }
+        val out = IntArray(n)
+        groups.sortedBy { it.min() }.forEachIndexed { label, g -> for (x in g) out[x] = label }
+        return out
+    }
+
+    @Test fun fastClusteringGivesTheSameVoicesAsTheOldWay() {
+        val rnd = java.util.Random(7)
+        repeat(12) { round ->
+            val voices = 2 + round % 5
+            val centres = List(voices) { FloatArray(192) { rnd.nextGaussian().toFloat() } }
+            val prints = List(60 + round * 10) {
+                val c = centres[rnd.nextInt(voices)]
+                FloatArray(192) { d -> c[d] + 0.9f * rnd.nextGaussian().toFloat() }
+            }
+            for (k in listOf(0, 2, voices)) assertEquals("round $round k $k", slowCluster(prints, k).toList(), Voices.cluster(prints, k).toList())
+        }
+    }
+
+    @Test fun aTwoHourMeetingClustersQuickly() {
+        val rnd = java.util.Random(3)
+        val centres = List(6) { FloatArray(192) { rnd.nextGaussian().toFloat() } }
+        val prints = List(1500) { val c = centres[it % 6]; FloatArray(192) { d -> c[d] + 0.9f * rnd.nextGaussian().toFloat() } }
+        val t0 = System.currentTimeMillis()
+        val labels = Voices.cluster(prints, 0)
+        assertTrue("took ${System.currentTimeMillis() - t0} ms", System.currentTimeMillis() - t0 < 20_000)
+        assertEquals(6, labels.distinct().size)
+    }
 }

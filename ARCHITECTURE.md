@@ -6,7 +6,7 @@
 2. **The original is never touched.** Each layer is written once and never edited in place; later
    layers sit on top of it. Any mistake higher up can always be traced back to the source.
 3. **Every model claim is checkable.** Model files are pinned to exact revisions and SHA-256 hashes.
-   Note text (from Phase 3) will be traceable to the words and the moment in the audio it came from.
+   Notes are not written on the phone: a clean transcript is copied out for a cloud model.
 4. **Fail closed.** A file that does not match its checksum is deleted, a host that is not on the
    list is refused, and the app will not open on a phone without a screen lock.
 
@@ -37,7 +37,7 @@ and confidence, for processing with any outside model.
 | `core` | Plain Kotlin: model catalogue, allowed hosts, resume maths, hashing, word error rate | none |
 | `vault` | Encrypted storage (Tink: streaming AES-256-GCM for files, AES-256-GCM for records; keys wrapped by an Android Keystore master key) | none |
 | `fetch` | Downloads catalogue files, resumes, verifies, then locks itself | **only module with network code** |
-| `app` | Screens, speech engines (sherpa-onnx), language model (LiteRT-LM), Lab | none |
+| `app` | Screens, speech engines (sherpa-onnx), Lab | none |
 
 `PrivacyGuardTest` fails the build if network code appears outside `fetch`, if any manifest other
 than `fetch`'s asks for the internet, or if the network security config trusts anything beyond the
@@ -64,7 +64,6 @@ The internet permission exists only so models can be downloaded once. Three inde
 | Speech to text (medical) | Google MedASR, int8 | 154 MB | sherpa-onnx 2.0.1 |
 | Voice activity | Silero VAD | 0.6 MB | sherpa-onnx |
 | Speaker turns | pyannote segmentation 3.0 + CAM++ voiceprint | 31 MB | sherpa-onnx |
-| Note writer | Gemma 4 E4B (12 GB phones) or E2B (8 GB phones) | 3.66 / 2.59 GB | LiteRT-LM 0.19.1, GPU first |
 | Test audio | Six medical dictations with reference text | 5 MB | Lab only |
 
 The `Check model files` workflow streams every file weekly and fails on any size, checksum or

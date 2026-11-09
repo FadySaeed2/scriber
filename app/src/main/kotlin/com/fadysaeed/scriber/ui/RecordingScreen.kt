@@ -34,7 +34,7 @@ fun RecordingScreen(state: RecordingState, onBack: () -> Unit, onPause: () -> Un
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 16.dp)) {
                 Dot(if (state.paused) Ink.Amber else Ink.Ember, 9.dp)
                 Spacer(Modifier.width(8.dp))
-                Eyebrow(if (state.finishing) "Saving" else if (state.paused) "Paused" else if (state.mode == SessionMode.DICTATION) "Dictation" else "Conversation", color = Ink.Sand)
+                Eyebrow(if (state.finishing) "Saving" else if (state.paused) "Paused" else modeName(state.mode), color = Ink.Sand)
             }
         }
         Column(Modifier.padding(horizontal = 20.dp)) {

@@ -17,7 +17,7 @@ import com.fadysaeed.scriber.data.AppSettings
 @Composable
 fun SettingsScreen(
     ui: SettingsUi, onChange: ((AppSettings) -> AppSettings) -> Unit, onUnlock: () -> Unit, onLock: () -> Unit, onCheckVault: () -> Unit,
-    onCopyCrash: () -> Unit = {}, onClearCrash: () -> Unit = {}, onTemplates: () -> Unit = {},
+    onCopyCrash: () -> Unit = {}, onClearCrash: () -> Unit = {}, onPrompts: () -> Unit = {},
 ) {
     val st = ui.settings
     Heading("Scriber", "Settings")
@@ -63,21 +63,18 @@ fun SettingsScreen(
     Toggle("Show every difference", "Off: the second opinion shows only medicines. On: every place the two engines heard differently.", st.showAllDifferences) { on ->
         onChange { it.copy(showAllDifferences = on) }
     }
-    Toggle("Find who is speaking", "In every new conversation, while it is transcribed. Off: you can still do it for one session from its screen.", st.findSpeakers) { on ->
+    Toggle("Find who is speaking", "In every new conversation and meeting, while it is transcribed. Off: you can still do it for one session from its screen.", st.findSpeakers) { on ->
         onChange { it.copy(findSpeakers = on) }
     }
-    Text("Voices to look for in a conversation", style = Type.note, modifier = Modifier.padding(top = 14.dp, bottom = 8.dp))
+    Text("Voices to look for in a conversation (meetings always decide)", style = Type.note, modifier = Modifier.padding(top = 14.dp, bottom = 8.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         for ((n, label) in listOf(2 to "2", 3 to "3", 0 to "Decide")) Choice(label, st.speakers == n, { onChange { it.copy(speakers = n) } }, Modifier.weight(1f))
     }
     Fact("Medicine dictionary", "${ui.medicines} names, ${ui.personalWords} of yours")
 
-    Section("Notes")
-    Toggle("Write the note after every conversation", "Once the transcript and speakers are ready, Gemma writes it on this phone. Off: write it from the session when you want.", st.autoNotes) { on ->
-        onChange { it.copy(autoNotes = on) }
-    }
-    Fact("Template for new conversations", ui.templates.firstOrNull { it.id == st.noteTemplate }?.name ?: "Inpatient review")
-    ActionRow(Glyph.LIST, "Note templates", onTemplates, "Change the five that come with Scriber, or make your own")
+    Section("Copying for AI")
+    Text("The Copy button on a session puts the clean transcript on the clipboard, with a prompt above it that tells a cloud model what to write.", style = Type.note, modifier = Modifier.padding(top = 10.dp, bottom = 4.dp))
+    ActionRow(Glyph.LIST, "Prompts", onPrompts, "${ui.prompts.size} prompts: change them or make your own")
 
     Section("Internet")
     Status(if (ui.locked) "Locked" else "Downloads open", if (ui.locked) Ink.Teal else Ink.Amber)
@@ -104,6 +101,5 @@ fun SettingsScreen(
     Fact("App", ui.version)
     Fact("Model list", "version ${ui.catalogVersion}")
     Fact("Speech", "sherpa-onnx 2.0.1")
-    Fact("Language", "LiteRT-LM 0.19.1")
     Spacer(Modifier.height(4.dp))
 }

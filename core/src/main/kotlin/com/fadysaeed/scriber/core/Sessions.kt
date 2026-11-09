@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 
 /** Dictation: one voice reading a note aloud. Conversation: a consultation between people. */
 @Serializable
-enum class SessionMode { DICTATION, CONVERSATION }
+enum class SessionMode { DICTATION, CONVERSATION, MEETING }
 
 @Serializable
 enum class SessionSource { RECORDED, IMPORTED }

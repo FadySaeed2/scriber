@@ -56,13 +56,8 @@ sealed interface SessionSheet {
     data object DeleteAudio : SessionSheet
     data object DeleteSession : SessionSheet
     data class Confirm(val kind: ExportKind, val share: Boolean) : SessionSheet
-    /** Where sentence [sentence] of note section [section] came from. */
-    data class Sources(val section: Int, val sentence: Int) : SessionSheet
-    data class ChooseTemplate(val rewriteOnly: Boolean) : SessionSheet
-    data object EditNote : SessionSheet
-    data class FactSheet(val factId: String) : SessionSheet
-    data object Dropped : SessionSheet
-    data object CopyRed : SessionSheet
+    /** Copy or share the clean transcript, with or without a prompt. */
+    data object Copy : SessionSheet
 }
 
 class SessionActions(
@@ -77,8 +72,19 @@ class SessionActions(
     val onDeleteAudio: () -> Unit,
     val onDeleteSession: () -> Unit,
     val review: ReviewActions = ReviewActions(),
-    val note: NoteActions = NoteActions(),
+    val copy: CopyActions = CopyActions(),
 )
+
+/** Taking the transcript out of Scriber for a cloud model. */
+class CopyActions(
+    /** Copy (or share, with [share]) the clean transcript, with the prompt [promptId] above it when given. */
+    val onCopy: (promptId: String?, share: Boolean) -> Unit = { _, _ -> },
+    val onTimes: (Boolean) -> Unit = {},
+    val onChoosePrompt: (String) -> Unit = {},
+    val onPrompts: () -> Unit = {},
+)
+
+fun modeName(m: SessionMode) = when (m) { SessionMode.DICTATION -> "Dictation"; SessionMode.CONVERSATION -> "Conversation"; SessionMode.MEETING -> "Meeting" }
 
 /** What Fady can do to correct the transcript. */
 class ReviewActions(
@@ -101,25 +107,22 @@ class ReviewActions(
 private fun stamp(ms: Long) = SimpleDateFormat("d MMM yyyy, HH:mm", Locale.ENGLISH).format(Date(ms))
 
 @Composable
-fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet? = null, viewOverride: SessionView? = null) {
+fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet? = null) {
     val s = ui.session ?: return
     var sheet by remember { mutableStateOf(sheetOverride) }
-    val views = s.mode == SessionMode.CONVERSATION && (ui.canWriteNotes || ui.note != null || ui.facts != null)
-    var chosen by remember(s.id) { mutableStateOf(viewOverride ?: SessionView.TRANSCRIPT) }
-    val view = if (views) chosen else SessionView.TRANSCRIPT
     Box {
         Page(s.title, a.onBack, actions = { IconButton(Glyph.RENAME, "Rename", { sheet = SessionSheet.Rename }) }, footer = {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 val p = ui.player
                 if (p.playing) GhostButton("Stop  ${clock(p.positionMs)}", a.onStopPlaying, Modifier.weight(1f), minHeight = 52.dp)
                 else GhostButton(if (s.hasAudio) "Play" else "Audio deleted", { a.onPlay(0) }, Modifier.weight(1f), enabled = s.hasAudio && s.status == SessionStatus.READY, minHeight = 52.dp)
-                AmberButton("Export", { sheet = SessionSheet.Export }, Modifier.weight(1f), enabled = ui.run?.status == RunStatus.DONE || s.hasAudio)
+                AmberButton("Copy", { sheet = SessionSheet.Copy }, Modifier.weight(1f), enabled = ui.run?.status == RunStatus.DONE && ui.reading != null)
             }
         }) {
             Spacer(Modifier.height(14.dp))
             Text(
                 listOfNotNull(stamp(s.createdAtMillis), if (s.durationMs > 0) clock(s.durationMs) else null,
-                    if (s.mode == SessionMode.DICTATION) "Dictation" else "Conversation").joinToString("  ·  "),
+                    modeName(s.mode)).joinToString("  ·  "),
                 style = Type.figure,
             )
             ui.job?.let { j ->
@@ -131,23 +134,15 @@ fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet?
             s.problem?.let { Spacer(Modifier.height(12.dp)); Text(it, style = Type.body.copy(color = Ink.Ember)) }
             if (s.recovered) { Spacer(Modifier.height(12.dp)); Text("This recording stopped unexpectedly and was rescued up to its last saved moment.", style = Type.note.copy(color = Ink.Amber)) }
 
-            if (views) {
-                Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    for (v in SessionView.entries) Choice(v.label, v == view, { chosen = v }, Modifier.weight(1f))
-                }
-            }
-            when (view) {
-                SessionView.NOTE -> NoteView(ui, a) { sheet = it }
-                SessionView.FACTS -> FactsView(ui, a) { sheet = it }
-                SessionView.TRANSCRIPT -> TranscriptView(ui, a, s) { sheet = it }
-            }
-            if (view == SessionView.TRANSCRIPT) {
+            TranscriptView(ui, a, s) { sheet = it }
+            run {
                 Section("This session")
                 Fact("Source", if (s.source == SessionSource.IMPORTED) s.original?.let { "Imported: ${it.displayName}" } ?: "Imported" else "Recorded here")
                 Fact("Audio", s.audioDeletedAtMillis?.let { "Deleted ${stamp(it)}" } ?: "${Units.bytes(s.audioBytes + (s.original?.size ?: 0))}, kept")
                 if (s.source == SessionSource.RECORDED) Fact("Quality", "${s.sampleRate / 1000} kHz mono")
                 s.audioSha256?.let { Fact("Audio fingerprint", it.take(16) + "…") }
                 Spacer(Modifier.height(6.dp))
+                ActionRow(Glyph.SAVE, "Export files", { sheet = SessionSheet.Export }, "Text, subtitles, the full record or the audio", enabled = ui.run?.status == RunStatus.DONE || s.hasAudio)
                 ActionRow(Glyph.REDO, "Transcribe again", { sheet = SessionSheet.Engine }, "A new transcript with any engine; earlier ones stay", enabled = (s.hasAudio || (s.original != null && s.workAudioName == null)) && ui.engines.isNotEmpty() && ui.job == null)
                 ActionRow(Glyph.TRASH, "Delete the audio, keep transcripts", { sheet = SessionSheet.DeleteAudio }, color = Ink.Amber, enabled = s.hasAudio)
                 ActionRow(Glyph.TRASH, "Delete this session", { sheet = SessionSheet.DeleteSession }, color = Ink.Ember)
@@ -156,12 +151,7 @@ fun SessionScreen(ui: SessionUi, a: SessionActions, sheetOverride: SessionSheet?
 
         when (val sh = sheet) {
             null -> Unit
-            is SessionSheet.Sources -> SourcesSheet(ui, sh, a) { sheet = null }
-            is SessionSheet.ChooseTemplate -> ChooseTemplateSheet(ui, sh, a) { sheet = null }
-            SessionSheet.EditNote -> EditNoteSheet(ui, a) { sheet = null }
-            is SessionSheet.FactSheet -> FactSheet(ui, sh, a) { sheet = null }
-            SessionSheet.Dropped -> DroppedSheet(ui) { sheet = null }
-            SessionSheet.CopyRed -> CopyRedSheet(ui, a, { sheet = SessionSheet.EditNote }) { sheet = null }
+            SessionSheet.Copy -> CopySheet(ui, a.copy) { sheet = null }
             SessionSheet.Review -> ReviewSheet(ui, a, { sheet = null }) { sheet = it }
             SessionSheet.Speakers -> SpeakersSheet(ui, a.review.onFindSpeakers, a.review.onRenameSpeaker, a.review.onHideSpeakers) { sheet = null }
             is SessionSheet.Speaker -> SpeakerPartSheet(sh, ui, a.review.onMoveSpeaker) { sheet = null }

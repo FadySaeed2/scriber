@@ -44,7 +44,6 @@ object Jobs {
     const val IMPORT = "import"
     const val TRANSCRIBE = "transcribe"
     const val SPEAKERS = "speakers"
-    const val NOTE = "note"
     private const val MAX_ATTEMPTS = 3
     private val lock = Any()
     private val _progress = MutableStateFlow<Map<String, JobProgress>>(emptyMap())
@@ -74,16 +73,6 @@ object Jobs {
         ProcessingService.start(context)
     }
 
-    /** Writes the note: facts then note, or with [rewriteOnly] the note again from the saved facts. */
-    fun note(context: Context, sessionId: String, templateId: String?, rewriteOnly: Boolean) {
-        synchronized(lock) {
-            val jobs = queue(context).filterNot { it.kind == NOTE && it.sessionId == sessionId && it.attempts == 0 }
-            save(context, jobs + Job(Ids.new(), NOTE, sessionId, templateId.orEmpty(), count = if (rewriteOnly) 1 else 0))
-            _progress.update { it + (sessionId to JobProgress(sessionId, "Waiting to write the note", 0f)) }
-        }
-        ProcessingService.start(context)
-    }
-
     /** One more transcript with one engine, nothing after it. */
     fun transcribe(context: Context, sessionId: String, engine: String) = enqueue(context, TRANSCRIBE, sessionId, engine, null)
 
@@ -93,7 +82,7 @@ object Jobs {
 
     fun pending(context: Context): List<Job> = synchronized(lock) { queue(context) }
 
-    private fun waiting(job: Job) = JobProgress(job.sessionId, when (job.kind) { IMPORT -> "Waiting to decode"; SPEAKERS -> "Waiting to find speakers"; NOTE -> "Waiting to write the note"; else -> "Waiting to transcribe" }, 0f)
+    private fun waiting(job: Job) = JobProgress(job.sessionId, when (job.kind) { IMPORT -> "Waiting to decode"; SPEAKERS -> "Waiting to find speakers"; else -> "Waiting to transcribe" }, 0f)
 
     private fun enqueue(context: Context, kind: String, sessionId: String, engine: String, then: String?) {
         synchronized(lock) {
@@ -193,18 +182,6 @@ object Jobs {
             } catch (t: Throwable) {
                 store.update(id) { it.copy(problem = "Could not find speakers: ${t.message ?: t.javaClass.simpleName}") }
             }
-            NOTE -> try {
-                report(JobProgress(id, "Writing the note", 0f)); notify("Writing the note")
-                store.update(id) { if (it.problem?.startsWith("Could not write the note") == true) it.copy(problem = null) else it }
-                var last = -1
-                NoteWriter(context).run(id, job.engine.ifBlank { null }, rewriteOnly = job.count == 1) { label, f ->
-                    val pct = (f * 100).toInt()
-                    if (pct != last) { last = pct; report(JobProgress(id, label, f)); notify("$label, $pct%") }
-                }
-                store.update(id) { if (it.problem?.startsWith("Could not write the note") == true) it.copy(problem = null) else it }
-            } catch (t: Throwable) {
-                store.update(id) { it.copy(problem = "Could not write the note: ${t.message ?: t.javaClass.simpleName}") }
-            }
             TRANSCRIBE -> try {
                 report(JobProgress(id, "Transcribing", 0f)); notify("Transcribing")
                 var last = -1
@@ -214,25 +191,17 @@ object Jobs {
                     val pct = (f * 100).toInt()
                     if (pct != last) { last = pct; report(JobProgress(id, label, f)); notify("$label, $pct%") }
                 }
-                // A new conversation: speakers next, so they arrive soon after the transcript, then
+                // A new conversation or meeting: speakers next (a meeting's speaker count is always found), so they arrive soon after the transcript, then
                 // the second opinion. The transcript can be read while both run.
                 val settings = store.settings()
                 val s = store.session(id)
-                if (settings.findSpeakers && s?.mode == com.fadysaeed.scriber.core.SessionMode.CONVERSATION && store.speakers(id) == null && SpeakerFinder.ready(context)) {
+                if (settings.findSpeakers && s != null && s.mode != com.fadysaeed.scriber.core.SessionMode.DICTATION && store.speakers(id) == null && SpeakerFinder.ready(context)) {
                     synchronized(lock) {
                         val jobs = queue(context)
-                        if (jobs.none { it.kind == SPEAKERS && it.sessionId == id }) save(context, jobs + Job(Ids.new(), SPEAKERS, id, "", count = store.settings().speakers))
+                        if (jobs.none { it.kind == SPEAKERS && it.sessionId == id }) save(context, jobs + Job(Ids.new(), SPEAKERS, id, "", count = if (s.mode == com.fadysaeed.scriber.core.SessionMode.MEETING) 0 else store.settings().speakers))
                     }
                 }
                 job.then?.let { enqueueBehind(context, TRANSCRIBE, id, it, null) }
-                // The end of a new conversation's chain: the note, after the speakers.
-                if (job.then == null && settings.autoNotes && s?.mode == com.fadysaeed.scriber.core.SessionMode.CONVERSATION &&
-                    store.note(id) == null && NoteWriter.model(context) != null) {
-                    synchronized(lock) {
-                        val jobs = queue(context)
-                        if (jobs.none { it.kind == NOTE && it.sessionId == id }) save(context, jobs + Job(Ids.new(), NOTE, id, "", count = 0))
-                    }
-                }
             } catch (_: Throwable) {
                 // The failed run is saved with its reason and shows on the session.
             }

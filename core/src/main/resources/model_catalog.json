@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "packs": [
     {
       "id": "asr-parakeet-v2",
@@ -174,42 +174,6 @@
           "mirrors": [
             "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx"
           ]
-        }
-      ]
-    },
-    {
-      "id": "llm-gemma4-e4b",
-      "title": "Gemma 4 E4B",
-      "subtitle": "Writes the notes; for phones with about 12 GB of memory",
-      "role": "LLM",
-      "variant": "E4B",
-      "minRamGb": 10,
-      "license": "Apache-2.0",
-      "source": "Google DeepMind; LiteRT-LM build by litert-community",
-      "files": [
-        {
-          "path": "gemma-4-E4B-it.litertlm",
-          "url": "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/71064b01bd5e2bfd9a5f9dd52df86ae4800138c1/gemma-4-E4B-it.litertlm",
-          "size": 3659530240,
-          "sha256": "0b2a8980ce155fd97673d8e820b4d29d9c7d99b8fa6806f425d969b145bd52e0"
-        }
-      ]
-    },
-    {
-      "id": "llm-gemma4-e2b",
-      "title": "Gemma 4 E2B",
-      "subtitle": "Writes the notes; lighter, for phones with about 8 GB of memory",
-      "role": "LLM",
-      "variant": "E2B",
-      "minRamGb": 0,
-      "license": "Apache-2.0",
-      "source": "Google DeepMind; LiteRT-LM build by litert-community",
-      "files": [
-        {
-          "path": "gemma-4-E2B-it.litertlm",
-          "url": "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/3d48132a00cf76de57d926de30f5c5c5ed9b8c0d/gemma-4-E2B-it.litertlm",
-          "size": 2588147712,
-          "sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
         }
       ]
     }

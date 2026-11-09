@@ -114,5 +114,8 @@ class Medicines(entries: List<Entry>, private val common: Set<String>, personal:
 
         /** Every name in the bundled list, as written. */
         fun bundledNames(): List<String> = bundledEntries.map { it.name }
+
+        /** Everyday English words (lower case), so they are never taken for medicines or speech slips. */
+        fun commonWords(): Set<String> = bundledCommon
     }
 }

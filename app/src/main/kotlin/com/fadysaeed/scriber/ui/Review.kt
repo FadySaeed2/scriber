@@ -333,14 +333,14 @@ fun WordsSheet(sh: SessionSheet.Words, ui: SessionUi, a: SessionActions, onClose
 }
 
 
-private val speakerColors = listOf(Ink.Sand, Ink.Earth, Ink.Dust, Ink.Slate)
+private val speakerColors = listOf(Ink.Sand, Ink.Earth, Ink.Dust, Ink.Slate, Ink.Bone, Ink.Ash)
 fun speakerColor(speaker: Int) = speakerColors[speaker.mod(speakerColors.size)]
 
 /** How many voices the session has, a way to look again with another number, and their names. */
 @Composable
 fun SpeakersSummary(ui: SessionUi, onOpen: () -> Unit, onFind: () -> Unit) {
     val s = ui.session ?: return
-    if (s.mode != com.fadysaeed.scriber.core.SessionMode.CONVERSATION) return
+    if (s.mode == com.fadysaeed.scriber.core.SessionMode.DICTATION) return
     val layer = ui.speakers
     when {
         layer != null -> {

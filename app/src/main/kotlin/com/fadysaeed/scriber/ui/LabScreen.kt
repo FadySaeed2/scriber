@@ -27,19 +27,17 @@ private fun pct(d: Double) = String.format(Locale.ROOT, "%.1f%%", d * 100)
 private fun one(d: Double) = String.format(Locale.ROOT, "%.1f", d)
 
 @Composable
-fun LabScreen(ui: LabUi, onRun: () -> Unit, onCopy: (String) -> Unit, onTryHints: () -> Unit = {}, onSpeed: () -> Unit = {}, onNoteCheck: () -> Unit = {}) {
+fun LabScreen(ui: LabUi, onRun: () -> Unit, onCopy: (String) -> Unit, onTryHints: () -> Unit = {}, onSpeed: () -> Unit = {}) {
     Heading("Scriber", "Lab", "Measures every model on this phone: public test recordings, and your own sessions once you have corrected them.")
     if (ui.step != null) {
         Status("Running", Ink.Teal); Spacer(Modifier.height(8.dp))
         Text(ui.step, style = Type.title)
-        Text("The language model loads last, after the speech models are closed.", style = Type.small)
     } else {
-        Text(if (ui.modelsReady) "Encryption, both speech engines on six medical dictations, voice activity, speaker turns, and the note writer."
+        Text(if (ui.modelsReady) "Encryption, both speech engines on six medical dictations, voice activity and speaker turns."
             else "Download the models first; checks for anything missing are skipped.", style = Type.body)
         Spacer(Modifier.height(14.dp))
         AmberButton("Run checks", onRun, Modifier.fillMaxWidth())
     }
-    NoteCheckSection(ui, onNoteCheck, onCopy)
     Speed(ui, onSpeed, onCopy)
     if (ui.own.isNotEmpty()) OwnScores(ui.own, onTryHints)
     ui.report?.let { r -> Results(r) { text -> onCopy(text + (ui.speed?.let { "\n\n" + speedText(it) } ?: "")) } }
@@ -83,18 +81,6 @@ private fun Results(r: LabReport, onCopy: (String) -> Unit) {
         if (d.rawChanges >= 0) Fact("Before cleaning", "${d.rawChanges}")
         Fact("Time", "${Units.seconds(d.processMs)} for ${one(d.audioSeconds)} s")
     }
-
-    Section("Note writer")
-    r.llm?.let { l ->
-        Fact("Model", l.model)
-        Fact("Ran on", l.backend, if (l.backend == "GPU") Ink.Teal else Ink.Amber)
-        Fact("Loading", Units.seconds(l.loadMs))
-        Fact("First words", Units.seconds(l.firstWordMs))
-        Fact("Speed", "${one(l.piecesPerSecond)} pieces per second")
-        if (l.note.isNotBlank()) Text(l.note, style = Type.small.copy(color = Ink.Amber))
-        Spacer(Modifier.height(12.dp))
-        Text(l.output.ifBlank { "(no text)" }, style = Type.mono, modifier = Modifier.fillMaxWidth().background(Ink.Field, Corner).padding(14.dp))
-    } ?: Text("Not measured.", style = Type.note, modifier = Modifier.padding(vertical = 10.dp))
 
     Section("Encryption and heat")
     r.vault?.let { v ->
@@ -161,29 +147,3 @@ fun speedText(plan: com.fadysaeed.scriber.data.ThreadPlan): String = buildString
         appendLine("$name: uses ${plan.best[engine]} cores. " + t.entries.joinToString(", ") { (n, ms) -> "$n cores ${one(ms / 1000.0)} s" })
     }
 }.trimEnd()
-
-/** The note writer on an invented ward review: time, facts thrown out, sentences marked, the note. */
-@Composable
-private fun NoteCheckSection(ui: LabUi, onRun: () -> Unit, onCopy: (String) -> Unit) {
-    Section("Note writer")
-    val c = ui.noteCheck
-    if (c == null) {
-        Text("Writes notes from two invented consultations, a ward review and an ADHD telehealth assessment, the same way your sessions get theirs, and counts what each note holds that it must, and what it must not. No patient data. About ten minutes.", style = Type.small, modifier = Modifier.padding(top = 8.dp))
-    } else {
-        Fact("Model", "${c.model}, ${c.backend}, load ${one(c.loadMs / 1000.0)} s")
-        for (x in c.scripts) {
-            Spacer(Modifier.height(12.dp))
-            Eyebrow(x.name)
-            Fact("Must be there", "${x.found.size} of ${x.expected}", if (x.missing.isEmpty()) Ink.Teal else Ink.Amber)
-            Fact("Must not be there", "${x.wrong.size}", if (x.wrong.isEmpty()) Ink.Teal else Ink.Ember)
-            Fact("Sentences", "${x.red.size} red, ${x.marked.size} amber", if (x.red.isEmpty()) Ink.Bone else Ink.Ember)
-            Fact("Time", "facts ${one(x.factsMs / 1000.0)} s, note ${one(x.noteMs / 1000.0)} s")
-            if (x.missing.isNotEmpty()) Text("Missing: " + x.missing.joinToString("; "), style = Type.small.copy(color = Ink.Amber), modifier = Modifier.padding(top = 6.dp))
-            if (x.wrong.isNotEmpty()) Text("Should not be there: " + x.wrong.joinToString("; "), style = Type.small.copy(color = Ink.Ember), modifier = Modifier.padding(top = 6.dp))
-        }
-        Spacer(Modifier.height(10.dp))
-        GhostButton("Copy the check, with both notes", { onCopy(c.toText()) }, Modifier.fillMaxWidth(), minHeight = 52.dp)
-    }
-    Spacer(Modifier.height(8.dp))
-    GhostButton(if (c == null) "Note check" else "Check the note writer again", onRun, Modifier.fillMaxWidth(), color = Ink.Amber, enabled = ui.step == null, minHeight = 52.dp)
-}
