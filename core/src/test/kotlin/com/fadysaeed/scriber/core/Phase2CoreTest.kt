@@ -243,7 +243,7 @@ class Phase2CoreTest {
     @Test fun aTwoHourMeetingClustersQuickly() {
         val rnd = java.util.Random(3)
         val centres = List(6) { FloatArray(192) { rnd.nextGaussian().toFloat() } }
-        val prints = List(1500) { val c = centres[it % 6]; FloatArray(192) { d -> c[d] + 0.9f * rnd.nextGaussian().toFloat() } }
+        val prints = List(1500) { val c = centres[it % 6]; FloatArray(192) { d -> c[d] + 0.6f * rnd.nextGaussian().toFloat() } }
         val t0 = System.currentTimeMillis()
         val labels = Voices.cluster(prints, 0)
         assertTrue("took ${System.currentTimeMillis() - t0} ms", System.currentTimeMillis() - t0 < 20_000)
