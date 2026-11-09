@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -36,7 +38,7 @@ enum class Tab(val label: String) { Sessions("Sessions"), Models("Models"), Lab(
 @Composable
 fun Frame(tab: Tab, onTab: (Tab) -> Unit, content: @Composable ColumnScope.() -> Unit) {
     // While typing, the tabs step aside and the page ends above the keyboard.
-    val typing = androidx.compose.foundation.layout.WindowInsets.isImeVisible
+    val typing = WindowInsets.isImeVisible
     Column(Modifier.fillMaxSize().background(Ink.Black).imePadding()) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp)) {
             content()

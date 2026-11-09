@@ -264,7 +264,7 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
         var layer = start
         var t = System.currentTimeMillis()
         for (d in ui.openDifferences.filter { it.medical }) {
-            if (d.medicine != null && d.baseText.isNotBlank()) learn(d.baseText, d.medicine)
+            if (d.baseText.isNotBlank()) d.medicine?.let { learn(d.baseText, it) }
             layer = layer.with(WordEdit(d.from, d.to, d.segment, d.suggestion, if (d.medicine != null) "medicine" else "term", t++))
         }
         for (m in ui.openMedicines) {
@@ -477,7 +477,7 @@ class ScriberViewModel(app: Application) : AndroidViewModel(app) {
         val run = ui.run?.takeIf { it.status == RunStatus.DONE } ?: return null
         val reading = ui.reading ?: return null
         val sp = ui.speakers
-        val input = CleanTranscript.medicineLines(run, reading, ui.edits, ui.speakerOf) { sp?.name(it) ?: "Speaker ${it + 1}" }
+        val input = CleanTranscript.medicineLines(run, reading, ui.edits, ui.speakerOf, name = { sp?.name(it) ?: "Speaker ${it + 1}" })
         val settings = store.settings()
         val body = CleanTranscript.render(CleanTranscript.paragraphs(input.lines, s.mode), settings.copyTimes)
         val header = CleanTranscript.header(s.mode, s.createdAtMillis, s.durationMs, input.lines.mapNotNull { it.speakerName }.distinct())
