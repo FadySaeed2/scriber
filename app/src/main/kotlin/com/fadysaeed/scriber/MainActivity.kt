@@ -218,9 +218,6 @@ class MainActivity : FragmentActivity() {
         if (unlocked) consumeShare()
     }
 
-    override fun onStart() { super.onStart(); AppVisible.now = true }
-    override fun onStop() { AppVisible.now = false; super.onStop() }
-
     /** A shortcut asks to record, a notification to open a session; both wait until Scriber is unlocked. */
     private var pendingRecord: SessionMode? = null
     private var pendingOpen: String? = null
@@ -274,6 +271,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onStart() {
         super.onStart()
+        AppVisible.now = true
         if (backgroundedAt > 0 && SystemClock.elapsedRealtime() - backgroundedAt > RELOCK_AFTER_MS) unlocked = false
         if (!unlocked) authenticate("Unlock Scriber") { unlocked = true; consumeShare() }
         vm.refreshAsync()
@@ -282,6 +280,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onStop() {
         super.onStop()
+        AppVisible.now = false
         if (!isChangingConfigurations) backgroundedAt = SystemClock.elapsedRealtime()
     }
 
