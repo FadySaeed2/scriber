@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.fadysaeed.scriber.core.Phase1CoreTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-11-10T11:57:05.619Z" hostname="runnervmwuk1x" time="0.455">
+  <properties/>
+  <testcase name="streamResamplerMatchesWholeSignalForAnySplit" classname="com.fadysaeed.scriber.core.Phase1CoreTest" time="0.434"/>
+  <testcase name="shortsAndFloats" classname="com.fadysaeed.scriber.core.Phase1CoreTest" time="0.001"/>
+  <testcase name="wavHeaderRoundTrips" classname="com.fadysaeed.scriber.core.Phase1CoreTest" time="0.004"/>
+  <testcase name="retention" classname="com.fadysaeed.scriber.core.Phase1CoreTest" time="0.001"/>
+  <testcase name="subtitlesAndJson" classname="com.fadysaeed.scriber.core.Phase1CoreTest" time="0.008"/>
+  <testcase name="conversationKeepsTheWordPeriod" classname="com.fadysaeed.scriber.core.Phase1CoreTest" time="0.0"/>
+  <testcase name="dictationBecomesReadable" classname="com.fadysaeed.scriber.core.Phase1CoreTest" time="0.002"/>
+  <testcase name="sealDetectsAnyChange" classname="com.fadysaeed.scriber.core.Phase1CoreTest" time="0.004"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

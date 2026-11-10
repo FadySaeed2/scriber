@@ -1,0 +1,33 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="com.fadysaeed.scriber.BackupOnDeviceTest" tests="25" failures="0" errors="0" skipped="0" time="169.572" timestamp="2026-11-10T12:03:15" hostname="localhost">
+  <properties>
+    <property name="device" value="emulator-5554 - 14" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="backUpWipeAndRestore" classname="com.fadysaeed.scriber.BackupOnDeviceTest" time="15.309" />
+  <testcase name="refusesHostsOutsideTheList" classname="com.fadysaeed.scriber.DownloadOnDeviceTest" time="0.039" />
+  <testcase name="speechLibraryLoadsAndHearsNoSpeechInATone" classname="com.fadysaeed.scriber.DownloadOnDeviceTest" time="0.794" />
+  <testcase name="downloadsVerifiesAndMarksAPack" classname="com.fadysaeed.scriber.DownloadOnDeviceTest" time="0.631" />
+  <testcase name="lockFlagRoundTrips" classname="com.fadysaeed.scriber.DownloadOnDeviceTest" time="0.029" />
+  <testcase name="rejectsAFileWhoseChecksumDoesNotMatch" classname="com.fadysaeed.scriber.DownloadOnDeviceTest" time="0.256" />
+  <testcase name="resumesAPartialFile" classname="com.fadysaeed.scriber.DownloadOnDeviceTest" time="0.234" />
+  <testcase name="plainHttpIsRefusedEvenForModelHosts" classname="com.fadysaeed.scriber.NetworkPolicyOnDeviceTest" time="0.003" />
+  <testcase name="modelHostsWork" classname="com.fadysaeed.scriber.NetworkPolicyOnDeviceTest" time="0.732" />
+  <testcase name="otherHostsAreRefused" classname="com.fadysaeed.scriber.NetworkPolicyOnDeviceTest" time="0.142" />
+  <testcase name="openingAHalfHourConversation" classname="com.fadysaeed.scriber.OpenTimingTest" time="14.069" />
+  <testcase name="keyingTheMedicalWordsBeforeAndAfter" classname="com.fadysaeed.scriber.OpenTimingTest" time="14.03" />
+  <testcase name="findsTwoSpeakersThroughTheQueue" classname="com.fadysaeed.scriber.Phase1OnDeviceTest" time="75.536" />
+  <testcase name="theRecordingNotificationCountsAndItsButtonsWork" classname="com.fadysaeed.scriber.Phase1OnDeviceTest" time="15.531" />
+  <testcase name="importsADictationAndGetsBothEnginesWithASecondOpinion" classname="com.fadysaeed.scriber.Phase1OnDeviceTest" time="12.807" />
+  <testcase name="importsACompressedFileByteForByte" classname="com.fadysaeed.scriber.Phase1OnDeviceTest" time="0.905" />
+  <testcase name="decodesVeryShortPieces" classname="com.fadysaeed.scriber.Phase1OnDeviceTest" time="1.204" />
+  <testcase name="recordsADictationAndTranscribesItAfterSaving" classname="com.fadysaeed.scriber.Phase1OnDeviceTest" time="8.553" />
+  <testcase name="studioQualityKeepsAHighRateFileAndAMatching16kCopy" classname="com.fadysaeed.scriber.Phase1OnDeviceTest" time="0.762" />
+  <testcase name="parakeetWithMedicineHintsDecodes" classname="com.fadysaeed.scriber.Phase1OnDeviceTest" time="6.299" />
+  <testcase name="rescuesAnInterruptedRecording" classname="com.fadysaeed.scriber.Phase1OnDeviceTest" time="0.08" />
+  <testcase name="comparisonDictionaryAndScoringRunOnAndroid" classname="com.fadysaeed.scriber.TextOnDeviceTest" time="0.025" />
+  <testcase name="dictationFormattingRunsOnAndroid" classname="com.fadysaeed.scriber.TextOnDeviceTest" time="0.051" />
+  <testcase name="cleanCopyRunsOnAndroid" classname="com.fadysaeed.scriber.TextOnDeviceTest" time="0.056" />
+  <testcase name="longNumbersAreHiddenOnAndroid" classname="com.fadysaeed.scriber.TextOnDeviceTest" time="0.0" />
+</testsuite>

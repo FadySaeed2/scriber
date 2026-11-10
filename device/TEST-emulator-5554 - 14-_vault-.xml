@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="com.fadysaeed.scriber.vault.VaultOnDeviceTest" tests="8" failures="0" errors="0" skipped="0" time="4.333" timestamp="2026-11-10T12:03:31" hostname="localhost">
+  <properties>
+    <property name="device" value="emulator-5554 - 14" />
+    <property name="flavor" value="" />
+    <property name="project" value=":vault" />
+  </properties>
+  <testcase name="seeksInsideAnEncryptedFile" classname="com.fadysaeed.scriber.vault.VaultOnDeviceTest" time="0.154" />
+  <testcase name="filesAreNotStoredInTheClear" classname="com.fadysaeed.scriber.vault.VaultOnDeviceTest" time="0.024" />
+  <testcase name="swappedFilesRefuseToOpen" classname="com.fadysaeed.scriber.vault.VaultOnDeviceTest" time="0.003" />
+  <testcase name="vaultLivesOutsideBackups" classname="com.fadysaeed.scriber.vault.VaultOnDeviceTest" time="0.0" />
+  <testcase name="roundTripsALargeFile" classname="com.fadysaeed.scriber.vault.VaultOnDeviceTest" time="3.648" />
+  <testcase name="listsAndDeletesFolders" classname="com.fadysaeed.scriber.vault.VaultOnDeviceTest" time="0.028" />
+  <testcase name="recordsRoundTripAndMissingIsNull" classname="com.fadysaeed.scriber.vault.VaultOnDeviceTest" time="0.004" />
+  <testcase name="rejectsUnsafeNames" classname="com.fadysaeed.scriber.vault.VaultOnDeviceTest" time="0.003" />
+</testsuite>

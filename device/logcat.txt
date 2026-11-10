@@ -1,0 +1,3 @@
+--------- beginning of main
+I/ScriberTiming( 4579): medical terms 5772 ms (69582); compare 30 min 7474 ms (6120 words, 11 differences)
+I/ScriberTiming( 4579): keying 110017 medical words: old way 11804 ms, now 1729 ms

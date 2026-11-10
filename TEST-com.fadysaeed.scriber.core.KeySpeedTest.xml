@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.fadysaeed.scriber.core.KeySpeedTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-11-10T11:57:04.645Z" hostname="runnervmwuk1x" time="0.93">
+  <properties/>
+  <testcase name="theMedicalListLoadsQuickly" classname="com.fadysaeed.scriber.core.KeySpeedTest" time="0.15"/>
+  <testcase name="keysAreTheSameAsBefore" classname="com.fadysaeed.scriber.core.KeySpeedTest" time="0.78"/>
+  <system-out><![CDATA[MedicalTerms: 69582 keys in 129 ms
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

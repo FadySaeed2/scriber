@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.fadysaeed.scriber.core.Phase2CoreTest" tests="19" skipped="0" failures="0" errors="0" timestamp="2026-11-10T11:57:06.078Z" hostname="runnervmwuk1x" time="1.577">
+  <properties/>
+  <testcase name="wordsOnlyTheSecondEngineHeardShowOnlyWhenTheyNameAMedicine" classname="com.fadysaeed.scriber.core.Phase2CoreTest" time="0.008"/>
+  <testcase name="scoringCountsMedicinesByGenericName" classname="com.fadysaeed.scriber.core.Phase2CoreTest" time="0.053"/>
+  <testcase name="voicePrintsGroupIntoVoices" classname="com.fadysaeed.scriber.core.Phase2CoreTest" time="0.001"/>
+  <testcase name="fastClusteringGivesTheSameVoicesAsTheOldWay" classname="com.fadysaeed.scriber.core.Phase2CoreTest" time="0.701"/>
+  <testcase name="wordsGetTheirVoiceAndLinesSplitWhereItChanges" classname="com.fadysaeed.scriber.core.Phase2CoreTest" time="0.021"/>
+  <testcase name="theSecondEngineCatchesAMedicineTheBaseMisheard" classname="com.fadysaeed.scriber.core.Phase2CoreTest" time="0.014"/>
+  <testcase name="dictionaryKnowsGenericsBrandsAndMisspellings" classname="com.fadysaeed.scriber.core.Phase2CoreTest" time="0.005"/>
+  <testcase name="blipsAreSmoothedButShortAnswersStay" classname="com.fadysaeed.scriber.core.Phase2CoreTest" time="0.001"/>
+  <testcase name="britishAndAmericanSpellingsAreNotDifferences" classname="com.fadysaeed.scriber.core.Phase2CoreTest" time="0.011"/>
+  <testcase name="aTwoHourMeetingClustersQuickly" classname="com.fadysaeed.scriber.core.Phase2CoreTest" time="0.745"/>
+  <testcase name="medicinesInTheBaseAreMarkedAndMisspellingsOffered" classname="com.fadysaeed.scriber.core.Phase2CoreTest" time="0.002"/>
+  <testcase name="editsLayOverTheRunWithoutChangingIt" classname="com.fadysaeed.scriber.core.Phase2CoreTest" time="0.003"/>
+  <testcase name="wordTimesComeFromTokensWhenTheySpellTheText" classname="com.fadysaeed.scriber.core.Phase2CoreTest" time="0.001"/>
+  <testcase name="linesSplitAtLongPausesAndShortAnswersFollowQuestions" classname="com.fadysaeed.scriber.core.Phase2CoreTest" time="0.002"/>
+  <testcase name="exportsUseTheCorrectedLines" classname="com.fadysaeed.scriber.core.Phase2CoreTest" time="0.001"/>
+  <testcase name="differencesAreFoundOnlyWhereTheEnginesReallyDisagree" classname="com.fadysaeed.scriber.core.Phase2CoreTest" time="0.002"/>
+  <testcase name="linesAreCutOnlyAtClearModelChangesAndShortPiecesFollowTheModel" classname="com.fadysaeed.scriber.core.Phase2CoreTest" time="0.001"/>
+  <testcase name="fadysOwnWordsAreLearned" classname="com.fadysaeed.scriber.core.Phase2CoreTest" time="0.001"/>
+  <testcase name="distanceCountsSwapsAsOne" classname="com.fadysaeed.scriber.core.Phase2CoreTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

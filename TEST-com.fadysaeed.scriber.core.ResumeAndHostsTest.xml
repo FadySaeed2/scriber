@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.fadysaeed.scriber.core.ResumeAndHostsTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-11-10T11:57:07.821Z" hostname="runnervmwuk1x" time="0.002">
+  <properties/>
+  <testcase name="resumePlan" classname="com.fadysaeed.scriber.core.ResumeAndHostsTest" time="0.001"/>
+  <testcase name="hosts" classname="com.fadysaeed.scriber.core.ResumeAndHostsTest" time="0.0"/>
+  <testcase name="sha256OfKnownText" classname="com.fadysaeed.scriber.core.ResumeAndHostsTest" time="0.001"/>
+  <testcase name="contentRange" classname="com.fadysaeed.scriber.core.ResumeAndHostsTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

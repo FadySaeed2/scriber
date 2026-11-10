@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.fadysaeed.scriber.ScreensTest" tests="39" skipped="0" failures="0" errors="0" timestamp="2026-11-10T11:57:33.313Z" hostname="runnervmwuk1x" time="24.471">
+  <properties/>
+  <testcase name="exportSheet" classname="com.fadysaeed.scriber.ScreensTest" time="8.756"/>
+  <testcase name="modelsDownloading" classname="com.fadysaeed.scriber.ScreensTest" time="0.563"/>
+  <testcase name="longTranscriptWindow" classname="com.fadysaeed.scriber.ScreensTest" time="1.24"/>
+  <testcase name="lockAfterACrash" classname="com.fadysaeed.scriber.ScreensTest" time="0.406"/>
+  <testcase name="promptEditor" classname="com.fadysaeed.scriber.ScreensTest" time="0.48"/>
+  <testcase name="copySheetWithLine" classname="com.fadysaeed.scriber.ScreensTest" time="0.556"/>
+  <testcase name="conversationSessionTwoRuns" classname="com.fadysaeed.scriber.ScreensTest" time="0.395"/>
+  <testcase name="dictationSession" classname="com.fadysaeed.scriber.ScreensTest" time="0.379"/>
+  <testcase name="dictationSessionRaw" classname="com.fadysaeed.scriber.ScreensTest" time="0.385"/>
+  <testcase name="sessionsHome" classname="com.fadysaeed.scriber.ScreensTest" time="0.409"/>
+  <testcase name="sessionWithSecondOpinion" classname="com.fadysaeed.scriber.ScreensTest" time="0.447"/>
+  <testcase name="modelsLocked" classname="com.fadysaeed.scriber.ScreensTest" time="0.37"/>
+  <testcase name="sessionWithSpeakers" classname="com.fadysaeed.scriber.ScreensTest" time="0.428"/>
+  <testcase name="speakerPartSheet" classname="com.fadysaeed.scriber.ScreensTest" time="0.419"/>
+  <testcase name="labWithOwnScores" classname="com.fadysaeed.scriber.ScreensTest" time="0.443"/>
+  <testcase name="copySheetAfterFirstTime" classname="com.fadysaeed.scriber.ScreensTest" time="0.461"/>
+  <testcase name="settingsBackupRunning" classname="com.fadysaeed.scriber.ScreensTest" time="0.411"/>
+  <testcase name="lab" classname="com.fadysaeed.scriber.ScreensTest" time="0.37"/>
+  <testcase name="lock" classname="com.fadysaeed.scriber.ScreensTest" time="0.331"/>
+  <testcase name="longTranscriptFull" classname="com.fadysaeed.scriber.ScreensTest" time="0.599"/>
+  <testcase name="settingsCopying" classname="com.fadysaeed.scriber.ScreensTest" time="0.4"/>
+  <testcase name="sessionAfterCorrections" classname="com.fadysaeed.scriber.ScreensTest" time="0.364"/>
+  <testcase name="speakersSheet" classname="com.fadysaeed.scriber.ScreensTest" time="0.424"/>
+  <testcase name="sessionOpening" classname="com.fadysaeed.scriber.ScreensTest" time="0.316"/>
+  <testcase name="wordSheet" classname="com.fadysaeed.scriber.ScreensTest" time="0.357"/>
+  <testcase name="libraryConversationsOnly" classname="com.fadysaeed.scriber.ScreensTest" time="0.316"/>
+  <testcase name="settingsRetention" classname="com.fadysaeed.scriber.ScreensTest" time="0.382"/>
+  <testcase name="recording" classname="com.fadysaeed.scriber.ScreensTest" time="0.345"/>
+  <testcase name="libraryFolderAndSelection" classname="com.fadysaeed.scriber.ScreensTest" time="0.357"/>
+  <testcase name="sessionsEmptyNoModels" classname="com.fadysaeed.scriber.ScreensTest" time="0.326"/>
+  <testcase name="reviewSheet" classname="com.fadysaeed.scriber.ScreensTest" time="0.372"/>
+  <testcase name="meetingSession" classname="com.fadysaeed.scriber.ScreensTest" time="0.35"/>
+  <testcase name="settings" classname="com.fadysaeed.scriber.ScreensTest" time="0.339"/>
+  <testcase name="copySheet" classname="com.fadysaeed.scriber.ScreensTest" time="0.365"/>
+  <testcase name="promptsList" classname="com.fadysaeed.scriber.ScreensTest" time="0.317"/>
+  <testcase name="sessionOpeningWords" classname="com.fadysaeed.scriber.ScreensTest" time="0.33"/>
+  <testcase name="sessionsWhileRecording" classname="com.fadysaeed.scriber.ScreensTest" time="0.323"/>
+  <testcase name="settingsStorageAndBackup" classname="com.fadysaeed.scriber.ScreensTest" time="0.333"/>
+  <testcase name="exportConfirm" classname="com.fadysaeed.scriber.ScreensTest" time="0.301"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[[Robolectric] WARN: Android SDK 36 requires Java 21 (have Java 17). Tests won't be run on SDK 36 unless explicitly requested.
+]]></system-err>
+</testsuite>

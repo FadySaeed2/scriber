@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.fadysaeed.scriber.core.CatalogTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-11-10T11:57:04.160Z" hostname="runnervmwuk1x" time="0.056">
+  <properties/>
+  <testcase name="idsAndPathsAreUniqueAndSafe" classname="com.fadysaeed.scriber.core.CatalogTest" time="0.03"/>
+  <testcase name="shapeOfTheDefaultSet" classname="com.fadysaeed.scriber.core.CatalogTest" time="0.005"/>
+  <testcase name="everyFileIsHttpsOnAnAllowedHost" classname="com.fadysaeed.scriber.core.CatalogTest" time="0.013"/>
+  <testcase name="huggingFaceFilesArePinnedToACommit" classname="com.fadysaeed.scriber.core.CatalogTest" time="0.004"/>
+  <testcase name="everyFileHasASizeAndAFullSha256" classname="com.fadysaeed.scriber.core.CatalogTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

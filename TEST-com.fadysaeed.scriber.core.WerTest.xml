@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.fadysaeed.scriber.core.WerTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-10T11:57:07.825Z" hostname="runnervmwuk1x" time="0.002">
+  <properties/>
+  <testcase name="dictationCommandsAndPunctuationAreIgnored" classname="com.fadysaeed.scriber.core.WerTest" time="0.0"/>
+  <testcase name="substitutionsInsertionsDeletions" classname="com.fadysaeed.scriber.core.WerTest" time="0.0"/>
+  <testcase name="identicalTextHasNoErrors" classname="com.fadysaeed.scriber.core.WerTest" time="0.001"/>
+  <testcase name="sectionTagsKeepTheirWords" classname="com.fadysaeed.scriber.core.WerTest" time="0.0"/>
+  <testcase name="parsesReferenceFile" classname="com.fadysaeed.scriber.core.WerTest" time="0.0"/>
+  <testcase name="spokenAndWrittenNumbersMatch" classname="com.fadysaeed.scriber.core.WerTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

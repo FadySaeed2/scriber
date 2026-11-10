@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.fadysaeed.scriber.core.MedicalTermsTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-10T11:57:05.578Z" hostname="runnervmwuk1x" time="0.037">
+  <properties/>
+  <testcase name="differencesInMedicalLanguageAreMarkedAndEverydayOnesAreNot" classname="com.fadysaeed.scriber.core.MedicalTermsTest" time="0.021"/>
+  <testcase name="theListKnowsMedicalWordsAndLeavesEverydayOnesAlone" classname="com.fadysaeed.scriber.core.MedicalTermsTest" time="0.002"/>
+  <testcase name="theCopyTakesOnlyClearFixesOfBrokenWords" classname="com.fadysaeed.scriber.core.MedicalTermsTest" time="0.014"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
