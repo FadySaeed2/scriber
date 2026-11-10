@@ -80,7 +80,7 @@ class RecordingService : Service() {
                 if (thread != null) return START_NOT_STICKY
                 val id = intent.getStringExtra(EXTRA_ID) ?: return START_NOT_STICKY
                 try {
-                    startForeground(NOTIFICATION_ID, notification("Recording"), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+                    startForeground(NOTIFICATION_ID, notification(Phase.RECORDING), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
                 } catch (t: Throwable) {
                     SessionStore.get(Vault.get(this)).update(id) { it.copy(status = SessionStatus.FAILED, problem = "Android did not allow recording to start: ${t.javaClass.simpleName}") }
                     _state.value = RecordingState(problem = "Recording could not start")
@@ -99,9 +99,9 @@ class RecordingService : Service() {
             else -> if (thread == null) { stopSelf(); return START_NOT_STICKY }
         }
         when (intent?.action) {
-            ACTION_PAUSE -> { paused = true; _state.value = _state.value.copy(paused = true); notify("Paused") }
-            ACTION_RESUME -> { paused = false; _state.value = _state.value.copy(paused = false); notify("Recording") }
-            ACTION_STOP -> stopping = true
+            ACTION_PAUSE -> if (!paused && !stopping) { paused = true; _state.value = _state.value.copy(paused = true); notify(Phase.PAUSED) }
+            ACTION_RESUME -> if (paused && !stopping) { paused = false; _state.value = _state.value.copy(paused = false); notify(Phase.RECORDING) }
+            ACTION_STOP -> if (!stopping) { stopping = true; notify(Phase.SAVING) }
         }
         return START_NOT_STICKY
     }
@@ -151,7 +151,7 @@ class RecordingService : Service() {
             preview.close()
         }
         _state.value = _state.value.copy(finishing = true)
-        notify("Saving")
+        notify(Phase.SAVING)
         runCatching {
             if (Assembler(vault, store).finishRecording(id, recovered = false)) Jobs.transcribeNew(this, id)
         }.onFailure { e -> store.update(id) { it.copy(status = SessionStatus.FAILED, problem = "Could not save: ${e.message}") } }
@@ -161,23 +161,45 @@ class RecordingService : Service() {
         stopSelf()
     }
 
-    private fun notify(text: String) =
-        runCatching { getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(text)) }
+    private enum class Phase { RECORDING, PAUSED, SAVING }
 
-    private fun notification(text: String): Notification {
+    private fun notify(phase: Phase) =
+        runCatching { getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(phase)) }
+
+    private fun control(action: String, code: Int): PendingIntent =
+        PendingIntent.getService(this, code, Intent(this, RecordingService::class.java).setAction(action), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+
+    /**
+     * The minutes recorded, counted by Android itself while recording (no updates from here, so
+     * no cost to the battery), held still while paused, with buttons to pause, carry on or stop
+     * from the lock screen. No patient detail ever goes in it: it shows on the lock screen.
+     */
+    private fun notification(phase: Phase): Notification {
         val nm = getSystemService(NotificationManager::class.java)
         if (nm.getNotificationChannel(CHANNEL) == null) nm.createNotificationChannel(NotificationChannel(CHANNEL, "Recording", NotificationManager.IMPORTANCE_LOW))
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE)
-        // No patient detail ever goes in the notification: it shows on the lock screen.
-        return NotificationCompat.Builder(this, CHANNEL)
-            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+        val recorded = _state.value.recordedMs
+        val b = NotificationCompat.Builder(this, CHANNEL)
+            .setSmallIcon(com.fadysaeed.scriber.R.drawable.ic_notify)
             .setContentTitle("Scriber")
-            .setContentText(text)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setCategory(NotificationCompat.CATEGORY_STOPWATCH)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setContentIntent(open)
-            .build()
+        when (phase) {
+            Phase.RECORDING -> b.setContentText("Recording")
+                .setUsesChronometer(true).setShowWhen(true).setWhen(System.currentTimeMillis() - recorded)
+                .addAction(android.R.drawable.ic_media_pause, "Pause", control(ACTION_PAUSE, 1))
+                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", control(ACTION_STOP, 3))
+            Phase.PAUSED -> b.setContentText("Paused at ${clock(recorded)}").setShowWhen(false)
+                .addAction(android.R.drawable.ic_media_play, "Resume", control(ACTION_RESUME, 2))
+                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", control(ACTION_STOP, 3))
+            Phase.SAVING -> b.setContentText("Saving ${clock(recorded)}").setShowWhen(false)
+        }
+        return b.build()
     }
 
     override fun onDestroy() {
@@ -275,6 +297,13 @@ class RecordingService : Service() {
             _state.value = RecordingState(sessionId = s.id, mode = mode, active = true)
             ContextCompat.startForegroundService(context, Intent(context, RecordingService::class.java).setAction(ACTION_START).putExtra(EXTRA_ID, s.id))
             return s.id
+        }
+
+        /** 4:05, 12:34 or 1:02:09: the way the counter shows time. */
+        fun clock(ms: Long): String {
+            val t = ms / 1000
+            val h = t / 3600; val m = t % 3600 / 60; val sec = t % 60
+            return if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
         }
 
         fun pause(context: Context) = send(context, ACTION_PAUSE)

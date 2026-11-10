@@ -105,7 +105,7 @@ class Phase1OnDeviceTest {
         return models
     }
 
-    @get:org.junit.Rule val mic: androidx.test.rule.GrantPermissionRule = androidx.test.rule.GrantPermissionRule.grant(android.Manifest.permission.RECORD_AUDIO)
+    @get:org.junit.Rule val mic: androidx.test.rule.GrantPermissionRule = androidx.test.rule.GrantPermissionRule.grant(android.Manifest.permission.RECORD_AUDIO, android.Manifest.permission.POST_NOTIFICATIONS)
 
     /** Records a short dictation through the real service, stops, and waits for the saved transcript. */
     @Test fun recordsADictationAndTranscribesItAfterSaving() = runBlocking {
@@ -126,6 +126,61 @@ class Phase1OnDeviceTest {
         assertTrue("duration ${s.durationMs}", s.durationMs in 5_000..9_000)
         val r = store.runs(id).single()
         assertEquals(r.problem, RunStatus.DONE, r.status)
+        store.deleteSession(id)
+        store.saveSettings(settings)
+    }
+
+    /** The lock screen shows the minutes counting, held while paused, and its buttons pause, carry on and stop. */
+    @Test fun theRecordingNotificationCountsAndItsButtonsWork() = runBlocking {
+        speechModels()
+        val settings = store.settings()
+        store.saveSettings(settings.copy(baseEngine = "medasr", secondOpinion = false))
+        val nm = context.getSystemService(android.app.NotificationManager::class.java)
+        fun shown() = nm.activeNotifications.firstOrNull { it.packageName == context.packageName && it.notification.channelId == "recording" }?.notification
+        fun buttons() = shown()?.actions?.map { it.title.toString() }.orEmpty()
+        fun press(title: String) = shown()!!.actions.first { it.title.toString() == title }.actionIntent.send()
+        fun waitFor(what: String, check: () -> Boolean) {
+            val until = System.currentTimeMillis() + 10_000
+            while (!check()) { assertTrue(what, System.currentTimeMillis() < until); Thread.sleep(200) }
+        }
+        val rec = com.fadysaeed.scriber.audio.RecordingService
+        assertEquals("0:00", rec.clock(0)); assertEquals("4:05", rec.clock(245_000)); assertEquals("1:02:09", rec.clock(3_729_000))
+
+        val id = rec.start(context, SessionMode.DICTATION)
+        waitFor("a notification while recording") { buttons() == listOf("Pause", "Stop") }
+        val counting = shown()!!
+        assertTrue(counting.extras.getBoolean(android.app.Notification.EXTRA_SHOW_CHRONOMETER))
+        assertTrue("counts from the start", kotlin.math.abs(counting.`when` - System.currentTimeMillis()) < 5_000)
+        Thread.sleep(3_000)
+
+        press("Pause")
+        waitFor("paused from the notification") { rec.state.value.paused && buttons() == listOf("Resume", "Stop") }
+        val held = shown()!!
+        assertTrue(!held.extras.getBoolean(android.app.Notification.EXTRA_SHOW_CHRONOMETER))
+        val text = held.extras.getCharSequence(android.app.Notification.EXTRA_TEXT).toString()
+        assertTrue(text, text.startsWith("Paused at 0:0"))
+        val atPause = rec.state.value.recordedMs
+        Thread.sleep(3_000)
+        assertTrue("nothing recorded while paused", rec.state.value.recordedMs - atPause < 300)
+
+        press("Resume")
+        waitFor("carrying on from the notification") { !rec.state.value.paused && buttons() == listOf("Pause", "Stop") }
+        // The counter carries on from the time recorded, not from when recording first started.
+        val again = shown()!!
+        assertTrue("counter starts at ${System.currentTimeMillis() - again.`when`} ms", System.currentTimeMillis() - again.`when` in 2_000L..5_500L)
+        Thread.sleep(2_000)
+
+        press("Stop")
+        val deadline = System.currentTimeMillis() + 5 * 60_000
+        while (System.currentTimeMillis() < deadline) {
+            val r = store.runs(id).lastOrNull()
+            if (r != null && r.status != RunStatus.RUNNING && Jobs.pending(context).isEmpty()) break
+            Thread.sleep(500)
+        }
+        val s = store.session(id)!!
+        assertEquals(SessionStatus.READY, s.status)
+        assertTrue("duration ${s.durationMs}", s.durationMs in 4_000..7_500)
+        assertTrue("the notification goes once saved", shown() == null)
         store.deleteSession(id)
         store.saveSettings(settings)
     }

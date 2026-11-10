@@ -43,6 +43,7 @@ Each phase ships as a signed APK, is tried on the phone, and only then does the 
   voice settling into a written line); long-press shortcuts to record a conversation, dictation
   or meeting; a "ready to copy" notification that names no one; the session list as a library
   (a folder per kind, search through titles and words, date headings, several sessions deleted at
-  once, or only their audio).
+  once, or only their audio); while recording, the notification counts the minutes on the lock
+  screen (held while paused) with Pause, Resume and Stop buttons.
 - **Still open, needing Fady's recordings:** Parakeet with the medicine list as hotwords (Lab trial
   on his corrected sessions); speakers in a real meeting over 40 minutes.
